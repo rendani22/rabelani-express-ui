@@ -1,0 +1,134 @@
+<main class="login-main">
+  <div class="login-container">
+    <!-- Content -->
+    <div class="login-content">
+      <div class="login-content-wrapper">
+
+        <!-- Header -->
+        <header class="login-header">
+          <a class="logo-link" routerLink="/" aria-label="Go to homepage">
+            <svg class="logo-icon" width="44" height="44" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <rect width="40" height="40" rx="10" fill="#1a1a1a"/>
+              <g transform="translate(8, 8)">
+                <path d="M4 19V5a2 2 0 0 1 2-2h6a4 4 0 0 1 0 8H4" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="m11 13 4 6" stroke="#f75757" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M16 13h2a2 2 0 0 1 2 2v4" stroke="#f75757" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </g>
+            </svg>
+            <div class="logo-text-wrapper">
+              <span class="logo-text">Rabelani<span class="logo-text-accent">Express</span></span>
+              <span class="logo-tagline">Logistics Solutions</span>
+            </div>
+          </a>
+        </header>
+
+        <div class="login-form-container">
+          <h1 class="login-title">Welcome back!</h1>
+
+          <!-- Auth Error Alert -->
+          @if (authError()) {
+            <div class="auth-error-alert" role="alert">
+              <svg class="alert-icon" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+              </svg>
+              <span>{{ authError() }}</span>
+            </div>
+          }
+
+          <!-- Form -->
+          <form [formGroup]="loginForm" (ngSubmit)="onSubmit()">
+            <div class="form-fields">
+              <!-- Email Field -->
+              <div class="form-field">
+                <label class="form-label" for="email">Email Address</label>
+                <input
+                  id="email"
+                  class="form-input"
+                  type="email"
+                  formControlName="email"
+                  placeholder="you@example.com"
+                  autocomplete="email"
+                  [attr.aria-invalid]="isFieldInvalid('email')"
+                  [attr.aria-describedby]="isFieldInvalid('email') ? 'email-error' : null"
+                  [class.input-error]="isFieldInvalid('email')">
+                @if (getFieldError('email'); as error) {
+                  <p id="email-error" class="error-message" role="alert">{{ error }}</p>
+                }
+              </div>
+
+              <!-- Password Field -->
+              <div class="form-field">
+                <label class="form-label" for="password">Password</label>
+                <div class="password-input-wrapper">
+                  <input
+                    id="password"
+                    class="form-input password-input"
+                    [type]="showPassword ? 'text' : 'password'"
+                    formControlName="password"
+                    placeholder="Enter your password"
+                    autocomplete="current-password"
+                    [attr.aria-invalid]="isFieldInvalid('password')"
+                    [attr.aria-describedby]="isFieldInvalid('password') ? 'password-error' : null"
+                    [class.input-error]="isFieldInvalid('password')">
+                  <button
+                    type="button"
+                    class="password-toggle"
+                    (click)="togglePasswordVisibility()"
+                    [attr.aria-label]="showPassword ? 'Hide password' : 'Show password'">
+                    @if (showPassword) {
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                        <line x1="1" y1="1" x2="23" y2="23"/>
+                      </svg>
+                    } @else {
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                        <circle cx="12" cy="12" r="3"/>
+                      </svg>
+                    }
+                  </button>
+                </div>
+                @if (getFieldError('password'); as error) {
+                  <p id="password-error" class="error-message" role="alert">{{ error }}</p>
+                }
+              </div>
+            </div>
+
+            <div class="form-actions">
+              <a class="forgot-password-link" routerLink="/reset-password">Forgot Password?</a>
+              <button
+                type="submit"
+                class="btn btn-signin"
+                [disabled]="isLoading()"
+                [class.btn-loading]="isLoading()">
+                @if (isLoading()) {
+                  <span class="spinner" aria-hidden="true"></span>
+                  <span>Signing in...</span>
+                } @else {
+                  <span>Sign In</span>
+                }
+              </button>
+            </div>
+          </form>
+
+          <!-- Footer -->
+          <footer class="login-footer">
+            <p class="signup-text">
+              Don't have an account? Request access from your administrator.
+            </p>
+            <!-- Notice -->
+          </footer>
+        </div>
+      </div>
+    </div>
+
+    <!-- Image -->
+    <aside class="login-image-container" aria-hidden="true">
+      <img
+        class="login-image"
+        src="/auth/auth-image.jpg"
+        alt=""
+        loading="lazy">
+    </aside>
+  </div>
+</main>

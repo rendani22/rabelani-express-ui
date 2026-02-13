@@ -1,0 +1,23 @@
+<aside class="sidebar">
+  <div class="logo">
+    <span class="logo-icon">
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/>
+        <circle cx="12" cy="12" r="3" fill="#7c3aed"/>
+      </svg>
+    </span>
+    <span class="logo-text">{{ logoText }}</span>
+  </div>
+
+  <nav class="nav-section">
+    <span class="nav-label">{{ navLabel }}</span>
+    <app-nav-item
+      *ngFor="let item of navItems"
+      [icon]="item.icon"
+      [label]="item.label"
+      [active]="item.active"
+      [routerLink]="item.routerLink"
+      (itemClick)="item.onClick?.()"
+    ></app-nav-item>
+  </nav>
+</aside>
