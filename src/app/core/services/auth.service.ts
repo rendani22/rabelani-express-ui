@@ -17,6 +17,9 @@ export class AuthService {
   /** Whether a user is currently authenticated (delegates to SupabaseService) */
   readonly isAuthenticated = this.supabaseService.isAuthenticated;
 
+  /** Whether the auth service has initialized (checked session) */
+  readonly isInitialized = this.supabaseService.isInitialized;
+
   /** Current authenticated user */
   readonly currentUser = this.supabaseService.currentUser;
 
@@ -63,7 +66,7 @@ export class AuthService {
   /**
    * Navigate to the post-login destination
    */
-  async navigateAfterLogin(destination = '/'): Promise<void> {
+  async navigateAfterLogin(destination = '/dashboard'): Promise<void> {
     await this.router.navigate([destination]);
   }
 

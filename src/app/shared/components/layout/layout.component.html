@@ -1,0 +1,13 @@
+<div class="layout-wrapper">
+  <div class="sidebar-container">
+    <app-sidebar [navItems]="navItems"></app-sidebar>
+  </div>
+
+  <div class="main-content">
+    <app-header />
+    <main class="page-content">
+        <ng-content></ng-content>
+    </main>
+  </div>
+</div>
+

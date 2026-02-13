@@ -18,6 +18,7 @@ export class SupabaseService {
 
   currentUser = signal<User | null>(null);
   isAuthenticated = signal(false);
+  isInitialized = signal(false);
   isLoading = signal(false);
 
   constructor() {
@@ -39,6 +40,7 @@ export class SupabaseService {
     } = await this.supabase.auth.getSession();
     this.currentUser.set(session?.user ?? null);
     this.isAuthenticated.set(!!session?.user);
+    this.isInitialized.set(true);
   }
 
   async signIn(email: string, password: string): Promise<AuthResponse> {
