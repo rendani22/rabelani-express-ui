@@ -1,6 +1,8 @@
-import { Component, Input, Output, EventEmitter } from '@angular/core';
+import { Component, Input, Output, EventEmitter, AfterViewInit, ViewChild, ElementRef, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FilterOption} from '../../../core/models/models';
+import flatpickr from 'flatpickr';
+import { Instance } from 'flatpickr/dist/types/instance';
 
 @Component({
   selector: 'app-dashboard-actions',
@@ -9,8 +11,11 @@ import { FilterOption} from '../../../core/models/models';
   templateUrl: './dashboard-actions.component.html',
   styleUrls: ['./dashboard-actions.component.css']
 })
-export class DashboardActionsComponent {
+export class DashboardActionsComponent implements AfterViewInit, OnDestroy {
   @Input() title = 'Dashboard';
+  @ViewChild('datepicker') datepickerInput!: ElementRef<HTMLInputElement>;
+
+  private flatpickrInstance: Instance | null = null;
 
   @Input() filterOptions: FilterOption[] = [
     { label: 'Direct VS Indirect', checked: true },
@@ -23,8 +28,33 @@ export class DashboardActionsComponent {
 
   @Output() addViewClick = new EventEmitter<void>();
   @Output() filterApply = new EventEmitter<FilterOption[]>();
+  @Output() dateChange = new EventEmitter<{ start: Date; end?: Date }>();
 
   filterDropdownOpen = false;
+
+  ngAfterViewInit(): void {
+    this.flatpickrInstance = flatpickr(this.datepickerInput.nativeElement, {
+      mode: 'range',
+      dateFormat: 'M j, Y',
+      defaultDate: [new Date(), new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)],
+      animate: true,
+      position: 'auto right',
+      onChange: (selectedDates) => {
+        if (selectedDates.length > 0) {
+          this.dateChange.emit({
+            start: selectedDates[0],
+            end: selectedDates[1]
+          });
+        }
+      }
+    });
+  }
+
+  ngOnDestroy(): void {
+    if (this.flatpickrInstance) {
+      this.flatpickrInstance.destroy();
+    }
+  }
 
   toggleFilterDropdown(): void {
     this.filterDropdownOpen = !this.filterDropdownOpen;
