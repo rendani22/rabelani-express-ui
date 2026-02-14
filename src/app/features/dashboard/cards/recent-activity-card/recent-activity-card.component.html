@@ -1,0 +1,37 @@
+<div class="col-span-full sm:col-span-6 xl:col-span-4 bg-white dark:bg-slate-800 shadow-lg rounded-lg border border-slate-200 dark:border-slate-700">
+  <header class="px-5 py-4 border-b border-slate-200 dark:border-slate-700">
+    <h2 class="font-semibold text-gray-800 dark:text-gray-100">{{ title }}</h2>
+  </header>
+  <div class="p-3">
+    <!-- Activity groups -->
+    <div *ngFor="let group of activityGroups">
+      <header class="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase bg-slate-50 dark:bg-slate-700 rounded-sm px-4 py-2">
+        {{ group.header }}
+      </header>
+      <ul class="my-1">
+        <li *ngFor="let item of group.items" class="flex py-3">
+          <div
+            class="w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center mr-3"
+            [ngClass]="item.iconBgColor">
+            <svg class="w-9 h-9 fill-current" viewBox="0 0 36 36">
+              <path [attr.d]="getIconPath(item.type)"></path>
+            </svg>
+          </div>
+          <div class="flex items-center text-sm grow border-b border-slate-200 dark:border-slate-700 pb-3">
+            <div class="flex justify-between grow">
+              <div class="flex-grow" [innerHTML]="item.content"></div>
+              <div class="flex-shrink-0 text-right ml-auto">
+                <a
+                  class="text-violet-500 hover:text-violet-600 font-medium"
+                  [href]="item.actionHref">
+                  {{ item.actionText }}<span class="hidden sm:inline"> -></span>
+                </a>
+              </div>
+            </div>
+          </div>
+        </li>
+      </ul>
+    </div>
+  </div>
+</div>
+

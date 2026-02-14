@@ -1,0 +1,51 @@
+<div class="flex flex-col col-span-full sm:col-span-6 bg-white dark:bg-slate-800 shadow-lg rounded-lg border border-slate-200 dark:border-slate-700">
+  <header class="flex items-center px-5 py-4 border-b border-slate-200 dark:border-slate-700">
+    <h2 class="font-semibold text-gray-800 dark:text-gray-100">{{ title }}</h2>
+    <!-- Tooltip -->
+    <div
+      *ngIf="tooltipText"
+      class="ml-2 relative"
+      (mouseenter)="showTooltip()"
+      (mouseleave)="hideTooltip()">
+      <button
+        class="block"
+        href="#0"
+        aria-haspopup="true"
+        [attr.aria-expanded]="tooltipOpen"
+        (focus)="showTooltip()"
+        (focusout)="hideTooltip()"
+        (click)="$event.preventDefault()">
+        <svg class="w-4 h-4 fill-current text-slate-400" viewBox="0 0 16 16">
+          <path d="M8 0C3.6 0 0 3.6 0 8s3.6 8 8 8 8-3.6 8-8-3.6-8-8-8zm0 12c-.6 0-1-.4-1-1s.4-1 1-1 1 .4 1 1-.4 1-1 1zm1-3H7V4h2v5z"></path>
+        </svg>
+      </button>
+      <div
+        *ngIf="tooltipOpen"
+        class="absolute z-10 left-1/2 -translate-x-1/2 top-full mt-1">
+        <div class="bg-white dark:bg-slate-800 dark:text-gray-100 border border-slate-200 dark:border-slate-700 min-w-[11rem] py-1.5 px-3 rounded-lg shadow-lg overflow-hidden">
+          <div class="text-sm">{{ tooltipText }}</div>
+        </div>
+      </div>
+    </div>
+  </header>
+  <div class="px-5 py-3">
+    <div class="flex items-end">
+      <div class="text-3xl font-bold text-gray-800 dark:text-gray-100 mr-2">{{ value }}</div>
+      <div
+        class="text-sm font-medium rounded-full px-1.5"
+        [ngClass]="isPositiveChange ? 'bg-green-100 text-green-600 dark:bg-green-500/20 dark:text-green-400' : 'bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400'">
+        {{ formattedChange }}
+      </div>
+    </div>
+  </div>
+  <!-- Chart -->
+  <div class="grow px-5 pb-5">
+    <canvas
+      #chartCanvas
+      [id]="cardId"
+      width="595"
+      [attr.height]="chartHeight">
+    </canvas>
+  </div>
+</div>
+

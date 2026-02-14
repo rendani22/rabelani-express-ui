@@ -1,0 +1,79 @@
+<div class="flex flex-col col-span-full sm:col-span-6 xl:col-span-4 bg-white dark:bg-slate-800 shadow-lg rounded-lg border border-slate-200 dark:border-slate-700">
+  <div class="px-5 pt-5">
+    <header class="flex justify-between items-start mb-2">
+      <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100">{{ title }}</h2>
+      <!-- Menu button -->
+      <div class="relative inline-flex ml-2">
+        <button
+          class="rounded-full p-1 hover:bg-slate-100 dark:hover:bg-slate-700"
+          [ngClass]="menuOpen ? 'bg-slate-100 dark:bg-slate-700' : ''"
+          aria-haspopup="true"
+          (click)="toggleMenu()"
+          [attr.aria-expanded]="menuOpen">
+          <span class="sr-only">Menu</span>
+          <svg class="w-8 h-8 fill-current text-slate-400" viewBox="0 0 32 32">
+            <circle cx="16" cy="16" r="2"></circle>
+            <circle cx="10" cy="16" r="2"></circle>
+            <circle cx="22" cy="16" r="2"></circle>
+          </svg>
+        </button>
+        <div
+          *ngIf="menuOpen"
+          class="origin-top-right absolute top-full right-0 z-10 min-w-[11rem] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 py-1.5 rounded-lg shadow-lg overflow-hidden mt-1">
+          <ul>
+            <li>
+              <a
+                class="text-sm flex font-medium text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-slate-100 w-full px-3 py-2"
+                href="#0"
+                (click)="onOption('option1'); $event.preventDefault()">
+                Option 1
+              </a>
+            </li>
+            <li>
+              <a
+                class="text-sm flex font-medium text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-slate-100 w-full px-3 py-2"
+                href="#0"
+                (click)="onOption('option2'); $event.preventDefault()">
+                Option 2
+              </a>
+            </li>
+            <li>
+              <a
+                class="text-sm flex font-medium text-red-500 hover:text-red-600 w-full px-3 py-2"
+                href="#0"
+                (click)="onRemove(); $event.preventDefault()">
+                Remove
+              </a>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </header>
+    <div class="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase mb-1">{{ subtitle }}</div>
+    <div class="flex items-end">
+      <div class="text-3xl font-bold text-gray-800 dark:text-gray-100 mr-2">{{ value }}</div>
+      <div
+        class="text-sm font-medium px-1.5 rounded-full"
+        [ngClass]="isPositiveChange ? 'bg-green-100 text-green-600 dark:bg-green-500/20 dark:text-green-400' : 'bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400'">
+        {{ formattedChange }}
+      </div>
+    </div>
+  </div>
+  <!-- Chart -->
+  <div class="grow max-w-full px-5 pb-5">
+    <canvas
+      #chartCanvas
+      [id]="cardId"
+      [attr.width]="389"
+      [attr.height]="chartHeight">
+    </canvas>
+  </div>
+</div>
+
+<!-- Click outside handler -->
+<div
+  *ngIf="menuOpen"
+  class="fixed inset-0 z-0"
+  (click)="closeMenu()">
+</div>
+

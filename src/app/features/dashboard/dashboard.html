@@ -1,6 +1,75 @@
 <app-layout>
-  <div class="dashboard-content">
-    <h1>Dashboard</h1>
-    <p>Welcome to the admin dashboard.</p>
+  <div class="w-full max-w-7xl mx-auto">
+
+    <!-- Dashboard actions -->
+      <app-dashboard-actions
+        title="Dashboard"
+        (filterApply)="onFilterApply($event)"
+        (addViewClick)="onAddView()">
+      </app-dashboard-actions>
+
+    <!-- Cards -->
+    <div class="grid grid-cols-12 gap-6">
+
+        <!-- Line chart cards (Acme Plus, Acme Advanced, Acme Professional) -->
+        <app-line-chart-card
+          *ngFor="let card of chartCards"
+          [cardId]="card.id"
+          [title]="card.title"
+          [subtitle]="card.subtitle ?? 'Sales'"
+          [value]="card.value"
+          [changePercent]="card.changePercent"
+          (optionSelect)="onCardOptionSelect(card.id, $event)"
+          (removeCard)="onCardRemove(card.id)">
+        </app-line-chart-card>
+
+        <!-- Bar chart (Direct vs Indirect) -->
+        <app-bar-chart-card
+          cardId="dashboard-card-04"
+          title="Direct VS Indirect">
+        </app-bar-chart-card>
+
+        <!-- Real Time Value chart -->
+        <app-realtime-chart-card
+          cardId="dashboard-card-05"
+          title="Real Time Value"
+          value="57.81"
+          tooltipText="Built with"
+          tooltipLink="https://www.chartjs.org/"
+          tooltipLinkText="Chart.js">
+        </app-realtime-chart-card>
+
+        <!-- Doughnut chart (Top Countries) -->
+        <app-doughnut-chart-card
+          cardId="dashboard-card-06"
+          title="Top Countries">
+        </app-doughnut-chart-card>
+
+        <!-- Table (Top Channels) -->
+        <app-top-channels-table title="Top Channels"></app-top-channels-table>
+
+        <!-- Sales Over Time chart -->
+        <app-sales-over-time-card
+          cardId="dashboard-card-08"
+          title="Sales Over Time (all stores)"
+          value="$1,482"
+          [changePercent]="-22">
+        </app-sales-over-time-card>
+
+        <!-- Stacked bar chart (Sales VS Refunds) -->
+        <app-sales-vs-refunds-card
+          cardId="dashboard-card-09"
+          title="Sales VS Refunds"
+          value="+$6,796"
+          [changePercent]="-34">
+        </app-sales-vs-refunds-card>
+
+        <!-- Card (Recent Activity) -->
+        <app-recent-activity-card title="Recent Activity"></app-recent-activity-card>
+
+        <!-- Card (Income/Expenses) -->
+        <app-income-expenses-card title="Income/Expenses"></app-income-expenses-card>
+
+    </div>
   </div>
 </app-layout>
