@@ -1,0 +1,75 @@
+<!-- Modal backdrop -->
+<div
+  *ngIf="isOpen"
+  class="fixed inset-0 bg-gray-900 bg-opacity-30 z-50 transition-opacity"
+  (click)="onClose()"
+></div>
+
+<!-- Modal dialog -->
+<div
+  *ngIf="isOpen"
+  class="fixed inset-0 z-50 overflow-hidden flex items-center justify-center px-4 sm:px-6"
+  role="dialog"
+  aria-modal="true"
+>
+  <div
+    class="bg-white dark:bg-gray-800 rounded-lg shadow-xl overflow-auto max-w-lg w-full max-h-full"
+    (click)="$event.stopPropagation()"
+  >
+    <div class="relative">
+      <img
+        *ngIf="imageSrc"
+        class="w-full"
+        [src]="imageSrc"
+        width="460"
+        height="200"
+        alt="News image"
+      />
+      <!-- Close button -->
+      <button
+        class="absolute top-0 right-0 mt-5 mr-5 text-gray-50 hover:text-white"
+        (click)="onClose()"
+      >
+        <span class="sr-only">Close</span>
+        <svg class="w-4 h-4 fill-current" viewBox="0 0 16 16">
+          <path
+            d="M7.95 6.536l4.242-4.243a1 1 0 111.415 1.414L9.364 7.95l4.243 4.242a1 1 0 11-1.415 1.415L7.95 9.364l-4.243 4.243a1 1 0 01-1.414-1.415L6.536 7.95 2.293 3.707a1 1 0 011.414-1.414L7.95 6.536z"
+          ></path>
+        </svg>
+      </button>
+    </div>
+    <div class="p-5">
+      <!-- Modal header -->
+      <div class="mb-2">
+        <div class="mb-3">
+          <span
+            class="text-xs font-medium bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700/60 rounded-full px-2.5 py-1 shadow-none"
+          >
+            {{ badge }}
+          </span>
+        </div>
+        <div class="text-lg font-semibold text-gray-800 dark:text-gray-100">
+          {{ title }}
+        </div>
+      </div>
+
+      <!-- Modal content -->
+      <div class="text-sm mb-5">
+        <div class="space-y-2">
+          <ng-content></ng-content>
+        </div>
+      </div>
+
+      <!-- Modal footer -->
+      <div class="flex flex-wrap justify-end space-x-2">
+        <button
+          class="btn-sm bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white"
+          (click)="onConfirm()"
+        >
+          {{ confirmText }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+

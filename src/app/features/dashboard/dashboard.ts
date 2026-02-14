@@ -12,15 +12,20 @@ import {SalesVsRefundsCardComponent} from './cards/sales-vs-refunds-card/sales-v
 import {RecentActivityCardComponent} from './cards/recent-activity-card/recent-activity-card.component';
 import {IncomeExpensesCardComponent} from './cards/income-expenses-card/income-expenses-card.component';
 import {DashboardActionsComponent} from './dashboard-actions/dashboard-actions.component';
+import {CreatePackageModalComponent} from '../../shared/components/modals';
+import {Package} from '../../core';
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, LayoutComponent, TopChannelsTableComponent, LineChartCardComponent, BarChartCardComponent, RealtimeChartCardComponent, DoughnutChartCardComponent, SalesOverTimeCardComponent, SalesVsRefundsCardComponent, RecentActivityCardComponent, IncomeExpensesCardComponent, DashboardActionsComponent],
+  imports: [CommonModule, LayoutComponent, TopChannelsTableComponent, LineChartCardComponent, BarChartCardComponent, RealtimeChartCardComponent, DoughnutChartCardComponent, SalesOverTimeCardComponent, SalesVsRefundsCardComponent, RecentActivityCardComponent, IncomeExpensesCardComponent, DashboardActionsComponent, CreatePackageModalComponent],
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.css',
 })
 export class Dashboard {
+
+  // Modal state
+  createPackageModalOpen = false;
 
   // Chart card data
   chartCards: ChartCardData[] = [
@@ -56,8 +61,16 @@ export class Dashboard {
   }
 
   onAddView(): void {
-    console.log('Add view clicked');
-    // Handle add view logic here
+    this.createPackageModalOpen = true;
+  }
+
+  onCloseCreatePackageModal(): void {
+    this.createPackageModalOpen = false;
+  }
+
+  onPackageCreated(pkg: Package): void {
+    console.log('Package created:', pkg);
+    // Handle the newly created package (e.g., show notification, refresh list, etc.)
   }
 
   onCardOptionSelect(cardId: string, option: string): void {

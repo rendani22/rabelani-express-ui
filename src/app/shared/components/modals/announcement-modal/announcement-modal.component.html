@@ -1,0 +1,74 @@
+<!-- Modal backdrop -->
+<div
+  *ngIf="isOpen"
+  class="fixed inset-0 bg-gray-900 bg-opacity-30 z-50 transition-opacity"
+  (click)="onClose()"
+></div>
+
+<!-- Modal dialog -->
+<div
+  *ngIf="isOpen"
+  class="fixed inset-0 z-50 overflow-hidden flex items-center justify-center px-4 sm:px-6"
+  role="dialog"
+  aria-modal="true"
+>
+  <div
+    class="bg-white dark:bg-gray-800 rounded-lg shadow-xl overflow-auto max-w-lg w-full max-h-full"
+    (click)="$event.stopPropagation()"
+  >
+    <div class="p-6">
+      <div class="relative">
+        <!-- Close button -->
+        <button
+          class="absolute top-0 right-0 text-gray-400 hover:text-gray-500 dark:text-gray-500 dark:hover:text-gray-400"
+          (click)="onClose()"
+        >
+          <span class="sr-only">Close</span>
+          <svg class="w-4 h-4 fill-current" viewBox="0 0 16 16">
+            <path
+              d="M7.95 6.536l4.242-4.243a1 1 0 111.415 1.414L9.364 7.95l4.243 4.242a1 1 0 11-1.415 1.415L7.95 9.364l-4.243 4.243a1 1 0 01-1.414-1.415L6.536 7.95 2.293 3.707a1 1 0 011.414-1.414L7.95 6.536z"
+            ></path>
+          </svg>
+        </button>
+
+        <!-- Modal header -->
+        <div class="text-center mb-2">
+          <!-- Icon -->
+          <div
+            class="inline-flex rounded-full mb-2 bg-gradient-to-b from-gray-100 to-gray-200 dark:from-gray-700/30 dark:to-gray-700"
+          >
+            <img [src]="iconSrc" width="80" height="80" alt="Announcement" />
+          </div>
+          <div class="text-lg font-semibold text-gray-800 dark:text-gray-100">
+            {{ title }}
+          </div>
+        </div>
+
+        <!-- Modal content -->
+        <div class="text-center">
+          <div class="text-sm mb-5">
+            {{ description }}
+          </div>
+          <!-- CTAs -->
+          <div class="space-y-3">
+            <button
+              class="btn-sm bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white w-full"
+              (click)="onAction()"
+            >
+              {{ actionText }}
+            </button>
+            <div>
+              <a
+                class="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-100 cursor-pointer transition"
+                (click)="onClose()"
+              >
+                {{ dismissText }}
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+

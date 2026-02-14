@@ -72,4 +72,11 @@
 
     </div>
   </div>
+
+  <!-- Create Package Modal -->
+  <app-create-package-modal
+    [isOpen]="createPackageModalOpen"
+    (closeModal)="onCloseCreatePackageModal()"
+    (packageCreated)="onPackageCreated($event)">
+  </app-create-package-modal>
 </app-layout>
