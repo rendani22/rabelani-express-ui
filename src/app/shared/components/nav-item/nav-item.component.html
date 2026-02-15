@@ -1,5 +1,27 @@
-<a [href]="routerLink || '#'" class="nav-item" [class.active]="active" (click)="onClick()">
-  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" [innerHTML]="getIconSvg()">
-  </svg>
-  <span>{{ label }}</span>
-</a>
+<ng-container *ngIf="routerLink; else buttonTemplate">
+  <a
+    [routerLink]="routerLink"
+    class="nav-item"
+    [class.nav-item--active]="active"
+    (click)="onItemClick()"
+  >
+    <span class="nav-item__icon">
+      <ng-icon [name]="tablerIcon" size="20"></ng-icon>
+    </span>
+    <span class="nav-item__label">{{ label }}</span>
+  </a>
+</ng-container>
+
+<ng-template #buttonTemplate>
+  <button
+    type="button"
+    class="nav-item"
+    [class.nav-item--active]="active"
+    (click)="onItemClick()"
+  >
+    <span class="nav-item__icon">
+      <ng-icon [name]="tablerIcon" size="20"></ng-icon>
+    </span>
+    <span class="nav-item__label">{{ label }}</span>
+  </button>
+</ng-template>

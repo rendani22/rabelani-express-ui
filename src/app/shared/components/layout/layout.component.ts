@@ -1,10 +1,8 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
-import { SidebarComponent } from '../sidebar/sidebar.component';
-import { NavbarComponent } from '../navbar/navbar.component';
-import { NavItem } from '../nav-item/nav-item.component';
-import {HeaderComponent} from '../header/header.component';
+import { SidebarComponent, NavItem } from '../sidebar';
+import { HeaderComponent } from '../header';
 
 @Component({
   selector: 'app-layout',
@@ -15,9 +13,9 @@ import {HeaderComponent} from '../header/header.component';
 })
 export class LayoutComponent {
   navItems: NavItem[] = [
-    { icon: 'grid', label: 'Dashboard', active: true, routerLink: '/dashboard' },
+    { icon: 'layout-dashboard', label: 'Dashboard', active: true, routerLink: '/dashboard' },
     { icon: 'shopping-cart', label: 'Orders', active: false, routerLink: '/orders' },
-    { icon: 'box', label: 'Inventory', active: false, routerLink: '/inventory' },
+    { icon: 'orders', label: 'Inventory', active: false, routerLink: '/inventory' },
     { icon: 'truck', label: 'Drivers', active: false, routerLink: '/drivers' },
     { icon: 'users', label: 'Customers', active: false, routerLink: '/customers' },
     { icon: 'settings', label: 'Settings', active: false, routerLink: '/settings' },
