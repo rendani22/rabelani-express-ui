@@ -1,0 +1,117 @@
+<div class="user-card" (click)="onCardClick()">
+  <div class="user-card__content">
+    <!-- Card top -->
+    <div class="user-card__top">
+      <div class="user-card__header">
+        <!-- Image + name -->
+        <header class="user-card__profile">
+          <div class="user-card__profile-info">
+            <a
+              class="user-card__avatar-link"
+              href="#0"
+              (click)="$event.preventDefault(); $event.stopPropagation()"
+              [attr.aria-label]="'View ' + user.name + ' profile'">
+              <img
+                class="user-card__avatar"
+                [src]="user.avatar"
+                [alt]="user.name"
+                width="48"
+                height="48"
+                loading="lazy">
+            </a>
+            <div class="user-card__details">
+              <a
+                class="user-card__name-link"
+                href="#0"
+                (click)="$event.preventDefault(); $event.stopPropagation()">
+                <h2 class="user-card__name">{{ user.name }}</h2>
+              </a>
+              <div class="user-card__location">
+                <ng-icon name="tablerMapPin" size="14" class="user-card__location-icon"></ng-icon>
+                <span class="user-card__country-text">{{ user.country }}</span>
+                <span class="user-card__country-flag">{{ user.countryFlag }}</span>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <!-- Menu button -->
+        <div
+          class="user-card__menu"
+          (clickOutside)="closeMenu()"
+          (keydown)="onMenuKeydown($event)">
+          <button
+            class="user-card__menu-button"
+            [class.user-card__menu-button--active]="isMenuOpen"
+            (click)="toggleMenu($event)"
+            [attr.aria-expanded]="isMenuOpen"
+            [attr.aria-label]="'Open menu for ' + user.name"
+            aria-haspopup="true"
+            type="button">
+            <span class="visually-hidden">Menu</span>
+            <ng-icon name="tablerDotsVertical" size="20"></ng-icon>
+          </button>
+
+          <div
+            class="user-card__dropdown"
+            *ngIf="isMenuOpen"
+            [@dropdownAnimation]
+            role="menu"
+            [attr.aria-label]="'Menu for ' + user.name">
+            <ul class="user-card__dropdown-list">
+              <li
+                *ngFor="let option of menuOptions; trackBy: trackByAction"
+                role="none">
+                <a
+                  class="user-card__dropdown-item"
+                  [class.user-card__dropdown-item--danger]="option.isDanger"
+                  href="#0"
+                  (click)="onMenuOptionClick(option, $event)"
+                  role="menuitem"
+                  tabindex="0">
+                  <ng-icon
+                    [name]="option.isDanger ? 'tablerTrash' : 'tablerEye'"
+                    size="16"
+                    class="user-card__dropdown-icon">
+                  </ng-icon>
+                  <span>{{ option.label }}</span>
+                </a>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bio -->
+      <div class="user-card__bio" *ngIf="user.bio">
+        <p class="user-card__bio-text">{{ user.bio }}</p>
+      </div>
+    </div>
+
+    <!-- Card footer -->
+    <div class="user-card__footer">
+      <div class="user-card__actions">
+        <a
+          *ngIf="showSendEmail"
+          class="user-card__action user-card__action--primary"
+          href="#0"
+          (click)="onSendEmail($event)"
+          [attr.aria-label]="'Send email to ' + user.name">
+          <ng-icon name="tablerMail" size="16"></ng-icon>
+          <span>Email</span>
+        </a>
+
+        <a
+          *ngIf="showEditProfile"
+          class="user-card__action user-card__action--secondary"
+          href="#0"
+          (click)="onEditProfile($event)"
+          [attr.aria-label]="'Edit profile of ' + user.name">
+          <ng-icon name="tablerEdit" size="16"></ng-icon>
+          <span>Edit</span>
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+

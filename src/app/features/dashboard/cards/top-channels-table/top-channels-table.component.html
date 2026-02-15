@@ -1,8 +1,8 @@
 <div class="col-span-full xl:col-span-8 bg-white dark:bg-slate-800 shadow-lg rounded-lg border border-slate-200 dark:border-slate-700">
-  <header class="px-5 py-4 border-b border-slate-200 dark:border-slate-700">
+  <header class="px-4 sm:px-5 py-4 border-b border-slate-200 dark:border-slate-700">
     <h2 class="font-semibold text-gray-800 dark:text-gray-100">{{ title }}</h2>
   </header>
-  <div class="p-3">
+  <div class="p-2 sm:p-3">
     <!-- Table -->
     <div class="overflow-x-auto">
       <table class="table-auto w-full">
@@ -15,10 +15,10 @@
             <th class="p-2">
               <div class="font-semibold text-right">Visitors</div>
             </th>
-            <th class="p-2">
+            <th class="p-2 hidden sm:table-cell">
               <div class="font-semibold text-right">Revenues</div>
             </th>
-            <th class="p-2">
+            <th class="p-2 hidden md:table-cell">
               <div class="font-semibold text-right">Sales</div>
             </th>
             <th class="p-2">
@@ -31,18 +31,18 @@
           <tr *ngFor="let channel of channels">
             <td class="p-2">
               <div class="flex items-center">
-                <svg class="mr-2 flex-shrink-0" width="36" height="36" viewBox="0 0 36 36" [innerHTML]="channel.iconSvg">
+                <svg class="mr-2 flex-shrink-0 hidden xs:block" width="36" height="36" viewBox="0 0 36 36" [innerHTML]="channel.iconSvg">
                 </svg>
-                <div class="text-gray-800 dark:text-gray-100">{{ channel.name }}</div>
+                <div class="text-gray-800 dark:text-gray-100 truncate">{{ channel.name }}</div>
               </div>
             </td>
             <td class="p-2">
               <div class="text-right">{{ channel.visitors }}</div>
             </td>
-            <td class="p-2">
+            <td class="p-2 hidden sm:table-cell">
               <div class="text-right text-green-500">{{ channel.revenues }}</div>
             </td>
-            <td class="p-2">
+            <td class="p-2 hidden md:table-cell">
               <div class="text-right">{{ channel.sales }}</div>
             </td>
             <td class="p-2">

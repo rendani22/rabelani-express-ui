@@ -1,6 +1,7 @@
-import { Component, Input, Output, EventEmitter, AfterViewInit, ViewChild, ElementRef, OnDestroy } from '@angular/core';
+import { Component, Input, Output, EventEmitter, AfterViewInit, ViewChild, ElementRef, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FilterOption} from '../../../core/models/models';
+import { BannerService } from '../../../shared/components/banner/banner.service';
 import flatpickr from 'flatpickr';
 import { Instance } from 'flatpickr/dist/types/instance';
 
@@ -12,6 +13,8 @@ import { Instance } from 'flatpickr/dist/types/instance';
   styleUrls: ['./dashboard-actions.component.css']
 })
 export class DashboardActionsComponent implements AfterViewInit, OnDestroy {
+  private readonly bannerService = inject(BannerService);
+
   @Input() title = 'Dashboard';
   @ViewChild('datepicker') datepickerInput!: ElementRef<HTMLInputElement>;
 
@@ -78,6 +81,7 @@ export class DashboardActionsComponent implements AfterViewInit, OnDestroy {
   }
 
   onAddView(): void {
+    // const bannerId = this.bannerService.info('This is a test banner message!', { autoClose: true, autoCloseDelay: 5000 });
     this.addViewClick.emit();
   }
 }

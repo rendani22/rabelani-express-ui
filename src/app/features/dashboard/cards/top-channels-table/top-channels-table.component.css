@@ -2,3 +2,15 @@
   display: contents;
 }
 
+/* Mobile responsive styles */
+@media (max-width: 640px) {
+  :host table {
+    font-size: 0.8125rem;
+  }
+
+  :host th,
+  :host td {
+    padding: 0.5rem;
+  }
+}
+

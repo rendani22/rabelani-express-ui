@@ -1,0 +1,110 @@
+<app-layout>
+  <div class="w-full max-w-7xl mx-auto px-0 sm:px-0">
+
+    <!-- Header Section -->
+    <div class="sm:flex sm:justify-between sm:items-center mb-8">
+      <!-- Title -->
+      <div class="mb-4 sm:mb-0">
+        <h1 class="text-2xl md:text-3xl text-gray-800 dark:text-gray-100 font-bold">User Management</h1>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage staff accounts and permissions</p>
+      </div>
+
+      <!-- Actions -->
+      <div class="grid grid-flow-col sm:auto-cols-max justify-start sm:justify-end gap-2">
+        <!-- Search -->
+        <div class="relative">
+          <input
+            type="text"
+            class="form-input pl-9 w-full sm:w-64 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
+            placeholder="Search users..."
+            (input)="onSearchChange($event)"
+          />
+          <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M7 14C10.866 14 14 10.866 14 7C14 3.13401 10.866 0 7 0C3.13401 0 0 3.13401 0 7C0 10.866 3.13401 14 7 14Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M16 16L12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+
+        <!-- Add User Button (Admin only) -->
+        @if (isAdmin()) {
+          <button
+            class="btn bg-violet-500 hover:bg-violet-600 text-white"
+            (click)="onAddUser()"
+          >
+            <svg class="fill-current shrink-0 xs:hidden" width="16" height="16" viewBox="0 0 16 16">
+              <path d="M15 7H9V1c0-.6-.4-1-1-1S7 .4 7 1v6H1c-.6 0-1 .4-1 1s.4 1 1 1h6v6c0 .6.4 1 1 1s1-.4 1-1V9h6c.6 0 1-.4 1-1s-.4-1-1-1z"/>
+            </svg>
+            <span class="max-xs:sr-only">Add User</span>
+          </button>
+        }
+      </div>
+    </div>
+
+    <!-- Loading State -->
+    @if (loading()) {
+      <div class="flex justify-center items-center py-12">
+        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-500"></div>
+        <span class="ml-3 text-gray-500 dark:text-gray-400">Loading users...</span>
+      </div>
+    }
+
+    <!-- Error State -->
+    @if (error()) {
+      <div class="bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg mb-4">
+        <p>{{ error() }}</p>
+        <button
+          class="mt-2 text-sm underline hover:no-underline"
+          (click)="loadStaff()"
+        >
+          Try again
+        </button>
+      </div>
+    }
+
+    <!-- User Cards Grid -->
+    @if (!loading() && !error()) {
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        @for (staff of filteredStaff(); track trackByStaffId($index, staff)) {
+          <app-user-card
+            [user]="mapStaffToUser(staff)"
+            [menuOptions]="getMenuOptions(staff)"
+            [showSendEmail]="true"
+            [showEditProfile]="isAdmin()"
+            (actionClick)="onCardAction($event)"
+            (cardClick)="onCardClick($event)"
+          />
+        } @empty {
+          <div class="col-span-full flex flex-col items-center justify-center py-12 text-center">
+            <svg class="w-16 h-16 text-gray-300 dark:text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+            </svg>
+            @if (searchQuery()) {
+              <p class="text-gray-500 dark:text-gray-400 text-lg font-medium">No users found</p>
+              <p class="text-gray-400 dark:text-gray-500 text-sm mt-1">No users match "{{ searchQuery() }}"</p>
+            } @else {
+              <p class="text-gray-500 dark:text-gray-400 text-lg font-medium">No staff members yet</p>
+              <p class="text-gray-400 dark:text-gray-500 text-sm mt-1">Add your first team member to get started</p>
+            }
+          </div>
+        }
+      </div>
+    }
+
+  </div>
+</app-layout>
+
+<!-- Add User Modal -->
+<app-add-user-modal
+  [isOpen]="addUserModalOpen()"
+  (closeModal)="onCloseAddUserModal()"
+  (userCreated)="onUserCreated($event)"
+/>
+
+<!-- Edit User Modal -->
+<app-edit-user-modal
+  [isOpen]="editUserModalOpen()"
+  [staff]="staffToEdit()"
+  (closeModal)="onCloseEditUserModal()"
+  (userUpdated)="onUserUpdated($event)"
+/>
+

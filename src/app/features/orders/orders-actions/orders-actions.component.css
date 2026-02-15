@@ -1,0 +1,24 @@
+/* Orders actions component styles */
+:host {
+  display: block;
+}
+
+.orders-actions {
+  margin-bottom: 1.5rem;
+}
+
+.form-input:focus {
+  outline: none;
+}
+
+.rotate-180 {
+  transform: rotate(180deg);
+}
+
+/* Mobile-specific styles */
+@media (max-width: 474px) {
+  .orders-actions {
+    margin-bottom: 1rem;
+  }
+}
+

@@ -34,4 +34,12 @@ export * from './search-modal/search-modal.component';
 // Create Package Modal
 export * from './create-package-modal/create-package-modal.component';
 
+// Package Details Panel
+export * from './package-details-panel/package-details-panel.component';
+
+// Add User Modal
+export * from './add-user-modal/add-user-modal.component';
+
+// Edit User Modal
+export * from './edit-user-modal/edit-user-modal.component';
 

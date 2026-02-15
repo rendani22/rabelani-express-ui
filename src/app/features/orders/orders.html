@@ -1,0 +1,111 @@
+<app-layout>
+  <div class="w-full max-w-7xl mx-auto px-0 sm:px-0">
+    <!-- Orders actions header -->
+    <app-orders-actions
+      title="Orders"
+      (searchChange)="onSearch($event)"
+      (statusFilterChange)="onStatusFilterChange($event)"
+      (addPackageClick)="onAddPackage()"
+      (refreshClick)="onRefresh()">
+    </app-orders-actions>
+
+    <!-- Loading state -->
+    <div *ngIf="isLoading()" class="flex items-center justify-center py-12">
+      <div class="flex flex-col items-center gap-3">
+        <svg class="animate-spin h-8 w-8 text-violet-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <span class="text-sm text-gray-500 dark:text-gray-400">Loading packages...</span>
+      </div>
+    </div>
+
+    <!-- Error state -->
+    <div *ngIf="error() && !isLoading()" class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-4">
+      <div class="flex items-center gap-3">
+        <svg class="h-5 w-5 text-red-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clip-rule="evenodd" />
+        </svg>
+        <span class="text-sm text-red-700 dark:text-red-300">{{ error() }}</span>
+        <button
+          (click)="onRefresh()"
+          class="ml-auto text-sm text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-200 font-medium">
+          Try again
+        </button>
+      </div>
+    </div>
+
+    <!-- Empty state -->
+    <div *ngIf="!isLoading() && !error() && transactions().length === 0" class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-12">
+      <div class="flex flex-col items-center text-center">
+        <svg class="h-16 w-16 text-gray-300 dark:text-gray-600 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+        </svg>
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-1">No packages found</h3>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">Get started by creating your first package.</p>
+        <button
+          (click)="onAddPackage()"
+          class="inline-flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium rounded-lg transition-colors">
+          <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+            <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
+          </svg>
+          Add Package
+        </button>
+      </div>
+    </div>
+
+    <!-- Packages table -->
+    <div *ngIf="!isLoading() && !error() && transactions().length > 0" class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+      <app-transaction-table
+        [transactions]="transactions()"
+        [selectedIds]="selectedIds()"
+        (transactionSelected)="onTransactionSelected($event)"
+        (selectionChanged)="onSelectionChanged($event)">
+      </app-transaction-table>
+    </div>
+  </div>
+
+  <!-- Create Package Modal -->
+  <app-create-package-modal
+    [isOpen]="createPackageModalOpen"
+    (closeModal)="onCloseCreatePackageModal()"
+    (packageCreated)="onPackageCreated($event)">
+  </app-create-package-modal>
+
+  <!-- Package Details Panel -->
+  <app-package-details-panel
+    [isOpen]="detailsPanelOpen()"
+    [package]="selectedPackage()"
+    (closePanel)="onCloseDetailsPanel()"
+    (updateStatus)="onUpdatePackageStatus($event)"
+    (showQrCode)="showQrCode($event)">
+  </app-package-details-panel>
+
+  <!-- QR Code Modal -->
+  <div *ngIf="qrCodeModalOpen()"
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+    (click)="closeQrCodeModal()">
+    <div
+      class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-6 max-w-sm mx-4 transform transition-all"
+      (click)="$event.stopPropagation()">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Package QR Code</h3>
+        <button
+          (click)="closeQrCodeModal()"
+          class="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg transition-colors">
+          <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+            <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+          </svg>
+        </button>
+      </div>
+      <app-qr-code
+        [data]="qrCodeData()"
+        [size]="200"
+        [showDownloadButton]="true"
+        downloadButtonText="Download QR Code"
+        label="Scan to view package details">
+      </app-qr-code>
+    </div>
+  </div>
+</app-layout>
+

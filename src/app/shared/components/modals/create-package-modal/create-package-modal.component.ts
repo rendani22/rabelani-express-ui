@@ -26,6 +26,7 @@ import {
   PackageItemRequest,
   PackageService,
 } from '../../../../core';
+import { ToastService } from '../../toast/toast.service';
 
 /** Duration to show success message before auto-closing */
 const SUCCESS_CLOSE_DELAY_MS = 2000;
@@ -48,6 +49,7 @@ export class CreatePackageModalComponent {
   private readonly fb = inject(FormBuilder);
   private readonly packageService = inject(PackageService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly toastService = inject(ToastService);
 
   // =========================================================================
   // Inputs & Outputs
@@ -258,6 +260,9 @@ export class CreatePackageModalComponent {
       `Package created successfully! Reference: ${pkg.reference}`
     );
     this.packageCreated.emit(pkg);
+
+    // Show success toast notification
+    this.toastService.success(`Package created successfully! Reference: ${pkg.reference}`);
 
     // Auto-close after delay
     timer(SUCCESS_CLOSE_DELAY_MS)

@@ -1,6 +1,7 @@
-import { Component } from '@angular/core';
+import { Component, inject, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { Router, RouterModule, NavigationEnd } from '@angular/router';
+import { filter } from 'rxjs/operators';
 import { SidebarComponent, NavItem } from '../sidebar';
 import { HeaderComponent } from '../header';
 
@@ -12,17 +13,41 @@ import { HeaderComponent } from '../header';
   styleUrl: './layout.component.css'
 })
 export class LayoutComponent {
+  private readonly router = inject(Router);
+
   sidebarOpen = false;
 
-  navItems: NavItem[] = [
-    { icon: 'layout-dashboard', label: 'Dashboard', active: true, routerLink: '/dashboard' },
-    { icon: 'shopping-cart', label: 'Orders', active: false, routerLink: '/orders' },
-    { icon: 'orders', label: 'Inventory', active: false, routerLink: '/inventory' },
-    { icon: 'truck', label: 'Drivers', active: false, routerLink: '/drivers' },
-    { icon: 'users', label: 'Customers', active: false, routerLink: '/customers' },
-    { icon: 'settings', label: 'Settings', active: false, routerLink: '/settings' },
-    { icon: 'log-out', label: 'Logout', active: false, routerLink: '/logout' }
+  /** Current active route path */
+  private readonly currentRoute = signal(this.router.url);
+
+  /** Base nav items configuration */
+  private readonly baseNavItems: NavItem[] = [
+    { icon: 'layout-dashboard', label: 'Dashboard', routerLink: '/dashboard' },
+    { icon: 'shopping-cart', label: 'Orders', routerLink: '/orders' },
+    { icon: 'orders', label: 'Inventory', routerLink: '/inventory' },
+    { icon: 'truck', label: 'Drivers', routerLink: '/drivers' },
+    { icon: 'users', label: 'Customers', routerLink: '/customers' },
+    { icon: 'users', label: 'Users', routerLink: '/user-management' },
+    { icon: 'settings', label: 'Settings', routerLink: '/settings' },
   ];
+
+  /** Nav items with active state computed from current route */
+  readonly navItems = computed<NavItem[]>(() => {
+    const currentPath = this.currentRoute();
+    return this.baseNavItems.map(item => ({
+      ...item,
+      active: item.routerLink ? currentPath.startsWith(item.routerLink) : false
+    }));
+  });
+
+  constructor() {
+    // Listen to route changes and update current route
+    this.router.events
+      .pipe(filter((event): event is NavigationEnd => event instanceof NavigationEnd))
+      .subscribe(event => {
+        this.currentRoute.set(event.urlAfterRedirects);
+      });
+  }
 
   closeSidebar(): void {
     this.sidebarOpen = false;

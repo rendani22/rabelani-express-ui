@@ -9,7 +9,7 @@
   <div class="sidebar-container" [class.open]="sidebarOpen">
     <app-sidebar
       navLabel="Admin tools"
-      [navItems]="navItems"
+      [navItems]="navItems()"
       (navItemClick)="closeSidebar()"
       (closeSidebar)="closeSidebar()">
     </app-sidebar>

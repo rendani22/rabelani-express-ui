@@ -1,0 +1,10 @@
+/* User Management Component Styles */
+
+.form-input {
+  @apply block w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm placeholder-gray-400 shadow-sm transition duration-150 ease-in-out focus:border-violet-500 focus:ring-1 focus:ring-violet-500;
+}
+
+.btn {
+  @apply inline-flex items-center justify-center rounded-lg border border-transparent px-3 py-2 text-sm font-medium leading-5 shadow-sm transition duration-150 ease-in-out;
+}
+
