@@ -1,9 +1,14 @@
 :host {
   display: block;
-  height: 100vh;
-  width: 250px;
+  height: 100%;
+  width: 100%;
   background-color: #ffffff;
   border-right: 1px solid #e2e8f0;
+}
+
+:host-context(.dark) {
+  background-color: #1e293b;
+  border-right-color: #334155;
 }
 
 .sidebar {
@@ -42,6 +47,57 @@
     font-weight: 700;
     color: #1e293b;
     letter-spacing: -0.025em;
+    flex: 1;
+  }
+}
+
+// Mobile close button
+.mobile-close-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0.5rem;
+  margin-left: auto;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  border-radius: 0.5rem;
+  transition: all 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+
+  &:hover {
+    background-color: #f1f5f9;
+    color: #334155;
+  }
+
+  &:focus-visible {
+    outline: 2px solid #6366f1;
+    outline-offset: 2px;
+  }
+
+  @media (max-width: 1023px) {
+    display: flex;
+  }
+}
+
+:host-context(.dark) .mobile-close-btn {
+  color: #94a3b8;
+
+  &:hover {
+    background-color: #334155;
+    color: #f1f5f9;
+  }
+}
+
+:host-context(.dark) .logo {
+  border-bottom-color: #334155;
+
+  &__text {
+    color: #f1f5f9;
   }
 }
 
@@ -69,6 +125,11 @@
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: 0.75rem;
+
+    // Slightly smaller gap on mobile
+    @media (max-width: 767px) {
+      gap: 0.5rem;
+    }
   }
 
   &__item {
@@ -84,12 +145,23 @@
         aspect-ratio: auto;
         padding: 0.875rem 1rem;
         gap: 0.75rem;
+
+        @media (max-width: 767px) {
+          padding: 0.625rem 0.875rem;
+          gap: 0.5rem;
+        }
       }
 
       ::ng-deep .nav-item__label {
         text-align: left;
       }
     }
+  }
+}
+
+:host-context(.dark) .nav-section {
+  &__label {
+    color: #64748b;
   }
 }
 

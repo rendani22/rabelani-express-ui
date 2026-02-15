@@ -1,13 +1,23 @@
 <div class="layout-wrapper">
-  <div class="sidebar-container">
+  <!-- Mobile overlay -->
+  <div
+    class="sidebar-overlay"
+    [class.visible]="sidebarOpen"
+    (click)="closeSidebar()">
+  </div>
+
+  <div class="sidebar-container" [class.open]="sidebarOpen">
     <app-sidebar
       navLabel="Admin tools"
       [navItems]="navItems"
-    ></app-sidebar>
+      (navItemClick)="closeSidebar()"
+      (closeSidebar)="closeSidebar()">
+    </app-sidebar>
   </div>
 
   <div class="main-content">
-    <app-header />
+    <app-header
+      [(sidebarOpen)]="sidebarOpen" />
     <main class="page-content">
         <ng-content></ng-content>
     </main>

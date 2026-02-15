@@ -6,6 +6,49 @@
 
 /* You can add global styles to this file, and also import other style files */
 
+/* Ensure proper mobile viewport handling */
+html {
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Prevent overflow issues on mobile */
+body {
+  overflow-x: hidden;
+  min-height: 100dvh;
+}
+
+/* Better touch targets for mobile */
+@media (max-width: 640px) {
+  button, a, input, select, textarea {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Exception for inline elements that shouldn't have min dimensions */
+  a.inline-link, span button {
+    min-height: auto;
+    min-width: auto;
+  }
+}
+
+/* Smooth scrolling on mobile */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+/* Hide scrollbar but allow scrolling on mobile */
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 /* Screen reader only utility (Tailwind sr-only equivalent) */
 .sr-only {
   position: absolute;

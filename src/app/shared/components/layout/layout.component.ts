@@ -12,6 +12,8 @@ import { HeaderComponent } from '../header';
   styleUrl: './layout.component.css'
 })
 export class LayoutComponent {
+  sidebarOpen = false;
+
   navItems: NavItem[] = [
     { icon: 'layout-dashboard', label: 'Dashboard', active: true, routerLink: '/dashboard' },
     { icon: 'shopping-cart', label: 'Orders', active: false, routerLink: '/orders' },
@@ -21,5 +23,9 @@ export class LayoutComponent {
     { icon: 'settings', label: 'Settings', active: false, routerLink: '/settings' },
     { icon: 'log-out', label: 'Logout', active: false, routerLink: '/logout' }
   ];
+
+  closeSidebar(): void {
+    this.sidebarOpen = false;
+  }
 }
 

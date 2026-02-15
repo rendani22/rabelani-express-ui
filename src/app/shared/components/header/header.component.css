@@ -73,25 +73,32 @@ button:focus {
   outline-offset: 2px;
 }
 
-/* Hamburger button */
-.flex > button {
+/* Hamburger button - visible only on mobile */
+.hamburger-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
   color: #64748b;
+  background: transparent;
+  border: none;
+  cursor: pointer;
 }
 
-.flex > button:hover {
+.hamburger-btn:hover {
   color: #475569;
 }
 
-@media (min-width: 1024px) {
-  .flex > button {
-    display: none;
-  }
-}
-
-.flex > button svg {
+.hamburger-btn svg {
   width: 1.5rem;
   height: 1.5rem;
-  fill: currentColor;
+}
+
+/* Hide hamburger on desktop (lg: 1024px and up) */
+@media (min-width: 1024px) {
+  .hamburger-btn {
+    display: none !important;
+  }
 }
 
 /* Icon buttons */
@@ -132,7 +139,13 @@ button:focus {
 
 /* Right side container */
 .flex.items-center.space-x-3 > * + * {
-  margin-left: 0.75rem;
+  margin-left: 0.5rem;
+}
+
+@media (min-width: 640px) {
+  .flex.items-center.space-x-3 > * + * {
+    margin-left: 0.75rem;
+  }
 }
 
 /* Modals and dropdowns */

@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { Component, Input, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { NavItemComponent } from '../nav-item';
 import { NavItem } from './sidebar.models';
@@ -34,6 +34,12 @@ export class SidebarComponent {
   /** Array of navigation items to display */
   @Input() navItems: NavItem[] = [];
 
+  /** Emits when a nav item is clicked */
+  @Output() navItemClick = new EventEmitter<NavItem>();
+
+  /** Emits when the close button is clicked (mobile) */
+  @Output() closeSidebar = new EventEmitter<void>();
+
 
   /**
    * Handles navigation item click events
@@ -43,6 +49,14 @@ export class SidebarComponent {
     if (item.onClick) {
       item.onClick();
     }
+    this.navItemClick.emit(item);
+  }
+
+  /**
+   * Handles close sidebar button click (mobile)
+   */
+  onCloseSidebar(): void {
+    this.closeSidebar.emit();
   }
 }
 
