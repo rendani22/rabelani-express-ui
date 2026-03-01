@@ -184,12 +184,47 @@ export class OrdersComponent implements OnInit {
 
   /**
    * Handle status update from details panel.
+   * Routes to appropriate workflow action based on current status.
    */
   async onUpdatePackageStatus(pkg: Package): Promise<void> {
-    // TODO: Implement status update logic
-    console.log('Update status for package:', pkg);
-    // After update, refresh packages
-    await this.loadPackages();
+    try {
+      let result: { success: boolean; error?: string };
+
+      switch (pkg.status) {
+        case PACKAGE_STATUS.PENDING:
+        case PACKAGE_STATUS.NOTIFIED:
+          // Driver picks up package - marks as in_transit
+          result = await this.packageService.driverPickup(pkg.id);
+          break;
+
+        case PACKAGE_STATUS.IN_TRANSIT:
+          // Collection point receives package - marks as ready_for_collection
+          result = await this.packageService.receiveAtCollection(pkg.id);
+          break;
+
+        case PACKAGE_STATUS.READY_FOR_COLLECTION:
+          // Mark as collected (final state)
+          result = await this.packageService.updatePackage(pkg.id, {
+            status: PACKAGE_STATUS.COLLECTED
+          });
+          break;
+
+        default:
+          console.warn('No action available for status:', pkg.status);
+          return;
+      }
+
+      if (!result.success) {
+        console.error('Status update failed:', result.error);
+        // TODO: Show error toast notification
+      }
+
+      // Close panel and refresh packages
+      this.onCloseDetailsPanel();
+      await this.loadPackages();
+    } catch (error) {
+      console.error('Error updating package status:', error);
+    }
   }
 
   /**

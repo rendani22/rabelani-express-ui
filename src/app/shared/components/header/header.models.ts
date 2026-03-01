@@ -44,18 +44,6 @@ export interface HelpLink {
   readonly href: string;
 }
 
-/**
- * User menu item displayed in the user dropdown
- */
-export interface UserMenuItem {
-  readonly text: string;
-  readonly href: string;
-}
-
-/**
- * User menu action identifiers
- */
-export type UserMenuAction = 'settings' | 'sign-out';
 
 /**
  * Dropdown types for state management

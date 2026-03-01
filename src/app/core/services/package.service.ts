@@ -132,7 +132,7 @@ export class PackageService {
     try {
       let query = this.supabaseService.client
         .from('packages')
-        .select('*')
+        .select('*, items:package_items(id, quantity, description)')
         .order('created_at', { ascending: false });
 
       if (filters?.status) {

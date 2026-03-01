@@ -1,6 +1,6 @@
 import { Component, Input, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Package, PACKAGE_STATUS, PackageStatus } from '../../../../core';
+import { Package, PackageItem, PACKAGE_STATUS, PackageStatus } from '../../../../core';
 
 @Component({
   selector: 'app-package-details-panel',
@@ -141,14 +141,38 @@ import { Package, PACKAGE_STATUS, PackageStatus } from '../../../../core';
             <!-- Package Items -->
             @if (pkg.items && pkg.items.length > 0) {
               <div class="px-6 py-5 border-b border-gray-200 dark:border-gray-700">
-                <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
-                  Items ({{ pkg.items.length }})
-                </h3>
+                <div class="flex items-center justify-between mb-3">
+                  <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                    Items ({{ pkg.items.length }})
+                  </h3>
+                  <button
+                    type="button"
+                    class="inline-flex items-center gap-1 text-xs text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300"
+                    (click)="printAllItemQrCodes()"
+                  >
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+                    </svg>
+                    Print All QR
+                  </button>
+                </div>
                 <ul class="space-y-2">
                   @for (item of pkg.items; track item.id) {
                     <li class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                      <span class="text-sm text-gray-900 dark:text-white">{{ item.description }}</span>
-                      <span class="text-sm font-medium text-gray-500 dark:text-gray-400">× {{ item.quantity }}</span>
+                      <div class="flex-1">
+                        <span class="text-sm text-gray-900 dark:text-white">{{ item.description }}</span>
+                        <span class="text-sm font-medium text-gray-500 dark:text-gray-400 ml-2">× {{ item.quantity }}</span>
+                      </div>
+                      <button
+                        type="button"
+                        class="p-1.5 text-violet-500 hover:text-violet-600 dark:text-violet-400 dark:hover:text-violet-300 transition-colors rounded"
+                        (click)="printItemQrCode(item)"
+                        title="Print QR Code"
+                      >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+                        </svg>
+                      </button>
                     </li>
                   }
                 </ul>
@@ -346,6 +370,210 @@ export class PackageDetailsPanelComponent {
       minute: '2-digit',
       hour12: true
     });
+  }
+
+  /**
+   * Generates QR code data for a package item
+   */
+  private getItemQrData(item: PackageItem): string {
+    const pkg = this.package;
+    if (!pkg) return '';
+
+    return JSON.stringify({
+      itemId: item.id,
+      packageId: pkg.id,
+      packageReference: pkg.reference,
+      description: item.description,
+      quantity: item.quantity
+    });
+  }
+
+  /**
+   * Prints QR code for a specific item
+   */
+  printItemQrCode(item: PackageItem): void {
+    const pkg = this.package;
+    if (!pkg) return;
+
+    const printWindow = window.open('', '_blank', 'width=400,height=500');
+    if (!printWindow) return;
+
+    const qrData = this.getItemQrData(item);
+    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrData)}`;
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Print QR Code - ${item.description}</title>
+        <style>
+          body {
+            font-family: system-ui, -apple-system, sans-serif;
+            padding: 20px;
+            text-align: center;
+          }
+          .qr-container {
+            border: 2px dashed #ccc;
+            padding: 20px;
+            margin: 20px auto;
+            max-width: 300px;
+          }
+          .qr-code {
+            margin: 10px 0;
+          }
+          .item-details {
+            margin-top: 15px;
+            text-align: left;
+            font-size: 12px;
+          }
+          .item-details p {
+            margin: 5px 0;
+          }
+          .item-title {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 10px;
+          }
+          .item-id {
+            font-size: 10px;
+            color: #666;
+            font-family: monospace;
+          }
+          @media print {
+            button { display: none; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="qr-container">
+          <div class="item-title">${item.quantity}x ${item.description}</div>
+          <img class="qr-code" src="${qrCodeUrl}" alt="QR Code for ${item.description}" />
+          <div class="item-details">
+            <p><strong>Item ID:</strong> <span class="item-id">${item.id}</span></p>
+            <p><strong>Package:</strong> ${pkg.reference}</p>
+            <p><strong>Description:</strong> ${item.description}</p>
+            <p><strong>Quantity:</strong> ${item.quantity}</p>
+          </div>
+        </div>
+        <button onclick="window.print(); return false;">Print QR Code</button>
+      </body>
+      </html>
+    `);
+
+    printWindow.document.close();
+  }
+
+  /**
+   * Prints QR codes for all items in the package
+   */
+  printAllItemQrCodes(): void {
+    const pkg = this.package;
+    if (!pkg || !pkg.items || pkg.items.length === 0) return;
+
+    const printWindow = window.open('', '_blank', 'width=800,height=600');
+    if (!printWindow) return;
+
+    const itemsHtml = pkg.items.map((item) => {
+      const qrData = this.getItemQrData(item);
+      const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrData)}`;
+
+      return `
+        <div class="qr-item">
+          <div class="item-title">${item.quantity}x ${item.description}</div>
+          <img class="qr-code" src="${qrCodeUrl}" alt="QR Code for ${item.description}" />
+          <div class="item-details">
+            <p><strong>ID:</strong> <span class="item-id">${item.id}</span></p>
+            <p><strong>Qty:</strong> ${item.quantity}</p>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Print All QR Codes - ${pkg.reference}</title>
+        <style>
+          body {
+            font-family: system-ui, -apple-system, sans-serif;
+            padding: 20px;
+          }
+          .header {
+            text-align: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #333;
+          }
+          .header h1 {
+            margin: 0 0 10px 0;
+            font-size: 20px;
+          }
+          .header p {
+            margin: 5px 0;
+            font-size: 12px;
+            color: #666;
+          }
+          .qr-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
+          }
+          .qr-item {
+            border: 2px dashed #ccc;
+            padding: 15px;
+            text-align: center;
+            page-break-inside: avoid;
+          }
+          .qr-code {
+            margin: 10px 0;
+          }
+          .item-details {
+            margin-top: 10px;
+            font-size: 11px;
+            text-align: left;
+          }
+          .item-details p {
+            margin: 3px 0;
+          }
+          .item-title {
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 5px;
+          }
+          .item-id {
+            font-size: 9px;
+            color: #666;
+            font-family: monospace;
+          }
+          .print-btn {
+            display: block;
+            margin: 20px auto;
+            padding: 10px 20px;
+            font-size: 14px;
+            cursor: pointer;
+          }
+          @media print {
+            .print-btn { display: none; }
+            .qr-item { border: 1px dashed #999; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>Package QR Codes</h1>
+          <p><strong>Reference:</strong> ${pkg.reference}</p>
+          <p><strong>Items:</strong> ${pkg.items.length}</p>
+        </div>
+        <div class="qr-grid">
+          ${itemsHtml}
+        </div>
+        <button class="print-btn" onclick="window.print(); return false;">Print All QR Codes</button>
+      </body>
+      </html>
+    `);
+
+    printWindow.document.close();
   }
 }
 

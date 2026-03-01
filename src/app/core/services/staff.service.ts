@@ -48,6 +48,15 @@ export class StaffService {
   /** Check if current user has admin role */
   readonly isAdmin = computed(() => this.currentProfile()?.role === 'admin');
 
+  /** Check if current user has driver role */
+  readonly isDriver = computed(() => this.currentProfile()?.role === 'driver');
+
+  /** Check if current user can pickup packages (driver or admin) */
+  readonly canPickupPackages = computed(() => {
+    const role = this.currentProfile()?.role;
+    return role === 'driver' || role === 'admin';
+  });
+
   /** Observable version of currentProfile for compatibility */
   readonly currentProfile$ = toObservable(this.currentProfile);
 

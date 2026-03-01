@@ -1,4 +1,4 @@
-import { HelpLink, HeaderNotification, RecentPage, RecentSearch, UserMenuItem } from './header.models';
+import { HelpLink, HeaderNotification, RecentPage, RecentSearch } from './header.models';
 
 /**
  * Default recent searches displayed in the search modal
@@ -56,16 +56,5 @@ export const DEFAULT_HELP_LINKS: readonly HelpLink[] = [
   { icon: 'contact', text: 'Contact us', href: '#0' },
 ] as const;
 
-/**
- * Default user menu items
- */
-export const DEFAULT_USER_MENU_ITEMS: readonly UserMenuItem[] = [
-  { text: 'Settings', href: '#/settings' },
-  { text: 'Sign Out', href: '#/logout' },
-] as const;
 
-/**
- * User role default value
- */
-export const DEFAULT_USER_ROLE = 'User' as const;
 

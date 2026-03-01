@@ -101,8 +101,8 @@ button:focus {
   }
 }
 
-/* Icon buttons */
-.flex.items-center button {
+/* Icon buttons in the header bar */
+.header-icon-btn {
   width: 2rem;
   height: 2rem;
   display: flex;
@@ -110,43 +110,44 @@ button:focus {
   justify-content: center;
   background-color: #f1f5f9;
   border-radius: 9999px;
+  cursor: pointer;
+  border: none;
+  color: #64748b;
+  transition: background-color 0.12s;
 }
 
-.flex.items-center button:hover {
+.header-icon-btn:hover {
   background-color: #e2e8f0;
 }
 
-:host-context(.dark) .flex.items-center button {
+:host-context(.dark) .header-icon-btn {
   background-color: #334155;
+  color: #94a3b8;
 }
 
-:host-context(.dark) .flex.items-center button:hover {
+:host-context(.dark) .header-icon-btn:hover {
   background-color: rgba(51, 65, 85, 0.8);
 }
 
-.flex.items-center button svg {
-  width: 1rem;
-  height: 1rem;
+.header-icon-btn.active {
+  background-color: #e2e8f0;
 }
 
-.flex.items-center button svg path {
-  fill: #64748b;
+:host-context(.dark) .header-icon-btn.active {
+  background-color: rgba(51, 65, 85, 0.8);
 }
 
-:host-context(.dark) .flex.items-center button svg path {
-  fill: #94a3b8;
+/* Reset list styling inside dropdown panels */
+.dropdown-panel ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
 
-/* Right side container */
-.flex.items-center.space-x-3 > * + * {
-  margin-left: 0.5rem;
+.dropdown-panel__menu {
+  padding: 0.375rem;
 }
 
-@media (min-width: 640px) {
-  .flex.items-center.space-x-3 > * + * {
-    margin-left: 0.75rem;
-  }
-}
 
 /* Modals and dropdowns */
 .fixed {
@@ -584,12 +585,8 @@ img {
 }
 
 @keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }
 
 /* Focus styles for accessibility */
@@ -600,12 +597,206 @@ input:focus-visible {
   outline-offset: 2px;
 }
 
-/* Ensure proper stacking of modal elements */
-.search-modal-backdrop {
-  z-index: 50;
+/* ──────────────────────────────────────────
+   Dropdown Panel – shared card shell
+────────────────────────────────────────── */
+.dropdown-panel {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  box-shadow:
+    0 4px 6px -1px rgba(0,0,0,.07),
+    0 10px 25px -5px rgba(0,0,0,.1);
+  overflow: hidden;
+  z-index: 40;
+  animation: dropdown-in 0.15s ease;
 }
 
-.search-modal-dialog {
-  z-index: 51;
+:host-context(.dark) .dropdown-panel {
+  background: #1e293b;
+  border-color: #334155;
+  box-shadow:
+    0 4px 6px -1px rgba(0,0,0,.3),
+    0 10px 25px -5px rgba(0,0,0,.4);
+}
+
+@keyframes dropdown-in {
+  from { opacity: 0; transform: translateY(-6px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0)   scale(1);    }
+}
+
+/* Header row inside a panel */
+.dropdown-panel__header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.625rem 0.875rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #94a3b8;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+:host-context(.dark) .dropdown-panel__header {
+  color: #64748b;
+  border-bottom-color: #1e293b;
+}
+
+/* Notification row */
+.dropdown-panel__notification {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  text-decoration: none;
+  transition: background 0.12s;
+}
+
+.dropdown-panel__notification:hover {
+  background: #f8fafc;
+}
+
+:host-context(.dark) .dropdown-panel__notification:hover {
+  background: rgba(51,65,85,0.4);
+}
+
+.dropdown-panel__notification-emoji {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  font-size: 1rem;
+  background: #f1f5f9;
+  border-radius: 0.5rem;
+  flex-shrink: 0;
+}
+
+:host-context(.dark) .dropdown-panel__notification-emoji {
+  background: #334155;
+}
+
+/* Footer row */
+.dropdown-panel__footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 1rem;
+  border-top: 1px solid #f1f5f9;
+}
+
+:host-context(.dark) .dropdown-panel__footer {
+  border-top-color: #1e293b;
+}
+
+/* Generic action item (links + buttons) */
+.dropdown-panel__action-item {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  width: 100%;
+  padding: 0.5rem 0.625rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #334155;
+  background: transparent;
+  border: none;
+  border-radius: 0.5rem;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+  text-align: left;
+}
+
+.dropdown-panel__action-item:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+:host-context(.dark) .dropdown-panel__action-item {
+  color: #cbd5e1;
+}
+
+:host-context(.dark) .dropdown-panel__action-item:hover {
+  background: rgba(51,65,85,0.6);
+  color: #f1f5f9;
+}
+
+/* Danger variant (Sign Out) */
+.dropdown-panel__action-item--danger {
+  color: #ef4444;
+}
+
+.dropdown-panel__action-item--danger:hover {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+:host-context(.dark) .dropdown-panel__action-item--danger {
+  color: #f87171;
+}
+
+:host-context(.dark) .dropdown-panel__action-item--danger:hover {
+  background: rgba(239,68,68,0.12);
+  color: #fca5a5;
+}
+
+/* Icon wrapper next to action labels */
+.dropdown-panel__action-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 0.375rem;
+  background: #f1f5f9;
+  color: #64748b;
+  flex-shrink: 0;
+}
+
+:host-context(.dark) .dropdown-panel__action-icon {
+  background: #334155;
+  color: #94a3b8;
+}
+
+.dropdown-panel__action-icon--danger {
+  background: #fef2f2;
+  color: #ef4444;
+}
+
+:host-context(.dark) .dropdown-panel__action-icon--danger {
+  background: rgba(239,68,68,0.15);
+  color: #f87171;
+}
+
+/* Divider between menu sections */
+.dropdown-panel__divider {
+  height: 1px;
+  background: #f1f5f9;
+  margin: 0.25rem 0;
+}
+
+:host-context(.dark) .dropdown-panel__divider {
+  background: #334155;
+}
+
+/* Profile section (user dropdown) */
+.dropdown-panel__profile {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.875rem 1rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+:host-context(.dark) .dropdown-panel__profile {
+  border-bottom-color: #334155;
+}
+
+/* Chevron rotation when open */
+.rotate-180 {
+  transform: rotate(180deg);
 }
 

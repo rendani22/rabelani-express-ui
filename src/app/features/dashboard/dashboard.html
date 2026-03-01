@@ -1,76 +1,65 @@
 <app-layout>
-  <div class="w-full max-w-7xl mx-auto px-0 sm:px-0">
+  <div class="w-full max-w-7xl mx-auto px-4 sm:px-6">
 
     <!-- Dashboard actions -->
-      <app-dashboard-actions
-        title="Dashboard"
-        (filterApply)="onFilterApply($event)"
-        (addViewClick)="onAddView()">
-      </app-dashboard-actions>
+    <app-dashboard-actions
+      title="Dashboard"
+      (filterApply)="onFilterApply($event)"
+      (addViewClick)="onAddView()">
+    </app-dashboard-actions>
 
-    <!-- Cards -->
-    <div class="grid grid-cols-12 gap-4 sm:gap-6">
+    <!-- Loading state -->
+    @if (isLoading()) {
+      <div class="flex items-center justify-center py-12">
+        <div class="flex flex-col items-center gap-3">
+          <svg class="animate-spin h-8 w-8 text-violet-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <span class="text-sm text-gray-500 dark:text-gray-400">Loading dashboard...</span>
+        </div>
+      </div>
+    } @else {
+      <!-- Cards -->
+      <div class="grid grid-cols-12 gap-4 lg:gap-6">
 
-        <!-- Line chart cards (Acme Plus, Acme Advanced, Acme Professional) -->
-        <app-line-chart-card
-          *ngFor="let card of chartCards"
-          [cardId]="card.id"
-          [title]="card.title"
-          [subtitle]="card.subtitle ?? 'Sales'"
-          [value]="card.value"
-          [changePercent]="card.changePercent"
-          (optionSelect)="onCardOptionSelect(card.id, $event)"
-          (removeCard)="onCardRemove(card.id)">
-        </app-line-chart-card>
+        <!-- Package Stats Overview - Full Width -->
+        <app-package-stats-card
+          title="Package Overview"
+          [stats]="statItems">
+        </app-package-stats-card>
 
-        <!-- Bar chart (Direct vs Indirect) -->
-        <app-bar-chart-card
-          cardId="dashboard-card-04"
-          title="Direct VS Indirect">
-        </app-bar-chart-card>
+        <!-- Row 2: Trend Chart (8 cols) + Status Distribution (4 cols) -->
+        <app-packages-trend-card
+          cardId="packages-trend"
+          title="Packages This Week"
+          [chartHeight]="200"
+          [data]="weeklyTimeSeries()">
+        </app-packages-trend-card>
 
-        <!-- Real Time Value chart -->
-        <app-realtime-chart-card
-          cardId="dashboard-card-05"
-          title="Real Time Value"
-          value="57.81"
-          tooltipText="Built with"
-          tooltipLink="https://www.chartjs.org/"
-          tooltipLinkText="Chart.js">
-        </app-realtime-chart-card>
+        <app-package-status-chart
+          cardId="package-status"
+          title="Status Distribution"
+          [data]="statusDistribution()">
+        </app-package-status-chart>
 
-        <!-- Doughnut chart (Top Countries) -->
-        <app-doughnut-chart-card
-          cardId="dashboard-card-06"
-          title="Top Countries">
-        </app-doughnut-chart-card>
+        <!-- Row 3: Recent Packages (8 cols) + Delivery Performance (4 cols) -->
+        <app-recent-packages-card
+          title="Recent Packages"
+          [packages]="recentActivity()"
+          (packageClick)="onPackageClick($event)"
+          (viewAllClick)="onViewAllPackages()">
+        </app-recent-packages-card>
 
-        <!-- Table (Top Channels) -->
-        <app-top-channels-table title="Top Channels"></app-top-channels-table>
+        <app-delivery-performance-card
+          title="Delivery Performance"
+          [completedCount]="stats().completed"
+          [inProgressCount]="stats().inTransit + stats().readyForCollection"
+          [pendingCount]="stats().pending">
+        </app-delivery-performance-card>
 
-        <!-- Sales Over Time chart -->
-        <app-sales-over-time-card
-          cardId="dashboard-card-08"
-          title="Sales Over Time (all stores)"
-          value="$1,482"
-          [changePercent]="-22">
-        </app-sales-over-time-card>
-
-        <!-- Stacked bar chart (Sales VS Refunds) -->
-        <app-sales-vs-refunds-card
-          cardId="dashboard-card-09"
-          title="Sales VS Refunds"
-          value="+$6,796"
-          [changePercent]="-34">
-        </app-sales-vs-refunds-card>
-
-        <!-- Card (Recent Activity) -->
-        <app-recent-activity-card title="Recent Activity"></app-recent-activity-card>
-
-        <!-- Card (Income/Expenses) -->
-        <app-income-expenses-card title="Income/Expenses"></app-income-expenses-card>
-
-    </div>
+      </div>
+    }
   </div>
 
   <!-- Create Package Modal -->
