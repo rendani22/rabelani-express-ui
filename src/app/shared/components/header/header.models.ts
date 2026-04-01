@@ -2,22 +2,6 @@
  * Header component models and type definitions
  */
 
-/**
- * Recent search item displayed in the search modal
- */
-export interface RecentSearch {
-  readonly text: string;
-  readonly href: string;
-}
-
-/**
- * Recent page item displayed in the search modal
- */
-export interface RecentPage {
-  readonly title: string;
-  readonly subtitle: string;
-  readonly href: string;
-}
 
 /**
  * Notification item displayed in the notifications dropdown
@@ -48,13 +32,12 @@ export interface HelpLink {
 /**
  * Dropdown types for state management
  */
-export type DropdownType = 'notifications' | 'info' | 'user' | 'search';
+export type DropdownType = 'notifications' | 'info' | 'user';
 
 /**
  * State interface for header dropdowns
  */
 export interface HeaderDropdownState {
-  readonly search: boolean;
   readonly notifications: boolean;
   readonly info: boolean;
   readonly user: boolean;
@@ -64,7 +47,6 @@ export interface HeaderDropdownState {
  * Default state for header dropdowns
  */
 export const INITIAL_DROPDOWN_STATE: HeaderDropdownState = {
-  search: false,
   notifications: false,
   info: false,
   user: false,
