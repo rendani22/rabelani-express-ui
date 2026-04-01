@@ -17,7 +17,7 @@ export interface HeaderNotification {
 /**
  * Icon types available for help links
  */
-export type HelpLinkIcon = 'documentation' | 'support' | 'contact';
+export type HelpLinkIcon = 'documentation' | 'contact';
 
 /**
  * Help link item displayed in the info dropdown

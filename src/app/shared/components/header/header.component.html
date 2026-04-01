@@ -18,7 +18,6 @@
       <!-- Header: Right side -->
       <div class="flex items-center space-x-3">
 
-
         <!-- Notifications button -->
         <div class="relative inline-flex">
           <button
@@ -29,7 +28,10 @@
             [attr.aria-expanded]="notificationsOpen()">
             <span class="sr-only">Notifications</span>
             <ng-icon name="tablerBell" size="16"></ng-icon>
-            <div class="absolute top-0.5 right-0.5 w-2 h-2 bg-rose-500 rounded-full ring-2 ring-white dark:ring-slate-800"></div>
+            <div
+              *ngIf="hasNotifications()"
+              class="absolute top-0.5 right-0.5 w-2 h-2 bg-rose-500 rounded-full ring-2 ring-white dark:ring-slate-800">
+            </div>
           </button>
 
           <div
@@ -40,11 +42,14 @@
             <div class="dropdown-panel__header">
               <ng-icon name="tablerBell" size="14"></ng-icon>
               <span>Notifications</span>
-              <span class="ml-auto bg-rose-100 text-rose-600 dark:bg-rose-500/20 dark:text-rose-400 text-xs font-semibold px-1.5 py-0.5 rounded-full">{{ notifications.length }}</span>
+              <span class="ml-auto bg-rose-100 text-rose-600 dark:bg-rose-500/20 dark:text-rose-400 text-xs font-semibold px-1.5 py-0.5 rounded-full">{{ notifications().length }}</span>
             </div>
             <!-- Items -->
             <ul class="divide-y divide-slate-100 dark:divide-slate-700/60 max-h-72 overflow-y-auto">
-              <li *ngFor="let notification of notifications">
+              <li *ngIf="notifications().length === 0" class="px-4 py-6 text-center text-sm text-slate-400 dark:text-slate-500">
+                No recent activity
+              </li>
+              <li *ngFor="let notification of notifications()">
                 <a
                   class="dropdown-panel__notification"
                   [href]="notification.href"
@@ -60,7 +65,7 @@
             </ul>
             <!-- Footer -->
             <div class="dropdown-panel__footer">
-              <a href="#" class="text-xs font-medium text-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-400">View all notifications →</a>
+              <a routerLink="/orders" class="text-xs font-medium text-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-400" (click)="closeAllDropdowns()">View all orders →</a>
             </div>
           </div>
         </div>
@@ -87,15 +92,25 @@
             </div>
             <ul class="dropdown-panel__menu">
               <li *ngFor="let link of helpLinks">
+                <!-- Documentation opens modal -->
+                <button
+                  *ngIf="link.icon === 'documentation'"
+                  type="button"
+                  class="dropdown-panel__action-item w-full text-left"
+                  (click)="openDocs($event)">
+                  <span class="dropdown-panel__action-icon">
+                    <ng-icon name="tablerBook" size="15"></ng-icon>
+                  </span>
+                  <span>{{ link.text }}</span>
+                </button>
+                <!-- Contact us opens email client -->
                 <a
+                  *ngIf="link.icon === 'contact'"
                   class="dropdown-panel__action-item"
                   [href]="link.href"
                   (click)="closeAllDropdowns()">
                   <span class="dropdown-panel__action-icon">
-                    <ng-icon
-                      [name]="link.icon === 'documentation' ? 'tablerBook' : link.icon === 'support' ? 'tablerHeadset' : 'tablerSend'"
-                      size="15">
-                    </ng-icon>
+                    <ng-icon name="tablerSend" size="15"></ng-icon>
                   </span>
                   <span>{{ link.text }}</span>
                 </a>
@@ -178,4 +193,10 @@
   class="fixed inset-0 z-30"
   (click)="closeAllDropdowns()">
 </div>
+
+<!-- Documentation modal -->
+<app-docs-modal
+  [isOpen]="docsOpen()"
+  (closeModal)="closeDocs()">
+</app-docs-modal>
 
