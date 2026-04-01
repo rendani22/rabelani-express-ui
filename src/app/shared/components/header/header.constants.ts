@@ -1,28 +1,4 @@
-import { HelpLink, HeaderNotification, RecentPage, RecentSearch } from './header.models';
-
-/**
- * Default recent searches displayed in the search modal
- */
-export const DEFAULT_RECENT_SEARCHES: readonly RecentSearch[] = [
-  { text: 'Form Builder - 23 hours on-demand video', href: '#0' },
-  { text: 'Access Mosaic on mobile and TV', href: '#0' },
-  { text: 'Product Update - Q4 2024', href: '#0' },
-  { text: 'Master Digital Marketing Strategy course', href: '#0' },
-  { text: 'Dedicated forms for products', href: '#0' },
-  { text: 'Product Update - Q4 2024', href: '#0' },
-] as const;
-
-/**
- * Default recent pages displayed in the search modal
- */
-export const DEFAULT_RECENT_PAGES: readonly RecentPage[] = [
-  { title: 'Messages', subtitle: 'Conversation / … / Mike Mills', href: '#0' },
-  { title: 'Messages', subtitle: 'Conversation / … / Eva Patrick', href: '#0' },
-] as const;
-
-/**
- * Default notifications displayed in the header
- */
+import { HelpLink, HeaderNotification } from './header.models';
 export const DEFAULT_NOTIFICATIONS: readonly HeaderNotification[] = [
   {
     emoji: '📣',
@@ -47,8 +23,9 @@ export const DEFAULT_NOTIFICATIONS: readonly HeaderNotification[] = [
   },
 ] as const;
 
+
 /**
- * Default help links displayed in the info dropdown
+ * Default notifications displayed in the header
  */
 export const DEFAULT_HELP_LINKS: readonly HelpLink[] = [
   { icon: 'documentation', text: 'Documentation', href: '#0' },

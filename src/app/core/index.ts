@@ -3,6 +3,7 @@ export * from './models/auth.models';
 export * from './models/package.models';
 export * from './models/staff-profile.model';
 export * from './models/driver.models';
+export * from './models/receiver-profile.model';
 
 // Services
 export * from './services/auth.service';
@@ -11,6 +12,7 @@ export * from './services/package.service';
 export * from './services/staff.service';
 export * from './services/driver.service';
 export * from './services/settings.service';
+export * from './services/receiver.service';
 
 // Guards
 export * from './guards/auth.guard';

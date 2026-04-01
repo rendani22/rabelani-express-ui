@@ -26,18 +26,13 @@ export class HeaderService {
   /** Internal dropdown state signal */
   private readonly dropdownState = signal<HeaderDropdownState>(INITIAL_DROPDOWN_STATE);
 
-  /** Search query signal */
-  private readonly _searchQuery = signal<string>('');
-
   // Computed state accessors
-  readonly isSearchOpen = computed(() => this.dropdownState().search);
   readonly isNotificationsOpen = computed(() => this.dropdownState().notifications);
   readonly isInfoOpen = computed(() => this.dropdownState().info);
   readonly isUserDropdownOpen = computed(() => this.dropdownState().user);
   readonly isAnyDropdownOpen = computed(() =>
     Object.values(this.dropdownState()).some(Boolean)
   );
-  readonly searchQuery = computed(() => this._searchQuery());
 
   // User-related computed properties
   readonly currentUser = this.authService.currentUser;
@@ -105,29 +100,6 @@ export class HeaderService {
     this.dropdownState.set(INITIAL_DROPDOWN_STATE);
   }
 
-  /**
-   * Updates the search query
-   */
-  setSearchQuery(query: string): void {
-    this._searchQuery.set(query);
-  }
-
-  /**
-   * Clears the search query and closes search modal
-   */
-  clearSearch(): void {
-    this._searchQuery.set('');
-    this.closeDropdown('search');
-  }
-
-  /**
-   * Performs a search operation
-   */
-  performSearch(query: string): void {
-    // TODO: Implement actual search logic
-    console.log('Searching for:', query);
-    this.clearSearch();
-  }
 
   /**
    * Handles user sign out
