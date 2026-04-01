@@ -59,6 +59,8 @@ export interface PackageFilters {
   readonly status?: PackageStatus | string;
   readonly search?: string;
   readonly limit?: number;
+  readonly dateFrom?: string;
+  readonly dateTo?: string;
 }
 
 // ============================================================================

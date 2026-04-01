@@ -145,6 +145,14 @@ export class PackageService {
         );
       }
 
+      if (filters?.dateFrom) {
+        query = query.gte('created_at', filters.dateFrom);
+      }
+
+      if (filters?.dateTo) {
+        query = query.lte('created_at', filters.dateTo);
+      }
+
       if (filters?.limit) {
         query = query.limit(filters.limit);
       }

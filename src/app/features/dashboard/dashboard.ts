@@ -80,6 +80,12 @@ export class Dashboard implements OnInit {
     await this.dashboardService.loadDashboardData();
   }
 
+  onDateChange(dateRange: { start: Date; end?: Date }): void {
+    this.dashboardService.loadDashboardData(dateRange).catch(err => {
+      console.error('[Dashboard] Failed to reload data for date range:', err);
+    });
+  }
+
   onFilterApply(filters: FilterOption[]): void {
     console.log('Filters applied:', filters);
     // Reload dashboard data with filters
