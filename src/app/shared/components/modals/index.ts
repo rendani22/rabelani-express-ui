@@ -46,3 +46,6 @@ export * from './edit-user-modal/edit-user-modal.component';
 // Add Customer Modal
 export * from './add-customer-modal/add-customer-modal.component';
 
+// Documentation Modal
+export * from './docs-modal/docs-modal.component';
+
