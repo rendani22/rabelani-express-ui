@@ -1,0 +1,291 @@
+<app-layout>
+  <div class="w-full max-w-3xl mx-auto">
+
+    <!-- Page Header -->
+    <div class="mb-8">
+      <h1 class="text-2xl md:text-3xl text-gray-800 dark:text-gray-100 font-bold">Settings</h1>
+      <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage your application preferences</p>
+    </div>
+
+    <div class="space-y-6">
+
+      <!-- ── Appearance ─────────────────────────────────────── -->
+      <section class="settings-card">
+        <div class="settings-card__header">
+          <span class="settings-card__icon settings-card__icon--purple">
+            <ng-icon name="tablerSun" size="18"></ng-icon>
+          </span>
+          <div>
+            <h2 class="settings-card__title">Appearance</h2>
+            <p class="settings-card__desc">Choose your preferred color scheme</p>
+          </div>
+        </div>
+
+        <div class="settings-card__body">
+          <div class="setting-row">
+            <div class="setting-row__label">
+              <span class="setting-row__name">Theme</span>
+              <span class="setting-row__hint">Applies across all pages</span>
+            </div>
+            <div class="theme-toggle">
+              <button
+                class="theme-btn"
+                [class.theme-btn--active]="!isDarkMode()"
+                (click)="onThemeChange('light')"
+                type="button">
+                <ng-icon name="tablerSun" size="15"></ng-icon>
+                Light
+              </button>
+              <button
+                class="theme-btn"
+                [class.theme-btn--active]="isDarkMode()"
+                (click)="onThemeChange('dark')"
+                type="button">
+                <ng-icon name="tablerMoon" size="15"></ng-icon>
+                Dark
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Data & Refresh ─────────────────────────────────── -->
+      <section class="settings-card">
+        <div class="settings-card__header">
+          <span class="settings-card__icon settings-card__icon--blue">
+            <ng-icon name="tablerRefresh" size="18"></ng-icon>
+          </span>
+          <div>
+            <h2 class="settings-card__title">Data &amp; Refresh</h2>
+            <p class="settings-card__desc">Control how often live data is updated</p>
+          </div>
+        </div>
+
+        <div class="settings-card__body">
+          <!-- Auto-refresh toggle -->
+          <div class="setting-row">
+            <div class="setting-row__label">
+              <span class="setting-row__name">Auto-refresh</span>
+              <span class="setting-row__hint">Periodically reload drivers and orders</span>
+            </div>
+            <label class="toggle" [attr.aria-label]="autoRefreshEnabled ? 'Disable auto-refresh' : 'Enable auto-refresh'">
+              <input
+                type="checkbox"
+                class="sr-only"
+                [(ngModel)]="autoRefreshEnabled"
+                name="autoRefreshEnabled">
+              <span class="toggle__track" [class.toggle__track--on]="autoRefreshEnabled">
+                <span class="toggle__thumb"></span>
+              </span>
+            </label>
+          </div>
+
+          <!-- Refresh interval -->
+          @if (autoRefreshEnabled) {
+            <div class="setting-row setting-row--sub">
+              <div class="setting-row__label">
+                <span class="setting-row__name">Refresh interval</span>
+                <span class="setting-row__hint">How often to fetch new data</span>
+              </div>
+              <select
+                class="form-select"
+                [(ngModel)]="autoRefreshInterval"
+                name="autoRefreshInterval">
+                @for (opt of refreshIntervalOptions; track opt.value) {
+                  <option [value]="opt.value">{{ opt.label }}</option>
+                }
+              </select>
+            </div>
+          }
+        </div>
+      </section>
+
+      <!-- ── Orders ─────────────────────────────────────────── -->
+      <section class="settings-card">
+        <div class="settings-card__header">
+          <span class="settings-card__icon settings-card__icon--amber">
+            <ng-icon name="tablerPackage" size="18"></ng-icon>
+          </span>
+          <div>
+            <h2 class="settings-card__title">Orders</h2>
+            <p class="settings-card__desc">Default view options for the Orders page</p>
+          </div>
+        </div>
+
+        <div class="settings-card__body">
+          <div class="setting-row">
+            <div class="setting-row__label">
+              <span class="setting-row__name">Default status filter</span>
+              <span class="setting-row__hint">Pre-selected filter when opening Orders</span>
+            </div>
+            <select
+              class="form-select"
+              [(ngModel)]="defaultOrdersFilter"
+              name="defaultOrdersFilter">
+              @for (opt of orderFilterOptions; track opt.value) {
+                <option [value]="opt.value">{{ opt.label }}</option>
+              }
+            </select>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Drivers ────────────────────────────────────────── -->
+      <section class="settings-card">
+        <div class="settings-card__header">
+          <span class="settings-card__icon settings-card__icon--green">
+            <ng-icon name="tablerTruck" size="18"></ng-icon>
+          </span>
+          <div>
+            <h2 class="settings-card__title">Drivers</h2>
+            <p class="settings-card__desc">Default view options for the Drivers page</p>
+          </div>
+        </div>
+
+        <div class="settings-card__body">
+          <div class="setting-row">
+            <div class="setting-row__label">
+              <span class="setting-row__name">Default view</span>
+              <span class="setting-row__hint">Map or list layout when opening Drivers</span>
+            </div>
+            <div class="theme-toggle">
+              <button
+                class="theme-btn"
+                [class.theme-btn--active]="defaultDriversView === 'map'"
+                (click)="defaultDriversView = 'map'"
+                type="button">
+                Map
+              </button>
+              <button
+                class="theme-btn"
+                [class.theme-btn--active]="defaultDriversView === 'list'"
+                (click)="defaultDriversView = 'list'"
+                type="button">
+                List
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Display ────────────────────────────────────────── -->
+      <section class="settings-card">
+        <div class="settings-card__header">
+          <span class="settings-card__icon settings-card__icon--slate">
+            <ng-icon name="tablerAdjustments" size="18"></ng-icon>
+          </span>
+          <div>
+            <h2 class="settings-card__title">Display</h2>
+            <p class="settings-card__desc">Layout and density preferences</p>
+          </div>
+        </div>
+
+        <div class="settings-card__body">
+          <div class="setting-row">
+            <div class="setting-row__label">
+              <span class="setting-row__name">Compact mode</span>
+              <span class="setting-row__hint">Reduce padding to show more content</span>
+            </div>
+            <label class="toggle" [attr.aria-label]="compactMode ? 'Disable compact mode' : 'Enable compact mode'">
+              <input
+                type="checkbox"
+                class="sr-only"
+                [(ngModel)]="compactMode"
+                name="compactMode">
+              <span class="toggle__track" [class.toggle__track--on]="compactMode">
+                <span class="toggle__thumb"></span>
+              </span>
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Save button ─────────────────────────────────────── -->
+      <div class="flex items-center gap-3">
+        <button
+          class="btn btn--primary"
+          type="button"
+          (click)="onSaveSettings()">
+          @if (saved()) {
+            <ng-icon name="tablerCheck" size="16"></ng-icon>
+            Saved!
+          } @else {
+            <ng-icon name="tablerDeviceFloppy" size="16"></ng-icon>
+            Save Settings
+          }
+        </button>
+
+        <button
+          class="btn btn--ghost"
+          type="button"
+          (click)="onResetDefaults()">
+          <ng-icon name="tablerTrash" size="16"></ng-icon>
+          Reset to Defaults
+        </button>
+
+        @if (saved()) {
+          <span class="text-sm text-green-600 dark:text-green-400 flex items-center gap-1">
+            <ng-icon name="tablerCheck" size="14"></ng-icon>
+            Settings saved successfully
+          </span>
+        }
+      </div>
+
+      <!-- ── Account ────────────────────────────────────────── -->
+      <section class="settings-card">
+        <div class="settings-card__header">
+          <span class="settings-card__icon settings-card__icon--indigo">
+            <ng-icon name="tablerUser" size="18"></ng-icon>
+          </span>
+          <div>
+            <h2 class="settings-card__title">Account</h2>
+            <p class="settings-card__desc">Your current session details</p>
+          </div>
+        </div>
+
+        <div class="settings-card__body">
+          <div class="setting-row">
+            <div class="setting-row__label">
+              <span class="setting-row__name">Signed in as</span>
+              <span class="setting-row__hint">{{ userEmail() || 'Not signed in' }}</span>
+            </div>
+            <button
+              class="btn btn--danger-outline"
+              type="button"
+              (click)="onSignOut()">
+              <ng-icon name="tablerLogout" size="15"></ng-icon>
+              Sign Out
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── About ──────────────────────────────────────────── -->
+      <section class="settings-card">
+        <div class="settings-card__header">
+          <span class="settings-card__icon settings-card__icon--slate">
+            <ng-icon name="tablerInfoCircle" size="18"></ng-icon>
+          </span>
+          <div>
+            <h2 class="settings-card__title">About</h2>
+            <p class="settings-card__desc">Application information</p>
+          </div>
+        </div>
+
+        <div class="settings-card__body">
+          <div class="about-grid">
+            <span class="about-grid__label">Application</span>
+            <span class="about-grid__value">Rabelani Express</span>
+
+            <span class="about-grid__label">Version</span>
+            <span class="about-grid__value">1.0.0</span>
+
+            <span class="about-grid__label">Platform</span>
+            <span class="about-grid__value">Angular 21 · Supabase</span>
+          </div>
+        </div>
+      </section>
+
+    </div><!-- /space-y-6 -->
+  </div>
+</app-layout>

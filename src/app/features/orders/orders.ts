@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { LayoutComponent } from '../../shared/components/layout/layout.component';
 import { TransactionTableComponent, Transaction } from '../../shared/components/transaction/transaction-table/transaction-table.component';
 import { OrdersActionsComponent } from './orders-actions/orders-actions.component';
-import { PackageService, Package, PACKAGE_STATUS, PackageStatus } from '../../core';
+import { PackageService, Package, PACKAGE_STATUS, PackageStatus, SettingsService } from '../../core';
 import { CreatePackageModalComponent, PackageDetailsPanelComponent } from '../../shared/components/modals';
 import { QrCodeComponent } from '../../shared/components/qr-code';
 
@@ -28,6 +28,7 @@ import { QrCodeComponent } from '../../shared/components/qr-code';
 })
 export class OrdersComponent implements OnInit {
   private readonly packageService = inject(PackageService);
+  private readonly settingsService = inject(SettingsService);
 
   // Modal state
   createPackageModalOpen = false;
@@ -52,8 +53,8 @@ export class OrdersComponent implements OnInit {
     return this.packageService.packages().map(pkg => this.mapPackageToTransaction(pkg));
   });
 
-  // Status filter
-  readonly statusFilter = signal<string>('all');
+  // Status filter — initialised from user settings
+  readonly statusFilter = signal<string>(this.settingsService.defaultOrdersFilter());
 
   async ngOnInit(): Promise<void> {
     await this.loadPackages();

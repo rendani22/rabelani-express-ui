@@ -28,7 +28,7 @@ export class LayoutComponent {
     { icon: 'truck', label: 'Drivers', routerLink: '/drivers' },
     { icon: 'users', label: 'Customers', routerLink: '/customers' },
     { icon: 'users', label: 'Users', routerLink: '/user-management' },
-    { icon: 'settings', label: 'Settings', routerLink: '/settings', comingSoon: true },
+    { icon: 'settings', label: 'Settings', routerLink: '/settings' },
   ];
 
   /** Nav items with active state computed from current route */

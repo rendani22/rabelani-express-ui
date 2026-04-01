@@ -4,7 +4,7 @@ import { LayoutComponent } from '../../shared/components/layout/layout.component
 import { DriverMapComponent } from '../../shared/components/map/driver-map.component';
 import { UserCardComponent, User, UserCardAction, UserCardMenuOption } from '../../shared/components/user-card';
 import { AddDriverModalComponent } from './add-driver-modal/add-driver-modal.component';
-import { DriverService, StaffService, DriverProfile, Package, PACKAGE_STATUS } from '../../core';
+import { DriverService, StaffService, DriverProfile, Package, PACKAGE_STATUS, SettingsService } from '../../core';
 
 /**
  * DriversComponent - Main page for driver management and tracking
@@ -31,6 +31,7 @@ import { DriverService, StaffService, DriverProfile, Package, PACKAGE_STATUS } f
 export class DriversComponent implements OnInit, OnDestroy {
   private readonly driverService = inject(DriverService);
   private readonly staffService = inject(StaffService);
+  private readonly settingsService = inject(SettingsService);
 
   /** Reference to the map component */
   @ViewChild(DriverMapComponent) mapComponent?: DriverMapComponent;
@@ -44,8 +45,8 @@ export class DriversComponent implements OnInit, OnDestroy {
   /** Search query for filtering drivers */
   readonly searchQuery = signal('');
 
-  /** View mode: 'map' or 'list' */
-  readonly viewMode = signal<'map' | 'list'>('map');
+  /** View mode: 'map' or 'list' — initialised from settings */
+  readonly viewMode = signal<'map' | 'list'>(this.settingsService.defaultDriversView());
 
   /** Loading state */
   readonly loading = this.driverService.loading;
@@ -108,8 +109,12 @@ export class DriversComponent implements OnInit, OnDestroy {
 
   async ngOnInit(): Promise<void> {
     await this.loadDrivers();
-    // Refresh every 30 seconds
-    this.refreshInterval = setInterval(() => this.refreshData(), 30000);
+    if (this.settingsService.autoRefreshEnabled()) {
+      this.refreshInterval = setInterval(
+        () => this.refreshData(),
+        this.settingsService.autoRefreshIntervalMs()
+      );
+    }
   }
 
   ngOnDestroy(): void {
