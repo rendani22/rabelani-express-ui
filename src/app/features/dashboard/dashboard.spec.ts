@@ -1,20 +1,47 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
+import { signal } from '@angular/core';
+import { Router } from '@angular/router';
+import { provideRouter } from '@angular/router';
 import { vi } from 'vitest';
 
 import { Dashboard } from './dashboard';
-import { FilterOption, ChartCardData } from '../../core/models/models';
+import { FilterOption } from '../../core/models/models';
 import { Package, PACKAGE_STATUS } from '../../core';
+import { DashboardService, PackageActivity } from './services/dashboard.service';
 
 describe('Dashboard', () => {
   let component: Dashboard;
   let fixture: ComponentFixture<Dashboard>;
+  let router: Router;
+  let dashboardServiceMock: {
+    isLoading: ReturnType<typeof signal<boolean>>;
+    stats: ReturnType<typeof signal<any>>;
+    statusDistribution: ReturnType<typeof signal<any[]>>;
+    weeklyTimeSeries: ReturnType<typeof signal<any[]>>;
+    recentActivity: ReturnType<typeof signal<any[]>>;
+    loadDashboardData: ReturnType<typeof vi.fn>;
+  };
 
   beforeEach(async () => {
+    dashboardServiceMock = {
+      isLoading: signal(false),
+      stats: signal({ total: 0, pending: 0, inTransit: 0, readyForCollection: 0, completed: 0, todayCount: 0, weeklyCount: 0, monthlyCount: 0 }),
+      statusDistribution: signal([]),
+      weeklyTimeSeries: signal([]),
+      recentActivity: signal([]),
+      loadDashboardData: vi.fn().mockResolvedValue(undefined),
+    };
+
     await TestBed.configureTestingModule({
-      imports: [Dashboard]
-    })
-    .compileComponents();
+      imports: [Dashboard],
+      providers: [
+        provideRouter([]),
+        { provide: DashboardService, useValue: dashboardServiceMock },
+      ],
+    }).compileComponents();
+
+    router = TestBed.inject(Router);
 
     fixture = TestBed.createComponent(Dashboard);
     component = fixture.componentInstance;
@@ -30,36 +57,42 @@ describe('Dashboard', () => {
       expect(component.createPackageModalOpen).toBe(false);
     });
 
-    it('should have three chart cards initialized', () => {
-      expect(component.chartCards.length).toBe(3);
+    it('should expose isLoading from dashboard service', () => {
+      expect(component.isLoading).toBe(dashboardServiceMock.isLoading);
     });
 
-    it('should have correct chart card data', () => {
-      const expectedCards: ChartCardData[] = [
-        {
-          id: 'dashboard-card-01',
-          title: 'Acme Plus',
-          subtitle: 'Sales',
-          value: '$24,780',
-          changePercent: 49
-        },
-        {
-          id: 'dashboard-card-02',
-          title: 'Acme Advanced',
-          subtitle: 'Sales',
-          value: '$17,489',
-          changePercent: -14
-        },
-        {
-          id: 'dashboard-card-03',
-          title: 'Acme Professional',
-          subtitle: 'Sales',
-          value: '$9,962',
-          changePercent: 29
-        }
-      ];
+    it('should expose stats from dashboard service', () => {
+      expect(component.stats).toBe(dashboardServiceMock.stats);
+    });
+  });
 
-      expect(component.chartCards).toEqual(expectedCards);
+  describe('ngOnInit', () => {
+    it('should call loadDashboardData on init', async () => {
+      await component.ngOnInit();
+      expect(dashboardServiceMock.loadDashboardData).toHaveBeenCalled();
+    });
+  });
+
+  describe('statItems getter', () => {
+    it('should return four stat items', () => {
+      expect(component.statItems.length).toBe(4);
+    });
+
+    it('should include total, pending, inTransit, completed stat items', () => {
+      const labels = component.statItems.map(s => s.label);
+      expect(labels).toContain('Total Packages');
+      expect(labels).toContain('Pending');
+      expect(labels).toContain('In Transit');
+      expect(labels).toContain('Completed');
+    });
+
+    it('should reflect stats signal values', () => {
+      dashboardServiceMock.stats.set({ total: 10, pending: 3, inTransit: 2, readyForCollection: 1, completed: 4, todayCount: 5, weeklyCount: 8, monthlyCount: 10 });
+      const items = component.statItems;
+      expect(items.find(s => s.label === 'Total Packages')?.value).toBe(10);
+      expect(items.find(s => s.label === 'Pending')?.value).toBe(3);
+      expect(items.find(s => s.label === 'In Transit')?.value).toBe(2);
+      expect(items.find(s => s.label === 'Completed')?.value).toBe(4);
     });
   });
 
@@ -68,13 +101,18 @@ describe('Dashboard', () => {
       const consoleSpy = vi.spyOn(console, 'log');
       const filters: FilterOption[] = [
         { label: 'Option 1', checked: true },
-        { label: 'Option 2', checked: false }
+        { label: 'Option 2', checked: false },
       ];
 
       component.onFilterApply(filters);
 
       expect(consoleSpy).toHaveBeenCalledWith('Filters applied:', filters);
       consoleSpy.mockRestore();
+    });
+
+    it('should call loadDashboardData on filter apply', () => {
+      component.onFilterApply([]);
+      expect(dashboardServiceMock.loadDashboardData).toHaveBeenCalled();
     });
   });
 
@@ -97,7 +135,7 @@ describe('Dashboard', () => {
   });
 
   describe('onPackageCreated', () => {
-    it('should log the created package', () => {
+    it('should log the created package', async () => {
       const consoleSpy = vi.spyOn(console, 'log');
       const mockPackage: Package = {
         id: 'pkg-123',
@@ -106,60 +144,63 @@ describe('Dashboard', () => {
         notes: 'Test notes',
         status: PACKAGE_STATUS.PENDING,
         created_at: '2026-02-14T10:00:00Z',
-        items: []
+        items: [],
       };
 
-      component.onPackageCreated(mockPackage);
+      await component.onPackageCreated(mockPackage);
 
       expect(consoleSpy).toHaveBeenCalledWith('Package created:', mockPackage);
       consoleSpy.mockRestore();
     });
+
+    it('should reload dashboard data after package creation', async () => {
+      const mockPackage: Package = {
+        id: 'pkg-123',
+        reference: 'REF-001',
+        receiver_email: 'test@example.com',
+        notes: null,
+        status: PACKAGE_STATUS.PENDING,
+        created_at: '2026-02-14T10:00:00Z',
+      };
+
+      await component.onPackageCreated(mockPackage);
+
+      expect(dashboardServiceMock.loadDashboardData).toHaveBeenCalled();
+    });
   });
 
-  describe('Card Operations', () => {
-    it('should log card option selection when onCardOptionSelect is called', () => {
-      const consoleSpy = vi.spyOn(console, 'log');
+  describe('onPackageClick', () => {
+    it('should navigate to orders with package id', () => {
+      const navigateSpy = vi.spyOn(router, 'navigate');
+      const activity: PackageActivity = {
+        id: 'pkg-1',
+        reference: 'REF-001',
+        receiverEmail: 'test@example.com',
+        status: PACKAGE_STATUS.PENDING,
+        statusLabel: 'Pending',
+        createdAt: new Date(),
+        timeAgo: '5m ago',
+      };
 
-      component.onCardOptionSelect('dashboard-card-01', 'edit');
+      component.onPackageClick(activity);
 
-      expect(consoleSpy).toHaveBeenCalledWith('Card dashboard-card-01 option selected: edit');
-      consoleSpy.mockRestore();
+      expect(navigateSpy).toHaveBeenCalledWith(['/orders'], { queryParams: { id: 'pkg-1' } });
     });
+  });
 
-    it('should log card removal when onCardRemove is called', () => {
-      const consoleSpy = vi.spyOn(console, 'log');
-
-      component.onCardRemove('dashboard-card-01');
-
-      expect(consoleSpy).toHaveBeenCalledWith('Card dashboard-card-01 removed');
-      consoleSpy.mockRestore();
-    });
-
-    it('should remove card from chartCards array when onCardRemove is called', () => {
-      expect(component.chartCards.length).toBe(3);
-      expect(component.chartCards.find(c => c.id === 'dashboard-card-01')).toBeDefined();
-
-      component.onCardRemove('dashboard-card-01');
-
-      expect(component.chartCards.length).toBe(2);
-      expect(component.chartCards.find(c => c.id === 'dashboard-card-01')).toBeUndefined();
-    });
-
-    it('should not affect other cards when removing a specific card', () => {
-      component.onCardRemove('dashboard-card-02');
-
-      expect(component.chartCards.length).toBe(2);
-      expect(component.chartCards.find(c => c.id === 'dashboard-card-01')).toBeDefined();
-      expect(component.chartCards.find(c => c.id === 'dashboard-card-03')).toBeDefined();
-    });
-
-    it('should not throw error when removing non-existent card', () => {
-      expect(() => component.onCardRemove('non-existent-card')).not.toThrow();
-      expect(component.chartCards.length).toBe(3);
+  describe('onViewAllPackages', () => {
+    it('should navigate to orders page', () => {
+      const navigateSpy = vi.spyOn(router, 'navigate');
+      component.onViewAllPackages();
+      expect(navigateSpy).toHaveBeenCalledWith(['/orders']);
     });
   });
 
   describe('Template Rendering', () => {
+    beforeEach(() => {
+      fixture.detectChanges();
+    });
+
     it('should render the app-layout component', () => {
       const layoutElement = fixture.debugElement.query(By.css('app-layout'));
       expect(layoutElement).toBeTruthy();
@@ -170,63 +211,34 @@ describe('Dashboard', () => {
       expect(actionsElement).toBeTruthy();
     });
 
-    it('should render line chart cards for each chart card data', () => {
-      const lineChartCards = fixture.debugElement.queryAll(By.css('app-line-chart-card'));
-      expect(lineChartCards.length).toBe(3);
+    it('should render the package stats card', () => {
+      const statsCard = fixture.debugElement.query(By.css('app-package-stats-card'));
+      expect(statsCard).toBeTruthy();
     });
 
-    it('should render bar chart card', () => {
-      const barChartCard = fixture.debugElement.query(By.css('app-bar-chart-card'));
-      expect(barChartCard).toBeTruthy();
+    it('should render the packages trend card', () => {
+      const trendCard = fixture.debugElement.query(By.css('app-packages-trend-card'));
+      expect(trendCard).toBeTruthy();
     });
 
-    it('should render realtime chart card', () => {
-      const realtimeCard = fixture.debugElement.query(By.css('app-realtime-chart-card'));
-      expect(realtimeCard).toBeTruthy();
+    it('should render the package status chart', () => {
+      const statusChart = fixture.debugElement.query(By.css('app-package-status-chart'));
+      expect(statusChart).toBeTruthy();
     });
 
-    it('should render doughnut chart card', () => {
-      const doughnutCard = fixture.debugElement.query(By.css('app-doughnut-chart-card'));
-      expect(doughnutCard).toBeTruthy();
+    it('should render the recent packages card', () => {
+      const recentCard = fixture.debugElement.query(By.css('app-recent-packages-card'));
+      expect(recentCard).toBeTruthy();
     });
 
-    it('should render top channels table', () => {
-      const channelsTable = fixture.debugElement.query(By.css('app-top-channels-table'));
-      expect(channelsTable).toBeTruthy();
-    });
-
-    it('should render sales over time card', () => {
-      const salesCard = fixture.debugElement.query(By.css('app-sales-over-time-card'));
-      expect(salesCard).toBeTruthy();
-    });
-
-    it('should render sales vs refunds card', () => {
-      const salesVsRefundsCard = fixture.debugElement.query(By.css('app-sales-vs-refunds-card'));
-      expect(salesVsRefundsCard).toBeTruthy();
-    });
-
-    it('should render recent activity card', () => {
-      const recentActivityCard = fixture.debugElement.query(By.css('app-recent-activity-card'));
-      expect(recentActivityCard).toBeTruthy();
-    });
-
-    it('should render income expenses card', () => {
-      const incomeExpensesCard = fixture.debugElement.query(By.css('app-income-expenses-card'));
-      expect(incomeExpensesCard).toBeTruthy();
+    it('should render the delivery performance card', () => {
+      const perfCard = fixture.debugElement.query(By.css('app-delivery-performance-card'));
+      expect(perfCard).toBeTruthy();
     });
 
     it('should render create package modal', () => {
       const createPackageModal = fixture.debugElement.query(By.css('app-create-package-modal'));
       expect(createPackageModal).toBeTruthy();
-    });
-
-    it('should update line chart cards count when a card is removed', async () => {
-      component.onCardRemove('dashboard-card-01');
-      fixture.detectChanges();
-      await fixture.whenStable();
-
-      const lineChartCards = fixture.debugElement.queryAll(By.css('app-line-chart-card'));
-      expect(lineChartCards.length).toBe(2);
     });
   });
 });
