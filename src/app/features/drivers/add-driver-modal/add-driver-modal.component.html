@@ -1,0 +1,248 @@
+@if (isOpen()) {
+  <!-- Modal Backdrop -->
+  <div
+    class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 transition-opacity"
+    (click)="handleClose()"
+  ></div>
+
+  <!-- Modal Content -->
+  <div class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+    <div
+      class="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
+      (click)="$event.stopPropagation()"
+    >
+      <!-- Header -->
+      <div class="flex items-center justify-between p-5 border-b border-gray-200 dark:border-gray-700">
+        <div class="flex items-center gap-3">
+          <div class="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+            <ng-icon name="tablerTruck" class="text-blue-600 dark:text-blue-400 text-xl"></ng-icon>
+          </div>
+          <div>
+            <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100">Add New Driver</h2>
+            <p class="text-sm text-gray-500 dark:text-gray-400">Create a driver account</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          class="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+          (click)="handleClose()"
+          [disabled]="isLoading()"
+        >
+          <ng-icon name="tablerX" class="text-xl"></ng-icon>
+        </button>
+      </div>
+
+      <!-- Success State -->
+      @if (isSuccess()) {
+        <div class="p-8 text-center">
+          <div class="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg class="w-8 h-8 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+            </svg>
+          </div>
+          <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-2">Driver Created!</h3>
+          <p class="text-gray-500 dark:text-gray-400">The new driver account has been created successfully.</p>
+        </div>
+      } @else {
+        <!-- Form -->
+        <form [formGroup]="form" (ngSubmit)="onSubmit()" class="p-5 space-y-5">
+          <!-- Error Message -->
+          @if (errorMessage()) {
+            <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+              <div class="flex items-center gap-2">
+                <svg class="w-5 h-5 text-red-500 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                </svg>
+                <p class="text-sm text-red-700 dark:text-red-400">{{ errorMessage() }}</p>
+              </div>
+            </div>
+          }
+
+          <!-- Personal Information Section -->
+          <div>
+            <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Personal Information</h3>
+            <div class="space-y-4">
+              <!-- Full Name -->
+              <div>
+                <label for="full_name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Full Name <span class="text-red-500">*</span>
+                </label>
+                <div class="relative">
+                  <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                    <ng-icon name="tablerUser" class="text-lg"></ng-icon>
+                  </span>
+                  <input
+                    type="text"
+                    id="full_name"
+                    formControlName="full_name"
+                    class="form-input pl-10"
+                    [class.border-red-500]="hasError('full_name')"
+                    placeholder="John Doe"
+                  />
+                </div>
+                @if (hasError('full_name')) {
+                  <p class="mt-1 text-sm text-red-500">{{ getErrorMessage('full_name') }}</p>
+                }
+              </div>
+
+              <!-- Email -->
+              <div>
+                <label for="email" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Email <span class="text-red-500">*</span>
+                </label>
+                <div class="relative">
+                  <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                    <ng-icon name="tablerMail" class="text-lg"></ng-icon>
+                  </span>
+                  <input
+                    type="email"
+                    id="email"
+                    formControlName="email"
+                    class="form-input pl-10"
+                    [class.border-red-500]="hasError('email')"
+                    placeholder="driver@example.com"
+                  />
+                </div>
+                @if (hasError('email')) {
+                  <p class="mt-1 text-sm text-red-500">{{ getErrorMessage('email') }}</p>
+                }
+              </div>
+
+              <!-- Password -->
+              <div>
+                <label for="password" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Password <span class="text-red-500">*</span>
+                </label>
+                <div class="relative">
+                  <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                    <ng-icon name="tablerLock" class="text-lg"></ng-icon>
+                  </span>
+                  <input
+                    type="password"
+                    id="password"
+                    formControlName="password"
+                    class="form-input pl-10"
+                    [class.border-red-500]="hasError('password')"
+                    placeholder="••••••••"
+                  />
+                </div>
+                @if (hasError('password')) {
+                  <p class="mt-1 text-sm text-red-500">{{ getErrorMessage('password') }}</p>
+                }
+              </div>
+
+              <!-- Phone -->
+              <div>
+                <label for="phone" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Phone Number
+                </label>
+                <div class="relative">
+                  <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                    <ng-icon name="tablerPhone" class="text-lg"></ng-icon>
+                  </span>
+                  <input
+                    type="tel"
+                    id="phone"
+                    formControlName="phone"
+                    class="form-input pl-10"
+                    placeholder="+27 12 345 6789"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Vehicle Information Section -->
+          <div>
+            <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Vehicle Information</h3>
+            <div class="space-y-4">
+              <!-- Vehicle Type -->
+              <div>
+                <label for="vehicle_type" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Vehicle Type
+                </label>
+                <div class="relative">
+                  <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                    <ng-icon name="tablerTruck" class="text-lg"></ng-icon>
+                  </span>
+                  <select
+                    id="vehicle_type"
+                    formControlName="vehicle_type"
+                    class="form-input pl-10 appearance-none"
+                  >
+                    @for (type of vehicleTypes; track type.value) {
+                      <option [value]="type.value">{{ type.label }}</option>
+                    }
+                  </select>
+                </div>
+              </div>
+
+              <!-- Vehicle Registration -->
+              <div>
+                <label for="vehicle_registration" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Vehicle Registration
+                </label>
+                <input
+                  type="text"
+                  id="vehicle_registration"
+                  formControlName="vehicle_registration"
+                  class="form-input"
+                  placeholder="ABC 123 GP"
+                />
+              </div>
+
+              <!-- License Number -->
+              <div>
+                <label for="license_number" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Driver's License Number
+                </label>
+                <div class="relative">
+                  <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                    <ng-icon name="tablerId" class="text-lg"></ng-icon>
+                  </span>
+                  <input
+                    type="text"
+                    id="license_number"
+                    formControlName="license_number"
+                    class="form-input pl-10"
+                    placeholder="License number"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="flex items-center justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <button
+              type="button"
+              class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+              (click)="handleClose()"
+              [disabled]="isLoading()"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-violet-500 rounded-lg hover:bg-violet-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              [disabled]="isLoading() || form.invalid"
+            >
+              @if (isLoading()) {
+                <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span>Creating...</span>
+              } @else {
+                <ng-icon name="tablerUserPlus" class="text-lg"></ng-icon>
+                <span>Create Driver</span>
+              }
+            </button>
+          </div>
+        </form>
+      }
+    </div>
+  </div>
+}
+
+

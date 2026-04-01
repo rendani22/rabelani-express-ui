@@ -36,9 +36,11 @@
     "@ng-icons/tabler-icons": "^33.1.0",
     "@supabase/supabase-js": "^2.95.3",
     "@tabler/icons": "^3.36.1",
+    "@types/leaflet": "^1.9.21",
     "angularx-qrcode": "^21.0.4",
     "chart.js": "^4.5.1",
     "flatpickr": "^4.6.13",
+    "leaflet": "^1.9.4",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0"
   },

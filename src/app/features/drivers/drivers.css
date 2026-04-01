@@ -1,0 +1,46 @@
+/* Driver page styles */
+
+/* Form input styles */
+.form-input {
+  @apply w-full pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent;
+  padding-left: 0.75rem;
+}
+
+/* Inputs with icons need more left padding */
+.form-input.pl-9 {
+  padding-left: 2.25rem !important;
+}
+
+/* Button styles */
+.btn {
+  @apply inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-violet-500;
+}
+
+/* Custom Leaflet marker styles */
+:global(.custom-driver-marker) {
+  background: transparent !important;
+  border: none !important;
+}
+
+/* Map container adjustments */
+:host ::ng-deep .leaflet-container {
+  font-family: inherit;
+  background: #f3f4f6;
+  width: 100%;
+  height: 100%;
+  min-height: 400px;
+}
+
+:host ::ng-deep .leaflet-tile-pane {
+  z-index: 1;
+}
+
+:host ::ng-deep .leaflet-popup-content-wrapper {
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+}
+
+:host ::ng-deep .leaflet-popup-content {
+  margin: 0;
+}
+

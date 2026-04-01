@@ -35,6 +35,7 @@
             [label]="item.label"
             [active]="item.active || false"
             [routerLink]="item.routerLink || null"
+            [comingSoon]="item.comingSoon || false"
             (itemClick)="onNavItemClick(item)"
           ></app-nav-item>
         </li>

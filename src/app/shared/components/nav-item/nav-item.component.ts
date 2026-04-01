@@ -74,6 +74,9 @@ export class NavItemComponent {
   /** Optional router link for navigation */
   @Input() routerLink: string | null = null;
 
+  /** Whether the navigation item is coming soon (disabled with badge) */
+  @Input() comingSoon = false;
+
   /** Emits when the navigation item is clicked */
   @Output() readonly itemClick = new EventEmitter<void>();
 

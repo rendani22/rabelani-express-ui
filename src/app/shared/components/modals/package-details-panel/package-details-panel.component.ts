@@ -390,72 +390,181 @@ export class PackageDetailsPanelComponent {
 
   /**
    * Prints QR code for a specific item
+   * Optimized for AIMO D520 Thermal Label Printer with 2.25" x 4" labels (57mm x 102mm)
    */
   printItemQrCode(item: PackageItem): void {
     const pkg = this.package;
     if (!pkg) return;
 
-    const printWindow = window.open('', '_blank', 'width=400,height=500');
+    const printWindow = window.open('', '_blank', 'width=280,height=450');
     if (!printWindow) return;
 
     const qrData = this.getItemQrData(item);
-    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrData)}`;
+    // QR code at 170px for good scanning on 57mm wide label
+    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=170x170&data=${encodeURIComponent(qrData)}`;
+
+    // Truncate item ID for display (show first 8 and last 4 chars)
+    const shortId = item.id.length > 14 ? `${item.id.slice(0, 8)}...${item.id.slice(-4)}` : item.id;
 
     printWindow.document.write(`
       <!DOCTYPE html>
-      <html>
+      <html lang="en">
       <head>
         <title>Print QR Code - ${item.description}</title>
         <style>
-          body {
-            font-family: system-ui, -apple-system, sans-serif;
-            padding: 20px;
-            text-align: center;
-          }
-          .qr-container {
-            border: 2px dashed #ccc;
-            padding: 20px;
-            margin: 20px auto;
-            max-width: 300px;
-          }
-          .qr-code {
-            margin: 10px 0;
-          }
-          .item-details {
-            margin-top: 15px;
-            text-align: left;
-            font-size: 12px;
-          }
-          .item-details p {
-            margin: 5px 0;
-          }
-          .item-title {
-            font-size: 16px;
-            font-weight: bold;
-            margin-bottom: 10px;
-          }
-          .item-id {
-            font-size: 10px;
-            color: #666;
-            font-family: monospace;
+          /*
+           * AIMO D520 Thermal Label Printer
+           * Label: 2.25" x 4" (57mm x 102mm)
+           */
+          @page {
+            size: 2.25in 4in;
+            margin: 0 !important;
+            padding: 0 !important;
           }
           @media print {
-            button { display: none; }
+            html, body {
+              width: 2.25in !important;
+              height: 4in !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              overflow: hidden !important;
+            }
+            .print-btn, .print-instructions {
+              display: none !important;
+            }
+            .label {
+              position: absolute !important;
+              top: 0 !important;
+              left: 0 !important;
+              width: 2.25in !important;
+              height: 4in !important;
+              margin: 0 !important;
+              padding: 0.1in !important;
+              border: none !important;
+              box-shadow: none !important;
+            }
+          }
+          * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+          }
+          html, body {
+            width: 2.25in;
+            height: 4in;
+            margin: 0;
+            padding: 0;
+            font-family: Arial, Helvetica, sans-serif;
+            background: white;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+          .label {
+            width: 2.25in;
+            height: 4in;
+            padding: 0.1in;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            background: white;
+          }
+          .package-ref {
+            font-weight: bold;
+            font-size: 11pt;
+            text-align: center;
+            width: 100%;
+            padding-bottom: 0.05in;
+            margin-bottom: 0.05in;
+            border-bottom: 1px solid #000;
+          }
+          .item-title {
+            font-size: 9pt;
+            font-weight: bold;
+            text-align: center;
+            line-height: 1.2;
+            margin-bottom: 0.08in;
+            max-height: 0.5in;
+            overflow: hidden;
+            width: 100%;
+          }
+          .qr-code {
+            width: 1.7in;
+            height: 1.7in;
+            margin: 0.05in 0;
+          }
+          .item-id {
+            font-family: 'Courier New', monospace;
+            font-size: 7pt;
+            color: #333;
+            text-align: center;
+            margin-top: 0.05in;
+          }
+          .qty-badge {
+            display: inline-block;
+            background: #000;
+            color: #fff;
+            padding: 0.08in 0.2in;
+            font-size: 14pt;
+            font-weight: bold;
+            margin-top: 0.1in;
+          }
+          .print-btn {
+            position: fixed;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 8px 16px;
+            font-size: 14px;
+            cursor: pointer;
+            z-index: 1000;
+          }
+          .print-instructions {
+            position: fixed;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #fffbe6;
+            border: 1px solid #faad14;
+            padding: 10px 15px;
+            border-radius: 4px;
+            font-size: 12px;
+            max-width: 300px;
+            z-index: 1000;
+          }
+          @media screen {
+            body {
+              display: flex;
+              flex-direction: column;
+              justify-content: center;
+              align-items: center;
+              min-height: 100vh;
+              background: #f0f0f0;
+              padding: 60px 20px;
+            }
+            .label {
+              border: 1px dashed #999;
+              box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            }
           }
         </style>
       </head>
       <body>
-        <div class="qr-container">
-          <div class="item-title">${item.quantity}x ${item.description}</div>
-          <img class="qr-code" src="${qrCodeUrl}" alt="QR Code for ${item.description}" />
-          <div class="item-details">
-            <p><strong>Item ID:</strong> <span class="item-id">${item.id}</span></p>
-            <p><strong>Package:</strong> ${pkg.reference}</p>
-            <p><strong>Description:</strong> ${item.description}</p>
-            <p><strong>Quantity:</strong> ${item.quantity}</p>
-          </div>
+        <div class="print-instructions">
+          <strong>Printer Settings:</strong><br>
+          1. Select AIMO D520 printer<br>
+          2. Paper size: <strong>2.25 x 4 in</strong><br>
+          3. Scale: <strong>100%</strong> (not "Fit to page")<br>
+          4. Margins: <strong>None</strong>
         </div>
-        <button onclick="window.print(); return false;">Print QR Code</button>
+        <div class="label">
+          <div class="package-ref">${pkg.reference}</div>
+          <div class="item-title">${item.description}</div>
+          <img class="qr-code" src="${qrCodeUrl}" alt="QR Code" />
+          <div class="item-id">${shortId}</div>
+          <div class="qty-badge">QTY: ${item.quantity}</div>
+        </div>
+        <button class="print-btn" onclick="window.print(); return false;">Print Label</button>
       </body>
       </html>
     `);
@@ -465,6 +574,7 @@ export class PackageDetailsPanelComponent {
 
   /**
    * Prints QR codes for all items in the package
+   * Optimized for AIMO D520 Thermal Label Printer with 2.25" x 4" labels (57mm x 102mm)
    */
   printAllItemQrCodes(): void {
     const pkg = this.package;
@@ -473,102 +583,215 @@ export class PackageDetailsPanelComponent {
     const printWindow = window.open('', '_blank', 'width=800,height=600');
     if (!printWindow) return;
 
+    // Generate HTML for all items - each item on its own label page
     const itemsHtml = pkg.items.map((item) => {
       const qrData = this.getItemQrData(item);
-      const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrData)}`;
+      const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=170x170&data=${encodeURIComponent(qrData)}`;
+      const shortId = item.id.length > 14 ? `${item.id.slice(0, 8)}...${item.id.slice(-4)}` : item.id;
 
       return `
-        <div class="qr-item">
-          <div class="item-title">${item.quantity}x ${item.description}</div>
-          <img class="qr-code" src="${qrCodeUrl}" alt="QR Code for ${item.description}" />
-          <div class="item-details">
-            <p><strong>ID:</strong> <span class="item-id">${item.id}</span></p>
-            <p><strong>Qty:</strong> ${item.quantity}</p>
-          </div>
+        <div class="label">
+          <div class="package-ref">${pkg.reference}</div>
+          <div class="item-title">${item.description}</div>
+          <img class="qr-code" src="${qrCodeUrl}" alt="QR Code" />
+          <div class="item-id">${shortId}</div>
+          <div class="qty-badge">QTY: ${item.quantity}</div>
         </div>
       `;
     }).join('');
 
     printWindow.document.write(`
       <!DOCTYPE html>
-      <html>
+      <html lang="en">
       <head>
         <title>Print All QR Codes - ${pkg.reference}</title>
         <style>
+          /*
+           * AIMO D520 Thermal Label Printer
+           * Label: 2.25" x 4" (57mm x 102mm)
+           */
+          @page {
+            size: 2.25in 4in;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+          @media print {
+            html, body {
+              width: 2.25in !important;
+              margin: 0 !important;
+              padding: 0 !important;
+            }
+            .screen-header, .print-btn, .print-instructions {
+              display: none !important;
+            }
+            .labels-container {
+              display: block !important;
+              padding: 0 !important;
+              margin: 0 !important;
+            }
+            .label {
+              position: relative !important;
+              width: 2.25in !important;
+              height: 4in !important;
+              margin: 0 !important;
+              padding: 0.1in !important;
+              border: none !important;
+              box-shadow: none !important;
+              page-break-after: always;
+              page-break-inside: avoid;
+            }
+            .label:last-child {
+              page-break-after: auto;
+            }
+          }
+          * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+          }
           body {
-            font-family: system-ui, -apple-system, sans-serif;
-            padding: 20px;
+            font-family: Arial, Helvetica, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: white;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
           }
-          .header {
+          .label {
+            width: 2.25in;
+            height: 4in;
+            padding: 0.1in;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            background: white;
+          }
+          .package-ref {
+            font-weight: bold;
+            font-size: 11pt;
             text-align: center;
-            margin-bottom: 20px;
-            padding-bottom: 10px;
-            border-bottom: 2px solid #333;
+            width: 100%;
+            padding-bottom: 0.05in;
+            margin-bottom: 0.05in;
+            border-bottom: 1px solid #000;
           }
-          .header h1 {
+          .item-title {
+            font-size: 9pt;
+            font-weight: bold;
+            text-align: center;
+            line-height: 1.2;
+            margin-bottom: 0.08in;
+            max-height: 0.5in;
+            overflow: hidden;
+            width: 100%;
+          }
+          .qr-code {
+            width: 1.7in;
+            height: 1.7in;
+            margin: 0.05in 0;
+          }
+          .item-id {
+            font-family: 'Courier New', monospace;
+            font-size: 7pt;
+            color: #333;
+            text-align: center;
+            margin-top: 0.05in;
+          }
+          .qty-badge {
+            display: inline-block;
+            background: #000;
+            color: #fff;
+            padding: 0.08in 0.2in;
+            font-size: 14pt;
+            font-weight: bold;
+            margin-top: 0.1in;
+          }
+          .screen-header {
+            text-align: center;
+            padding: 20px;
+            border-bottom: 2px solid #333;
+            margin-bottom: 20px;
+            background: #f5f5f5;
+          }
+          .screen-header h1 {
             margin: 0 0 10px 0;
             font-size: 20px;
           }
-          .header p {
+          .screen-header p {
             margin: 5px 0;
             font-size: 12px;
             color: #666;
           }
-          .qr-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 20px;
-          }
-          .qr-item {
-            border: 2px dashed #ccc;
+          .print-instructions {
+            background: #fffbe6;
+            border: 1px solid #faad14;
             padding: 15px;
-            text-align: center;
-            page-break-inside: avoid;
+            border-radius: 4px;
+            margin: 10px auto;
+            max-width: 400px;
+            font-size: 13px;
           }
-          .qr-code {
-            margin: 10px 0;
+          .print-instructions strong {
+            display: block;
+            margin-bottom: 8px;
           }
-          .item-details {
-            margin-top: 10px;
-            font-size: 11px;
-            text-align: left;
+          .print-instructions ol {
+            margin-left: 20px;
           }
-          .item-details p {
-            margin: 3px 0;
+          .print-instructions li {
+            margin: 5px 0;
           }
-          .item-title {
-            font-size: 14px;
-            font-weight: bold;
-            margin-bottom: 5px;
-          }
-          .item-id {
-            font-size: 9px;
-            color: #666;
-            font-family: monospace;
+          .labels-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+            padding: 20px;
           }
           .print-btn {
             display: block;
             margin: 20px auto;
-            padding: 10px 20px;
-            font-size: 14px;
+            padding: 12px 24px;
+            font-size: 16px;
             cursor: pointer;
+            background: #1890ff;
+            color: white;
+            border: none;
+            border-radius: 4px;
           }
-          @media print {
-            .print-btn { display: none; }
-            .qr-item { border: 1px dashed #999; }
+          .print-btn:hover {
+            background: #40a9ff;
+          }
+          @media screen {
+            .label {
+              border: 1px dashed #999;
+              margin: 10px;
+              box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            }
           }
         </style>
       </head>
       <body>
-        <div class="header">
-          <h1>Package QR Codes</h1>
+        <div class="screen-header">
+          <h1>Package QR Code Labels</h1>
           <p><strong>Reference:</strong> ${pkg.reference}</p>
-          <p><strong>Items:</strong> ${pkg.items.length}</p>
+          <p><strong>Total Labels:</strong> ${pkg.items.length}</p>
+
+          <div class="print-instructions">
+            <strong>⚠️ Printer Settings:</strong>
+            <ol>
+              <li>Select <strong>AIMO D520</strong> as printer</li>
+              <li>Set Paper Size to <strong>2.25 x 4 in</strong></li>
+              <li>Set Scale to <strong>100%</strong> (not "Fit to page")</li>
+              <li>Set Margins to <strong>None</strong></li>
+            </ol>
+          </div>
         </div>
-        <div class="qr-grid">
+        <div class="labels-container">
           ${itemsHtml}
         </div>
-        <button class="print-btn" onclick="window.print(); return false;">Print All QR Codes</button>
+        <button class="print-btn" onclick="window.print(); return false;">🖨️ Print All Labels</button>
       </body>
       </html>
     `);

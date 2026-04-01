@@ -22,6 +22,11 @@ export const routes: Routes = [
     canActivate: [authGuard],
   },
   {
+    path: 'drivers',
+    loadComponent: () => import('./features/drivers/drivers').then(m => m.DriversComponent),
+    canActivate: [authGuard],
+  },
+  {
     path: 'user-management',
     loadComponent: () => import('./features/user-management/user-management').then(m => m.UserManagementComponent),
     canActivate: [authGuard],

@@ -1,27 +1,42 @@
-<ng-container *ngIf="routerLink; else buttonTemplate">
-  <a
-    [routerLink]="routerLink"
-    class="nav-item"
+<ng-container *ngIf="comingSoon; else normalTemplate">
+  <div
+    class="nav-item nav-item--coming-soon"
     [class.nav-item--active]="active"
-    (click)="onItemClick()"
   >
     <span class="nav-item__icon">
       <ng-icon [name]="tablerIcon" size="20"></ng-icon>
     </span>
     <span class="nav-item__label">{{ label }}</span>
-  </a>
+    <span class="nav-item__badge">Coming Soon</span>
+  </div>
 </ng-container>
 
-<ng-template #buttonTemplate>
-  <button
-    type="button"
-    class="nav-item"
-    [class.nav-item--active]="active"
-    (click)="onItemClick()"
-  >
-    <span class="nav-item__icon">
-      <ng-icon [name]="tablerIcon" size="20"></ng-icon>
-    </span>
-    <span class="nav-item__label">{{ label }}</span>
-  </button>
+<ng-template #normalTemplate>
+  <ng-container *ngIf="routerLink; else buttonTemplate">
+    <a
+      [routerLink]="routerLink"
+      class="nav-item"
+      [class.nav-item--active]="active"
+      (click)="onItemClick()"
+    >
+      <span class="nav-item__icon">
+        <ng-icon [name]="tablerIcon" size="20"></ng-icon>
+      </span>
+      <span class="nav-item__label">{{ label }}</span>
+    </a>
+  </ng-container>
+
+  <ng-template #buttonTemplate>
+    <button
+      type="button"
+      class="nav-item"
+      [class.nav-item--active]="active"
+      (click)="onItemClick()"
+    >
+      <span class="nav-item__icon">
+        <ng-icon [name]="tablerIcon" size="20"></ng-icon>
+      </span>
+      <span class="nav-item__label">{{ label }}</span>
+    </button>
+  </ng-template>
 </ng-template>

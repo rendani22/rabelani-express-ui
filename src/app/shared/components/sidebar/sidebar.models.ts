@@ -16,5 +16,8 @@ export interface NavItem {
 
   /** Optional click handler for the navigation item */
   onClick?: () => void;
+
+  /** Whether the navigation item is coming soon (disabled with badge) */
+  comingSoon?: boolean;
 }
 
