@@ -181,16 +181,23 @@ export class DashboardService {
   /**
    * Load all dashboard data
    */
-  async loadDashboardData(): Promise<void> {
+  async loadDashboardData(dateRange?: { start: Date; end?: Date }): Promise<void> {
     this._isLoading.set(true);
+
+    const dateFrom = dateRange?.start?.toISOString();
+    const dateTo = dateRange?.end
+      ? this.toEndOfDay(dateRange.end)
+      : dateRange?.start
+        ? this.toEndOfDay(dateRange.start)
+        : undefined;
 
     try {
       // Load all packages and supplementary data in parallel
       const [packagesResult] = await Promise.all([
-        this.packageService.loadPackages(),
+        this.packageService.loadPackages({ dateFrom, dateTo }),
         this.loadDriverStats(),
-        this.loadPodStats(),
-        this.loadLocationDistribution(),
+        this.loadPodStats(dateFrom, dateTo),
+        this.loadLocationDistribution(dateFrom, dateTo),
       ]);
 
       const packages = this.packageService.packages();
@@ -246,15 +253,24 @@ export class DashboardService {
     }
   }
 
-  private async loadPodStats(): Promise<void> {
+  private async loadPodStats(dateFrom?: string, dateTo?: string): Promise<void> {
     try {
       const now = new Date();
       const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
       const weekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-      const { data, error } = await this.supabaseService.client
+      let query = this.supabaseService.client
         .from('pods')
         .select('id, pdf_url, is_locked, completed_at');
+
+      if (dateFrom) {
+        query = query.gte('completed_at', dateFrom);
+      }
+      if (dateTo) {
+        query = query.lte('completed_at', dateTo);
+      }
+
+      const { data, error } = await query;
 
       if (error || !data) return;
 
@@ -272,7 +288,7 @@ export class DashboardService {
     }
   }
 
-  private async loadLocationDistribution(): Promise<void> {
+  private async loadLocationDistribution(dateFrom?: string, dateTo?: string): Promise<void> {
     try {
       // Load active delivery locations
       const { data: locations } = await this.supabaseService.client
@@ -281,10 +297,19 @@ export class DashboardService {
         .eq('is_active', true)
         .order('name');
 
-      // Load packages with their delivery_location_id
-      const { data: packages } = await this.supabaseService.client
+      // Load packages with their delivery_location_id, optionally filtered by date
+      let pkgQuery = this.supabaseService.client
         .from('packages')
         .select('delivery_location_id');
+
+      if (dateFrom) {
+        pkgQuery = pkgQuery.gte('created_at', dateFrom);
+      }
+      if (dateTo) {
+        pkgQuery = pkgQuery.lte('created_at', dateTo);
+      }
+
+      const { data: packages } = await pkgQuery;
 
       if (!packages) return;
 
@@ -546,6 +571,10 @@ export class DashboardService {
     if (diffDays === 1) return 'Yesterday';
     if (diffDays < 7) return `${diffDays}d ago`;
     return date.toLocaleDateString();
+  }
+
+  private toEndOfDay(date: Date): string {
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999).toISOString();
   }
 }
 
