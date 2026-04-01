@@ -211,6 +211,20 @@ export class HeaderService {
     this.dropdownState.set(INITIAL_DROPDOWN_STATE);
   }
 
+  /**
+   * Removes a single notification from the list by index
+   */
+  dismissNotification(index: number): void {
+    this._notifications.update(list => list.filter((_, i) => i !== index));
+  }
+
+  /**
+   * Clears all notifications from the list
+   */
+  clearAllNotifications(): void {
+    this._notifications.set([]);
+  }
+
 
   /**
    * Handles user sign out
