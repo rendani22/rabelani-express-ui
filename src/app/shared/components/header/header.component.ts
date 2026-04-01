@@ -1,6 +1,6 @@
 import { Component, EventEmitter, Input, OnInit, Output, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router, RouterLink } from '@angular/router';
+import { Router } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   tablerMenu2,
@@ -17,14 +17,14 @@ import {
 } from '@ng-icons/tabler-icons';
 import { ThemeService } from '../../../core';
 import { HeaderService } from './header.service';
-import { HelpLink } from './header.models';
+import { HelpLink, HeaderNotification } from './header.models';
 import { DEFAULT_HELP_LINKS } from './header.constants';
 import { DocsModalComponent } from '../modals/docs-modal/docs-modal.component';
 
 @Component({
   selector: 'app-header',
   standalone: true,
-  imports: [CommonModule, NgIcon, RouterLink, DocsModalComponent],
+  imports: [CommonModule, NgIcon, DocsModalComponent],
   viewProviders: [
     provideIcons({
       tablerMenu2, tablerBell, tablerInfoCircle,
@@ -92,6 +92,20 @@ export class HeaderComponent implements OnInit {
     event.stopPropagation();
     this.headerService.closeAllDropdowns();
     this.router.navigate(['/settings']);
+  }
+
+  onNotificationClick(event: Event, notification: HeaderNotification, index: number): void {
+    event.preventDefault();
+    this.headerService.dismissNotification(index);
+    this.headerService.closeAllDropdowns();
+    void this.router.navigateByUrl(notification.href);
+  }
+
+  onViewAllOrders(event: Event): void {
+    event.preventDefault();
+    this.headerService.clearAllNotifications();
+    this.headerService.closeAllDropdowns();
+    void this.router.navigate(['/orders']);
   }
 
   async onSignOut(event: Event): Promise<void> {

@@ -49,11 +49,11 @@
               <li *ngIf="notifications().length === 0" class="px-4 py-6 text-center text-sm text-slate-400 dark:text-slate-500">
                 No recent activity
               </li>
-              <li *ngFor="let notification of notifications()">
+              <li *ngFor="let notification of notifications(); let i = index">
                 <a
                   class="dropdown-panel__notification"
                   [href]="notification.href"
-                  (click)="closeAllDropdowns()">
+                  (click)="onNotificationClick($event, notification, i)">
                   <span class="dropdown-panel__notification-emoji">{{ notification.emoji }}</span>
                   <span class="min-w-0">
                     <span class="block text-sm font-medium text-slate-800 dark:text-slate-100 truncate">{{ notification.title }}</span>
@@ -65,7 +65,7 @@
             </ul>
             <!-- Footer -->
             <div class="dropdown-panel__footer">
-              <a routerLink="/orders" class="text-xs font-medium text-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-400" (click)="closeAllDropdowns()">View all orders →</a>
+              <a href="/orders" class="text-xs font-medium text-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-400" (click)="onViewAllOrders($event)">View all orders →</a>
             </div>
           </div>
         </div>
@@ -190,7 +190,7 @@
 <!-- Click outside handler for dropdowns -->
 <div
   *ngIf="notificationsOpen() || infoOpen()"
-  class="fixed inset-0 z-30"
+  class="fixed inset-0 z-20"
   (click)="closeAllDropdowns()">
 </div>
 
