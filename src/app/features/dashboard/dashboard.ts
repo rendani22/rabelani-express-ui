@@ -12,6 +12,11 @@ import { PackageStatusChartComponent } from './cards/package-status-chart/packag
 import { PackagesTrendCardComponent } from './cards/packages-trend-card/packages-trend-card.component';
 import { RecentPackagesCardComponent } from './cards/recent-packages-card/recent-packages-card.component';
 import { DeliveryPerformanceCardComponent } from './cards/delivery-performance-card/delivery-performance-card.component';
+import { MonthlyPackagesCardComponent } from './cards/monthly-packages-card/monthly-packages-card.component';
+import { DriverStatusCardComponent } from './cards/driver-status-card/driver-status-card.component';
+import { LocationDistributionCardComponent } from './cards/location-distribution-card/location-distribution-card.component';
+import { PodStatsCardComponent } from './cards/pod-stats-card/pod-stats-card.component';
+import { TopReceiversCardComponent } from './cards/top-receivers-card/top-receivers-card.component';
 
 @Component({
   selector: 'app-dashboard',
@@ -26,6 +31,11 @@ import { DeliveryPerformanceCardComponent } from './cards/delivery-performance-c
     PackagesTrendCardComponent,
     RecentPackagesCardComponent,
     DeliveryPerformanceCardComponent,
+    MonthlyPackagesCardComponent,
+    DriverStatusCardComponent,
+    LocationDistributionCardComponent,
+    PodStatsCardComponent,
+    TopReceiversCardComponent,
   ],
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.css',
@@ -42,16 +52,27 @@ export class Dashboard implements OnInit {
   readonly stats = this.dashboardService.stats;
   readonly statusDistribution = this.dashboardService.statusDistribution;
   readonly weeklyTimeSeries = this.dashboardService.weeklyTimeSeries;
+  readonly monthlyTimeSeries = this.dashboardService.monthlyTimeSeries;
   readonly recentActivity = this.dashboardService.recentActivity;
+  readonly driverStats = this.dashboardService.driverStats;
+  readonly podStats = this.dashboardService.podStats;
+  readonly locationDistribution = this.dashboardService.locationDistribution;
+  readonly topReceivers = this.dashboardService.topReceivers;
 
-  // Computed stat items for the stats card
+  // Computed stat items for the stats card (8 items)
   get statItems(): StatItem[] {
     const s = this.stats();
+    const d = this.driverStats();
+    const p = this.podStats();
     return [
       { label: 'Total Packages', value: s.total, icon: 'package', color: 'violet' },
       { label: 'Pending', value: s.pending, icon: 'clock', color: 'amber' },
       { label: 'In Transit', value: s.inTransit, icon: 'truck', color: 'blue' },
+      { label: 'Ready to Collect', value: s.readyForCollection, icon: 'inbox', color: 'purple' },
       { label: 'Completed', value: s.completed, icon: 'check', color: 'green' },
+      { label: 'Today', value: s.todayCount, icon: 'calendar', color: 'teal', subtitle: `${s.weeklyCount} this week` },
+      { label: 'Active Drivers', value: d.active, icon: 'users', color: 'indigo', subtitle: `${d.total} total` },
+      { label: 'PODs Signed', value: p.total, icon: 'document', color: 'rose', subtitle: `${p.withPdf} with PDF` },
     ];
   }
 

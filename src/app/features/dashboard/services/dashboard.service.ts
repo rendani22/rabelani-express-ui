@@ -1,5 +1,7 @@
 import { Injectable, inject, signal, computed } from '@angular/core';
 import { PackageService, Package, PACKAGE_STATUS, PackageStatus } from '../../../core';
+import { SupabaseService } from '../../../shared/services/supabase.service';
+import { StaffProfile } from '../../../core/models/staff-profile.model';
 
 /**
  * Dashboard statistics for package overview
@@ -48,6 +50,48 @@ export interface PackageActivity {
 }
 
 /**
+ * Driver statistics for dashboard
+ */
+export interface DriverStats {
+  total: number;
+  active: number;
+  onDelivery: number;
+  packagesInTransit: number;
+  totalPackages: number;
+  drivers: StaffProfile[];
+}
+
+/**
+ * POD (Proof of Delivery) statistics
+ */
+export interface PodStats {
+  total: number;
+  withPdf: number;
+  locked: number;
+  today: number;
+  thisWeek: number;
+}
+
+/**
+ * Delivery location package count
+ */
+export interface LocationDistribution {
+  id: string;
+  name: string;
+  count: number;
+  unassigned?: boolean;
+}
+
+/**
+ * Top receiver by package count
+ */
+export interface TopReceiver {
+  email: string;
+  name: string;
+  count: number;
+}
+
+/**
  * Dashboard Service
  * Aggregates and transforms package data for dashboard visualization
  */
@@ -56,6 +100,7 @@ export interface PackageActivity {
 })
 export class DashboardService {
   private readonly packageService = inject(PackageService);
+  private readonly supabaseService = inject(SupabaseService);
 
   // ============================================================================
   // State Signals
@@ -82,8 +127,36 @@ export class DashboardService {
   private readonly _weeklyTimeSeries = signal<TimeSeriesDataPoint[]>([]);
   readonly weeklyTimeSeries = this._weeklyTimeSeries.asReadonly();
 
+  private readonly _monthlyTimeSeries = signal<TimeSeriesDataPoint[]>([]);
+  readonly monthlyTimeSeries = this._monthlyTimeSeries.asReadonly();
+
   private readonly _recentActivity = signal<PackageActivity[]>([]);
   readonly recentActivity = this._recentActivity.asReadonly();
+
+  private readonly _driverStats = signal<DriverStats>({
+    total: 0,
+    active: 0,
+    onDelivery: 0,
+    packagesInTransit: 0,
+    totalPackages: 0,
+    drivers: [],
+  });
+  readonly driverStats = this._driverStats.asReadonly();
+
+  private readonly _podStats = signal<PodStats>({
+    total: 0,
+    withPdf: 0,
+    locked: 0,
+    today: 0,
+    thisWeek: 0,
+  });
+  readonly podStats = this._podStats.asReadonly();
+
+  private readonly _locationDistribution = signal<LocationDistribution[]>([]);
+  readonly locationDistribution = this._locationDistribution.asReadonly();
+
+  private readonly _topReceivers = signal<TopReceiver[]>([]);
+  readonly topReceivers = this._topReceivers.asReadonly();
 
   // ============================================================================
   // Computed Values
@@ -112,22 +185,143 @@ export class DashboardService {
     this._isLoading.set(true);
 
     try {
-      // Load all packages
-      await this.packageService.loadPackages();
+      // Load all packages and supplementary data in parallel
+      const [packagesResult] = await Promise.all([
+        this.packageService.loadPackages(),
+        this.loadDriverStats(),
+        this.loadPodStats(),
+        this.loadLocationDistribution(),
+      ]);
+
       const packages = this.packageService.packages();
 
-      // Calculate all statistics
+      // Calculate all statistics from packages
       this.calculateStats(packages);
       this.calculateStatusDistribution(packages);
       this.calculateWeeklyTimeSeries(packages);
+      this.calculateMonthlyTimeSeries(packages);
       this.calculateRecentActivity(packages);
+      this.calculateTopReceivers(packages);
     } finally {
       this._isLoading.set(false);
     }
   }
 
   // ============================================================================
-  // Private Methods
+  // Private Data Loaders
+  // ============================================================================
+
+  private async loadDriverStats(): Promise<void> {
+    try {
+      const { data, error } = await this.supabaseService.client
+        .from('staff_profiles')
+        .select('id, user_id, email, full_name, role, is_active, phone, created_at, updated_at')
+        .eq('role', 'driver')
+        .order('full_name', { ascending: true });
+
+      if (error || !data) return;
+
+      const drivers = data as StaffProfile[];
+
+      // Count packages in transit (picked up by any driver)
+      const { count: inTransitCount } = await this.supabaseService.client
+        .from('packages')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', PACKAGE_STATUS.IN_TRANSIT);
+
+      const { count: totalCount } = await this.supabaseService.client
+        .from('packages')
+        .select('id', { count: 'exact', head: true });
+
+      this._driverStats.set({
+        total: drivers.length,
+        active: drivers.filter(d => d.is_active).length,
+        onDelivery: 0, // will be from in-transit packages
+        packagesInTransit: inTransitCount ?? 0,
+        totalPackages: totalCount ?? 0,
+        drivers: drivers.slice(0, 8), // show top 8
+      });
+    } catch (err) {
+      console.warn('[DashboardService] Failed to load driver stats:', err);
+    }
+  }
+
+  private async loadPodStats(): Promise<void> {
+    try {
+      const now = new Date();
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+      const weekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+      const { data, error } = await this.supabaseService.client
+        .from('pods')
+        .select('id, pdf_url, is_locked, completed_at');
+
+      if (error || !data) return;
+
+      const pods = data as Array<{ id: string; pdf_url: string | null; is_locked: boolean; completed_at: string }>;
+
+      this._podStats.set({
+        total: pods.length,
+        withPdf: pods.filter(p => !!p.pdf_url).length,
+        locked: pods.filter(p => p.is_locked).length,
+        today: pods.filter(p => p.completed_at >= todayStart).length,
+        thisWeek: pods.filter(p => p.completed_at >= weekStart).length,
+      });
+    } catch (err) {
+      console.warn('[DashboardService] Failed to load POD stats:', err);
+    }
+  }
+
+  private async loadLocationDistribution(): Promise<void> {
+    try {
+      // Load active delivery locations
+      const { data: locations } = await this.supabaseService.client
+        .from('delivery_locations')
+        .select('id, name')
+        .eq('is_active', true)
+        .order('name');
+
+      // Load packages with their delivery_location_id
+      const { data: packages } = await this.supabaseService.client
+        .from('packages')
+        .select('delivery_location_id');
+
+      if (!packages) return;
+
+      // Count packages per location
+      const countMap = new Map<string, number>();
+      let unassignedCount = 0;
+
+      for (const pkg of packages as Array<{ delivery_location_id: string | null }>) {
+        if (pkg.delivery_location_id) {
+          countMap.set(pkg.delivery_location_id, (countMap.get(pkg.delivery_location_id) ?? 0) + 1);
+        } else {
+          unassignedCount++;
+        }
+      }
+
+      const locationList: LocationDistribution[] = (locations ?? [])
+        .map((loc: { id: string; name: string }) => ({
+          id: loc.id,
+          name: loc.name,
+          count: countMap.get(loc.id) ?? 0,
+        }))
+        .filter(l => l.count > 0)
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 8);
+
+      if (unassignedCount > 0) {
+        locationList.push({ id: 'unassigned', name: 'No Location', count: unassignedCount, unassigned: true });
+      }
+
+      this._locationDistribution.set(locationList);
+    } catch (err) {
+      console.warn('[DashboardService] Failed to load location distribution:', err);
+    }
+  }
+
+  // ============================================================================
+  // Private Calculation Methods
   // ============================================================================
 
   private calculateStats(packages: readonly Package[]): void {
@@ -252,6 +446,36 @@ export class DashboardService {
     this._weeklyTimeSeries.set(days);
   }
 
+  private calculateMonthlyTimeSeries(packages: readonly Package[]): void {
+    const now = new Date();
+    const days: TimeSeriesDataPoint[] = [];
+
+    // Generate last 30 days
+    for (let i = 29; i >= 0; i--) {
+      const date = new Date(now);
+      date.setDate(date.getDate() - i);
+      const dateStr = date.toISOString().split('T')[0];
+      // Show label every ~5 days to avoid clutter
+      const showLabel = i % 5 === 0 || i === 0;
+      days.push({
+        date: dateStr,
+        label: showLabel ? this.formatShortDate(date) : '',
+        count: 0,
+      });
+    }
+
+    // Count packages per day
+    packages.forEach(pkg => {
+      const pkgDate = new Date(pkg.created_at).toISOString().split('T')[0];
+      const dayData = days.find(d => d.date === pkgDate);
+      if (dayData) {
+        dayData.count++;
+      }
+    });
+
+    this._monthlyTimeSeries.set(days);
+  }
+
   private calculateRecentActivity(packages: readonly Package[]): void {
     const sortedPackages = [...packages]
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
@@ -270,27 +494,42 @@ export class DashboardService {
     this._recentActivity.set(activities);
   }
 
+  private calculateTopReceivers(packages: readonly Package[]): void {
+    const emailCounts = new Map<string, number>();
+    packages.forEach(pkg => {
+      emailCounts.set(pkg.receiver_email, (emailCounts.get(pkg.receiver_email) ?? 0) + 1);
+    });
+
+    const top: TopReceiver[] = Array.from(emailCounts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 7)
+      .map(([email, count]) => ({
+        email,
+        name: email.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+        count,
+      }));
+
+    this._topReceivers.set(top);
+  }
+
   private formatDayLabel(date: Date): string {
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     return days[date.getDay()];
   }
 
+  private formatShortDate(date: Date): string {
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
+
   private getStatusLabel(status: PackageStatus): string {
     switch (status) {
-      case PACKAGE_STATUS.PENDING:
-        return 'Pending';
-      case PACKAGE_STATUS.NOTIFIED:
-        return 'Notified';
-      case PACKAGE_STATUS.IN_TRANSIT:
-        return 'In Transit';
-      case PACKAGE_STATUS.READY_FOR_COLLECTION:
-        return 'Ready';
-      case PACKAGE_STATUS.DELIVERED:
-        return 'Delivered';
-      case PACKAGE_STATUS.COLLECTED:
-        return 'Collected';
-      default:
-        return 'Unknown';
+      case PACKAGE_STATUS.PENDING: return 'Pending';
+      case PACKAGE_STATUS.NOTIFIED: return 'Notified';
+      case PACKAGE_STATUS.IN_TRANSIT: return 'In Transit';
+      case PACKAGE_STATUS.READY_FOR_COLLECTION: return 'Ready';
+      case PACKAGE_STATUS.DELIVERED: return 'Delivered';
+      case PACKAGE_STATUS.COLLECTED: return 'Collected';
+      default: return 'Unknown';
     }
   }
 

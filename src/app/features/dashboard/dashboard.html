@@ -20,16 +20,16 @@
         </div>
       </div>
     } @else {
-      <!-- Cards -->
+      <!-- Cards grid -->
       <div class="grid grid-cols-12 gap-4 lg:gap-6">
 
-        <!-- Package Stats Overview - Full Width -->
+        <!-- ── Row 1: Package Stats Overview (8 stats) ── -->
         <app-package-stats-card
           title="Package Overview"
           [stats]="statItems">
         </app-package-stats-card>
 
-        <!-- Row 2: Trend Chart (8 cols) + Status Distribution (4 cols) -->
+        <!-- ── Row 2: Weekly Trend (8 cols) + Status Distribution (4 cols) ── -->
         <app-packages-trend-card
           cardId="packages-trend"
           title="Packages This Week"
@@ -43,7 +43,31 @@
           [data]="statusDistribution()">
         </app-package-status-chart>
 
-        <!-- Row 3: Recent Packages (8 cols) + Delivery Performance (4 cols) -->
+        <!-- ── Row 3: Monthly Bar Chart (8 cols) + Driver Status (4 cols) ── -->
+        <app-monthly-packages-card
+          title="30-Day Package Volume"
+          [chartHeight]="220"
+          [data]="monthlyTimeSeries()">
+        </app-monthly-packages-card>
+
+        <app-driver-status-card
+          title="Driver Overview"
+          [driverStats]="driverStats()">
+        </app-driver-status-card>
+
+        <!-- ── Row 4: Location Distribution (8 cols) + POD Stats (4 cols) ── -->
+        <app-location-distribution-card
+          title="Packages by Delivery Location"
+          [chartHeight]="220"
+          [data]="locationDistribution()">
+        </app-location-distribution-card>
+
+        <app-pod-stats-card
+          title="Proof of Delivery"
+          [podStats]="podStats()">
+        </app-pod-stats-card>
+
+        <!-- ── Row 5: Recent Packages (8 cols) + Delivery Performance (4 cols) ── -->
         <app-recent-packages-card
           title="Recent Packages"
           [packages]="recentActivity()"
@@ -57,6 +81,85 @@
           [inProgressCount]="stats().inTransit + stats().readyForCollection"
           [pendingCount]="stats().pending">
         </app-delivery-performance-card>
+
+        <!-- ── Row 6: Top Receivers (full width) ── -->
+        <div class="col-span-12 block">
+          <div class="grid grid-cols-12 gap-4 lg:gap-6">
+            <app-top-receivers-card
+              title="Top Receivers"
+              [receivers]="topReceivers()">
+            </app-top-receivers-card>
+
+            <!-- Summary metrics card -->
+            <div class="col-span-12 sm:col-span-6 lg:col-span-8 block">
+              <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl h-full">
+                <header class="px-4 sm:px-5 py-4 border-b border-gray-100 dark:border-gray-700/60">
+                  <h2 class="font-semibold text-gray-800 dark:text-gray-100">Package Timeline Summary</h2>
+                </header>
+                <div class="p-4 sm:p-5">
+                  <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                    <!-- Today -->
+                    <div class="flex flex-col gap-1">
+                      <span class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Today</span>
+                      <span class="text-3xl font-bold text-gray-800 dark:text-gray-100">{{ stats().todayCount }}</span>
+                      <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 mt-1">
+                        <div class="bg-teal-500 h-1.5 rounded-full"
+                             [style.width.%]="stats().total > 0 ? (stats().todayCount / stats().total * 100) : 0"></div>
+                      </div>
+                    </div>
+                    <!-- This Week -->
+                    <div class="flex flex-col gap-1">
+                      <span class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">This Week</span>
+                      <span class="text-3xl font-bold text-gray-800 dark:text-gray-100">{{ stats().weeklyCount }}</span>
+                      <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 mt-1">
+                        <div class="bg-violet-500 h-1.5 rounded-full"
+                             [style.width.%]="stats().total > 0 ? (stats().weeklyCount / stats().total * 100) : 0"></div>
+                      </div>
+                    </div>
+                    <!-- This Month -->
+                    <div class="flex flex-col gap-1">
+                      <span class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">This Month</span>
+                      <span class="text-3xl font-bold text-gray-800 dark:text-gray-100">{{ stats().monthlyCount }}</span>
+                      <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 mt-1">
+                        <div class="bg-blue-500 h-1.5 rounded-full"
+                             [style.width.%]="stats().total > 0 ? (stats().monthlyCount / stats().total * 100) : 0"></div>
+                      </div>
+                    </div>
+                    <!-- Collection Rate -->
+                    <div class="flex flex-col gap-1">
+                      <span class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Collection Rate</span>
+                      <span class="text-3xl font-bold text-green-600 dark:text-green-400">
+                        {{ stats().total > 0 ? ((stats().completed / stats().total) * 100 | number: '1.0-0') : 0 }}%
+                      </span>
+                      <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 mt-1">
+                        <div class="bg-green-500 h-1.5 rounded-full"
+                             [style.width.%]="stats().total > 0 ? (stats().completed / stats().total * 100) : 0"></div>
+                      </div>
+                    </div>
+                    <!-- Ready for Collection -->
+                    <div class="flex flex-col gap-1">
+                      <span class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Awaiting Pickup</span>
+                      <span class="text-3xl font-bold text-purple-600 dark:text-purple-400">{{ stats().readyForCollection }}</span>
+                      <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 mt-1">
+                        <div class="bg-purple-500 h-1.5 rounded-full"
+                             [style.width.%]="stats().total > 0 ? (stats().readyForCollection / stats().total * 100) : 0"></div>
+                      </div>
+                    </div>
+                    <!-- Drivers On Road -->
+                    <div class="flex flex-col gap-1">
+                      <span class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Packages On Road</span>
+                      <span class="text-3xl font-bold text-blue-600 dark:text-blue-400">{{ driverStats().packagesInTransit }}</span>
+                      <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 mt-1">
+                        <div class="bg-blue-500 h-1.5 rounded-full"
+                             [style.width.%]="stats().total > 0 ? (driverStats().packagesInTransit / stats().total * 100) : 0"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
 
       </div>
     }

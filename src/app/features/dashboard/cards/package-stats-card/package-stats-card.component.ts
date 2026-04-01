@@ -4,9 +4,10 @@ import { CommonModule } from '@angular/common';
 export interface StatItem {
   label: string;
   value: number;
-  icon: 'package' | 'clock' | 'truck' | 'check' | 'inbox';
-  color: 'violet' | 'amber' | 'blue' | 'green' | 'purple';
+  icon: 'package' | 'clock' | 'truck' | 'check' | 'inbox' | 'calendar' | 'users' | 'document';
+  color: 'violet' | 'amber' | 'blue' | 'green' | 'purple' | 'rose' | 'teal' | 'indigo';
   changePercent?: number;
+  subtitle?: string;
 }
 
 @Component({
@@ -48,6 +49,22 @@ export interface StatItem {
                         <path d="M22 12h-6l-2 3h-4l-2-3H2"></path>
                         <path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z"></path>
                       </ng-container>
+                      <ng-container *ngSwitchCase="'calendar'">
+                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                        <line x1="16" y1="2" x2="16" y2="6"></line>
+                        <line x1="8" y1="2" x2="8" y2="6"></line>
+                        <line x1="3" y1="10" x2="21" y2="10"></line>
+                      </ng-container>
+                      <ng-container *ngSwitchCase="'users'">
+                        <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"></path>
+                        <circle cx="9" cy="7" r="4"></circle>
+                        <path d="M23 21v-2a4 4 0 00-3-3.87"></path>
+                        <path d="M16 3.13a4 4 0 010 7.75"></path>
+                      </ng-container>
+                      <ng-container *ngSwitchCase="'document'">
+                        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"></path>
+                        <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"></path>
+                      </ng-container>
                     </ng-container>
                   </svg>
                 </div>
@@ -60,6 +77,9 @@ export interface StatItem {
               </div>
               <div class="text-2xl font-bold text-gray-800 dark:text-gray-100">{{ stat.value }}</div>
               <div class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mt-1">{{ stat.label }}</div>
+              @if (stat.subtitle) {
+                <div class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{{ stat.subtitle }}</div>
+              }
             </div>
           }
         </div>
@@ -79,6 +99,9 @@ export class PackageStatsCardComponent {
       blue: 'bg-blue-100 dark:bg-blue-500/20',
       green: 'bg-green-100 dark:bg-green-500/20',
       purple: 'bg-purple-100 dark:bg-purple-500/20',
+      rose: 'bg-rose-100 dark:bg-rose-500/20',
+      teal: 'bg-teal-100 dark:bg-teal-500/20',
+      indigo: 'bg-indigo-100 dark:bg-indigo-500/20',
     };
     return classes[color] || classes['violet'];
   }
@@ -90,6 +113,9 @@ export class PackageStatsCardComponent {
       blue: 'text-blue-500',
       green: 'text-green-500',
       purple: 'text-purple-500',
+      rose: 'text-rose-500',
+      teal: 'text-teal-500',
+      indigo: 'text-indigo-500',
     };
     return classes[color] || classes['violet'];
   }
