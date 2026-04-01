@@ -10,6 +10,7 @@ export * from './services/theme.service';
 export * from './services/package.service';
 export * from './services/staff.service';
 export * from './services/driver.service';
+export * from './services/settings.service';
 
 // Guards
 export * from './guards/auth.guard';

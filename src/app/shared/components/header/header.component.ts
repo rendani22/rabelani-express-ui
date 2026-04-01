@@ -1,6 +1,7 @@
 import { Component, EventEmitter, Input, Output, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   tablerMenu2,
@@ -46,6 +47,7 @@ import {
 export class HeaderComponent {
   private readonly headerService = inject(HeaderService);
   private readonly themeService = inject(ThemeService);
+  private readonly router = inject(Router);
 
   @Input() sidebarOpen = false;
   @Output() readonly sidebarOpenChange = new EventEmitter<boolean>();
@@ -95,7 +97,7 @@ export class HeaderComponent {
   onSettings(event: Event): void {
     event.stopPropagation();
     this.headerService.closeAllDropdowns();
-    // TODO: navigate to settings
+    this.router.navigate(['/settings']);
   }
 
   async onSignOut(event: Event): Promise<void> {

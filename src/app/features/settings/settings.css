@@ -1,0 +1,58 @@
+/* Settings page styles */
+
+/* ── Card ─────────────────────────────────────────────────────── */
+.settings-card {
+  @apply bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm overflow-hidden;
+}
+
+.settings-card__header {
+  @apply flex items-start gap-3 px-5 py-4 border-b border-slate-100 dark:border-slate-700/60;
+}
+
+.settings-card__icon {
+  @apply flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-lg;
+}
+
+.settings-card__icon--purple { @apply bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400; }
+.settings-card__icon--blue   { @apply bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400; }
+.settings-card__icon--amber  { @apply bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400; }
+.settings-card__icon--green  { @apply bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400; }
+.settings-card__icon--slate  { @apply bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400; }
+.settings-card__icon--indigo { @apply bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400; }
+
+.settings-card__title { @apply text-sm font-semibold text-slate-800 dark:text-slate-100; }
+.settings-card__desc  { @apply text-xs text-slate-500 dark:text-slate-400 mt-0.5; }
+.settings-card__body  { @apply divide-y divide-slate-100 dark:divide-slate-700/60; }
+
+/* ── Setting row ──────────────────────────────────────────────── */
+.setting-row { @apply flex items-center justify-between gap-4 px-5 py-3.5; }
+.setting-row--sub { @apply pl-8 bg-slate-50/50 dark:bg-slate-700/20; }
+.setting-row__label { @apply flex flex-col min-w-0; }
+.setting-row__name  { @apply text-sm font-medium text-slate-700 dark:text-slate-200; }
+.setting-row__hint  { @apply text-xs text-slate-400 dark:text-slate-500 mt-0.5; }
+
+/* ── Theme toggle ─────────────────────────────────────────────── */
+.theme-toggle { @apply inline-flex rounded-lg overflow-hidden border border-slate-200 dark:border-slate-600; }
+.theme-btn { @apply flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors duration-150 whitespace-nowrap; }
+.theme-btn--active { @apply bg-violet-500 dark:bg-violet-500 text-white dark:text-white hover:bg-violet-600 dark:hover:bg-violet-600; }
+
+/* ── Toggle switch ────────────────────────────────────────────── */
+.toggle { @apply relative inline-flex items-center cursor-pointer flex-shrink-0; }
+.toggle__track { @apply relative w-10 h-5 rounded-full bg-slate-200 dark:bg-slate-600 transition-colors duration-200; }
+.toggle__track--on { @apply bg-violet-500; }
+.toggle__thumb { @apply absolute left-0.5 top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-200; transform: translateX(0); }
+.toggle__track--on .toggle__thumb { transform: translateX(1.25rem); }
+
+/* ── Form select ──────────────────────────────────────────────── */
+.form-select { @apply block rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-1.5 text-sm text-slate-700 dark:text-slate-200 shadow-sm focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition duration-150; }
+
+/* ── Buttons ──────────────────────────────────────────────────── */
+.btn { @apply inline-flex items-center justify-center gap-1.5 rounded-lg border px-4 py-2 text-sm font-medium leading-5 shadow-sm transition duration-150; }
+.btn--primary       { @apply bg-violet-500 hover:bg-violet-600 border-transparent text-white; }
+.btn--ghost         { @apply bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700; }
+.btn--danger-outline { @apply bg-white dark:bg-slate-800 border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20; }
+
+/* ── About grid ───────────────────────────────────────────────── */
+.about-grid { @apply grid grid-cols-2 gap-x-6 gap-y-3 px-5 py-4 text-sm; }
+.about-grid__label { @apply text-slate-500 dark:text-slate-400; }
+.about-grid__value { @apply text-slate-800 dark:text-slate-100 font-medium; }
