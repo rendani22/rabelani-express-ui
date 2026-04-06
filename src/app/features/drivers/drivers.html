@@ -322,7 +322,7 @@
 <app-confirm-dialog
   [isOpen]="confirmDeactivateOpen()"
   title="Deactivate Driver"
-  [message]="driverPendingDeactivation() ? 'Are you sure you want to deactivate ' + driverPendingDeactivation()!.full_name + '? They will no longer be able to access the system.' : 'Are you sure you want to deactivate this driver?'"
+  [message]="deactivateDriverMessage()"
   confirmLabel="Deactivate"
   [danger]="true"
   (confirmed)="onConfirmDeactivate()"

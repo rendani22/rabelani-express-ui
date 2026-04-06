@@ -1,4 +1,4 @@
-import { Injectable, computed, inject, signal, OnDestroy } from '@angular/core';
+import { Injectable, computed, inject, signal } from '@angular/core';
 import { AuthService } from '../../../core';
 import { SupabaseService } from '../../services/supabase.service';
 import { Package, PACKAGE_STATUS } from '../../../core/models/package.models';
@@ -93,7 +93,7 @@ function packageToNotification(pkg: Package): HeaderNotification {
 @Injectable({
   providedIn: 'root',
 })
-export class HeaderService implements OnDestroy {
+export class HeaderService {
   private readonly authService = inject(AuthService);
   private readonly supabaseService = inject(SupabaseService);
 
@@ -194,8 +194,10 @@ export class HeaderService implements OnDestroy {
           const notification = packageToNotification(pkg);
 
           this._notifications.update(existing => {
-            // Prepend and cap at MAX_NOTIFICATIONS
-            const updated = [notification, ...existing.filter(n => n.title !== notification.title)];
+            // Prepend; deduplicate by href+title (same package updated multiple times)
+            const updated = [notification, ...existing.filter(n =>
+              n.href !== notification.href || n.title !== notification.title
+            )];
             return updated.slice(0, MAX_NOTIFICATIONS);
           });
 
@@ -206,13 +208,15 @@ export class HeaderService implements OnDestroy {
   }
 
   /**
-   * Unsubscribes the realtime channel when the service is destroyed.
+   * Signing out also stops the realtime subscription.
    */
-  ngOnDestroy(): void {
+  async signOut(): Promise<void> {
+    this.closeAllDropdowns();
     if (this.realtimeChannel) {
-      void this.supabaseService.client.removeChannel(this.realtimeChannel);
+      await this.supabaseService.client.removeChannel(this.realtimeChannel);
       this.realtimeChannel = null;
     }
+    await this.authService.signOut();
   }
 
   /**
@@ -274,14 +278,6 @@ export class HeaderService implements OnDestroy {
     this._notifications.set([]);
   }
 
-
-  /**
-   * Handles user sign out
-   */
-  async signOut(): Promise<void> {
-    this.closeAllDropdowns();
-    await this.authService.signOut();
-  }
 
   /**
    * Extracts a display name from an email address

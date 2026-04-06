@@ -112,7 +112,7 @@
 <app-confirm-dialog
   [isOpen]="confirmDeactivateOpen()"
   title="Deactivate User"
-  [message]="staffPendingDeactivation() ? 'Are you sure you want to deactivate ' + staffPendingDeactivation()!.full_name + '? They will no longer be able to access the system.' : 'Are you sure you want to deactivate this user?'"
+  [message]="deactivateStaffMessage()"
   confirmLabel="Deactivate"
   [danger]="true"
   (confirmed)="onConfirmDeactivate()"

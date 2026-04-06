@@ -1,6 +1,6 @@
 import { Component, inject, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
+import { ReactiveFormsModule, FormBuilder, Validators, AbstractControl } from '@angular/forms';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   tablerMapPin,
@@ -265,7 +265,7 @@ export class DeliveryLocationsComponent implements OnInit {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private getFormFieldError(form: any, field: string): string | null {
+  private getFormFieldError(form: { get(field: string): AbstractControl | null }, field: string): string | null {
     const ctrl = form.get(field);
     if (!ctrl || !ctrl.touched || !ctrl.errors) return null;
     if (ctrl.errors['required']) return 'This field is required.';

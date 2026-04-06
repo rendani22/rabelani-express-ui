@@ -58,6 +58,14 @@ export class DriversComponent implements OnInit, OnDestroy {
   readonly confirmDeactivateOpen = signal(false);
   readonly driverPendingDeactivation = signal<DriverProfile | null>(null);
 
+  /** Computed deactivation message for confirm dialog */
+  readonly deactivateDriverMessage = computed(() => {
+    const d = this.driverPendingDeactivation();
+    return d
+      ? `Are you sure you want to deactivate ${d.full_name}? They will no longer be able to access the system.`
+      : 'Are you sure you want to deactivate this driver?';
+  });
+
   /** Search query for filtering drivers */
   readonly searchQuery = signal('');
 

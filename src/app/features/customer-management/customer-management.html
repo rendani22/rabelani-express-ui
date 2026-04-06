@@ -102,7 +102,7 @@
 <app-confirm-dialog
   [isOpen]="confirmDeactivateOpen()"
   title="Deactivate Customer"
-  [message]="receiverPendingDeactivation() ? 'Are you sure you want to deactivate ' + receiverPendingDeactivation()!.name + ' ' + receiverPendingDeactivation()!.surname + '? They will no longer be able to receive packages.' : 'Are you sure you want to deactivate this customer?'"
+  [message]="deactivateReceiverMessage()"
   confirmLabel="Deactivate"
   [danger]="true"
   (confirmed)="onConfirmDeactivate()"

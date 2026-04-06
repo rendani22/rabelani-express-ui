@@ -10,6 +10,7 @@ import {
   tablerCode,
   tablerRefresh,
 } from '@ng-icons/tabler-icons';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { LayoutComponent } from '../../shared/components/layout/layout.component';
 import { ToastService } from '../../shared/components/toast/toast.service';
 import { SupabaseService } from '../../shared/services/supabase.service';
@@ -84,6 +85,7 @@ const DEFAULT_TEMPLATES: EmailTemplate[] = [
 export class EmailTemplatesComponent implements OnInit {
   private readonly supabaseService = inject(SupabaseService);
   private readonly toastService = inject(ToastService);
+  private readonly sanitizer = inject(DomSanitizer);
 
   readonly templates = signal<EmailTemplate[]>([]);
   readonly loading = signal(false);
@@ -173,13 +175,14 @@ export class EmailTemplatesComponent implements OnInit {
     }
   }
 
-  /** Rendered preview with placeholder substitutions for display */
-  previewHtml = computed(() => {
+  /** Rendered preview with placeholder substitutions for display, sanitized for safe binding */
+  previewHtml = computed((): SafeHtml => {
     const t = this.selectedTemplate();
     if (!t) return '';
-    return t.html_body
+    const html = t.html_body
       .replace(/\{\{reference\}\}/g, 'PKG-001234')
       .replace(/\{\{name\}\}/g, 'John Doe');
+    return this.sanitizer.bypassSecurityTrustHtml(html);
   });
 
   formatDate(dateString: string | undefined): string {

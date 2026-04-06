@@ -35,6 +35,14 @@ export class UserManagementComponent implements OnInit {
   readonly confirmDeactivateOpen = signal(false);
   readonly staffPendingDeactivation = signal<StaffProfile | null>(null);
 
+  /** Computed deactivation message for confirm dialog */
+  readonly deactivateStaffMessage = computed(() => {
+    const s = this.staffPendingDeactivation();
+    return s
+      ? `Are you sure you want to deactivate ${s.full_name}? They will no longer be able to access the system.`
+      : 'Are you sure you want to deactivate this user?';
+  });
+
   /** List of staff profiles */
   readonly staffList = this.staffService.staffList;
 

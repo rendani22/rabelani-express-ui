@@ -30,6 +30,14 @@ export class CustomerManagementComponent implements OnInit {
   readonly confirmDeactivateOpen = signal(false);
   readonly receiverPendingDeactivation = signal<ReceiverProfile | null>(null);
 
+  /** Computed deactivation message for confirm dialog */
+  readonly deactivateReceiverMessage = computed(() => {
+    const r = this.receiverPendingDeactivation();
+    return r
+      ? `Are you sure you want to deactivate ${r.name} ${r.surname}? They will no longer be able to receive packages.`
+      : 'Are you sure you want to deactivate this customer?';
+  });
+
   /** Package history panel */
   readonly historyPanelOpen = signal(false);
   readonly selectedReceiver = signal<ReceiverProfile | null>(null);
