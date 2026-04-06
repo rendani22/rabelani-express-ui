@@ -1,6 +1,23 @@
-import { Component, Input, Output, EventEmitter } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnChanges, SimpleChanges, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Package, PackageItem, PACKAGE_STATUS, PackageStatus } from '../../../../core';
+import { SupabaseService } from '../../../services/supabase.service';
+
+/** A single entry in the package status audit log */
+interface StatusHistoryEntry {
+  readonly status: string;
+  readonly changed_at: string;
+  readonly changed_by?: string;
+  readonly note?: string;
+}
+
+/** Fallback timeline entry derived from the package model when no history table exists */
+interface TimelineEntry {
+  readonly label: string;
+  readonly timestamp: string | null;
+  readonly color: string;
+  readonly completed: boolean;
+}
 
 @Component({
   selector: 'app-package-details-panel',
@@ -189,27 +206,50 @@ import { Package, PackageItem, PACKAGE_STATUS, PackageStatus } from '../../../..
               </div>
             }
 
-            <!-- Timeline / History (placeholder) -->
+            <!-- Timeline / Activity Log -->
             <div class="px-6 py-5">
               <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
                 Activity
               </h3>
-              <div class="relative pl-6 border-l-2 border-gray-200 dark:border-gray-700 space-y-4">
-                <div class="relative">
-                  <div class="absolute -left-[25px] w-4 h-4 rounded-full bg-violet-500 border-2 border-white dark:border-gray-800"></div>
-                  <p class="text-sm font-medium text-gray-900 dark:text-white">Package created</p>
-                  <p class="text-xs text-gray-500 dark:text-gray-400">{{ formatDateTime(pkg.created_at) }}</p>
+              @if (loadingHistory()) {
+                <div class="flex items-center justify-center py-4">
+                  <svg class="animate-spin h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                  </svg>
                 </div>
-                @if (pkg.status !== 'pending') {
-                  <div class="relative">
-                    <div class="absolute -left-[25px] w-4 h-4 rounded-full bg-blue-500 border-2 border-white dark:border-gray-800"></div>
-                    <p class="text-sm font-medium text-gray-900 dark:text-white">Status updated to {{ getStatusLabel(pkg.status) }}</p>
-                    @if (pkg.updated_at) {
-                      <p class="text-xs text-gray-500 dark:text-gray-400">{{ formatDateTime(pkg.updated_at) }}</p>
+              } @else if (statusHistory().length > 0) {
+                <!-- Supabase history entries -->
+                <div class="relative pl-6 border-l-2 border-gray-200 dark:border-gray-700 space-y-4">
+                  @for (entry of statusHistory(); track entry.changed_at) {
+                    <div class="relative">
+                      <div class="absolute -left-[25px] w-4 h-4 rounded-full border-2 border-white dark:border-gray-800"
+                           [class]="getHistoryDotColor(entry.status)"></div>
+                      <p class="text-sm font-medium text-gray-900 dark:text-white">{{ getStatusLabel(entry.status) }}</p>
+                      <p class="text-xs text-gray-500 dark:text-gray-400">{{ formatDateTime(entry.changed_at) }}</p>
+                      @if (entry.note) {
+                        <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5 italic">{{ entry.note }}</p>
+                      }
+                    </div>
+                  }
+                </div>
+              } @else {
+                <!-- Derived timeline fallback -->
+                <div class="relative pl-6 border-l-2 border-gray-200 dark:border-gray-700 space-y-4">
+                  @for (entry of derivedTimeline(); track entry.label) {
+                    @if (entry.completed) {
+                      <div class="relative">
+                        <div class="absolute -left-[25px] w-4 h-4 rounded-full border-2 border-white dark:border-gray-800"
+                             [class]="entry.color"></div>
+                        <p class="text-sm font-medium text-gray-900 dark:text-white">{{ entry.label }}</p>
+                        @if (entry.timestamp) {
+                          <p class="text-xs text-gray-500 dark:text-gray-400">{{ formatDateTime(entry.timestamp) }}</p>
+                        }
+                      </div>
                     }
-                  </div>
-                }
-              </div>
+                  }
+                </div>
+              }
             </div>
           </div>
 
@@ -255,13 +295,111 @@ import { Package, PackageItem, PACKAGE_STATUS, PackageStatus } from '../../../..
     }
   `]
 })
-export class PackageDetailsPanelComponent {
+export class PackageDetailsPanelComponent implements OnChanges {
+  private readonly supabaseService = inject(SupabaseService);
+
   @Input() isOpen = false;
   @Input() package: Package | null = null;
 
   @Output() closePanel = new EventEmitter<void>();
   @Output() updateStatus = new EventEmitter<Package>();
   @Output() showQrCode = new EventEmitter<Package>();
+
+  /** Status history loaded from Supabase */
+  readonly statusHistory = signal<StatusHistoryEntry[]>([]);
+
+  /** Loading state for history */
+  readonly loadingHistory = signal(false);
+
+  ngOnChanges(changes: SimpleChanges): void {
+    const pkgChange = changes['package'];
+    const openChange = changes['isOpen'];
+    if ((pkgChange || openChange) && this.isOpen && this.package) {
+      void this.loadStatusHistory(this.package.id);
+    }
+  }
+
+  /**
+   * Load the status change history from the package_status_history table.
+   * Silently falls back to the derived timeline if the table doesn't exist.
+   */
+  private async loadStatusHistory(packageId: string): Promise<void> {
+    this.loadingHistory.set(true);
+    try {
+      const { data } = await this.supabaseService.client
+        .from('package_status_history')
+        .select('status, changed_at, changed_by, note')
+        .eq('package_id', packageId)
+        .order('changed_at', { ascending: true });
+
+      this.statusHistory.set((data ?? []) as StatusHistoryEntry[]);
+    } catch {
+      this.statusHistory.set([]);
+    } finally {
+      this.loadingHistory.set(false);
+    }
+  }
+
+  /**
+   * Derives an ordered timeline from the current package status.
+   * Used as fallback when no history table data is available.
+   */
+  derivedTimeline(): TimelineEntry[] {
+    const pkg = this.package;
+    if (!pkg) return [];
+
+    const statusOrder: PackageStatus[] = [
+      PACKAGE_STATUS.PENDING,
+      PACKAGE_STATUS.NOTIFIED,
+      PACKAGE_STATUS.IN_TRANSIT,
+      PACKAGE_STATUS.READY_FOR_COLLECTION,
+      PACKAGE_STATUS.COLLECTED,
+    ];
+
+    const currentIndex = statusOrder.indexOf(pkg.status as PackageStatus);
+
+    const labels: Record<string, string> = {
+      [PACKAGE_STATUS.PENDING]: 'Package created',
+      [PACKAGE_STATUS.NOTIFIED]: 'Receiver notified',
+      [PACKAGE_STATUS.IN_TRANSIT]: 'Driver picked up',
+      [PACKAGE_STATUS.READY_FOR_COLLECTION]: 'Arrived at collection point',
+      [PACKAGE_STATUS.COLLECTED]: 'Package collected',
+    };
+
+    const colors: Record<string, string> = {
+      [PACKAGE_STATUS.PENDING]: 'bg-yellow-500',
+      [PACKAGE_STATUS.NOTIFIED]: 'bg-blue-500',
+      [PACKAGE_STATUS.IN_TRANSIT]: 'bg-indigo-500',
+      [PACKAGE_STATUS.READY_FOR_COLLECTION]: 'bg-purple-500',
+      [PACKAGE_STATUS.COLLECTED]: 'bg-green-500',
+    };
+
+    return statusOrder.map((status, index) => ({
+      label: labels[status] ?? status,
+      timestamp: index === 0
+        ? pkg.created_at
+        : index === currentIndex && pkg.updated_at
+          ? pkg.updated_at
+          : null,
+      color: colors[status] ?? 'bg-gray-400',
+      completed: index <= currentIndex,
+    }));
+  }
+
+  /**
+   * Returns a dot colour class for a history entry status.
+   */
+  getHistoryDotColor(status: string): string {
+    const colors: Record<string, string> = {
+      [PACKAGE_STATUS.PENDING]: 'bg-yellow-500',
+      [PACKAGE_STATUS.NOTIFIED]: 'bg-blue-500',
+      [PACKAGE_STATUS.IN_TRANSIT]: 'bg-indigo-500',
+      [PACKAGE_STATUS.READY_FOR_COLLECTION]: 'bg-purple-500',
+      [PACKAGE_STATUS.DELIVERED]: 'bg-green-500',
+      [PACKAGE_STATUS.COLLECTED]: 'bg-green-600',
+    };
+    return colors[status] ?? 'bg-gray-400';
+  }
 
   onClose(): void {
     this.closePanel.emit();
@@ -279,8 +417,8 @@ export class PackageDetailsPanelComponent {
     }
   }
 
-  getStatusLabel(status: PackageStatus): string {
-    const labels: Record<PackageStatus, string> = {
+  getStatusLabel(status: PackageStatus | string): string {
+    const labels: Record<string, string> = {
       [PACKAGE_STATUS.PENDING]: 'Pending',
       [PACKAGE_STATUS.NOTIFIED]: 'Notified',
       [PACKAGE_STATUS.IN_TRANSIT]: 'In Transit',

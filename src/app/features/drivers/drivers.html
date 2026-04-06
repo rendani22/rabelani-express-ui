@@ -310,4 +310,23 @@
   (driverCreated)="onDriverCreated($event)"
 ></app-add-driver-modal>
 
+<!-- Edit Driver Modal -->
+<app-edit-driver-modal
+  [isOpen]="editDriverModalOpen()"
+  [driver]="driverToEdit()"
+  (closeModal)="onCloseEditDriverModal()"
+  (driverUpdated)="onDriverUpdated($event)"
+></app-edit-driver-modal>
+
+<!-- Deactivate Confirmation Dialog -->
+<app-confirm-dialog
+  [isOpen]="confirmDeactivateOpen()"
+  title="Deactivate Driver"
+  [message]="driverPendingDeactivation() ? 'Are you sure you want to deactivate ' + driverPendingDeactivation()!.full_name + '? They will no longer be able to access the system.' : 'Are you sure you want to deactivate this driver?'"
+  confirmLabel="Deactivate"
+  [danger]="true"
+  (confirmed)="onConfirmDeactivate()"
+  (cancelled)="onCancelDeactivate()"
+></app-confirm-dialog>
+
 

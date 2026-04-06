@@ -1,0 +1,86 @@
+<!-- Backdrop -->
+@if (isOpen()) {
+  <div
+    class="fixed inset-0 bg-gray-900/40 z-50 transition-opacity"
+    (click)="onCancel()"
+    aria-hidden="true"
+  ></div>
+}
+
+<!-- Dialog -->
+@if (isOpen()) {
+  <div
+    class="fixed inset-0 z-50 flex items-center justify-center px-4"
+    role="alertdialog"
+    aria-modal="true"
+    [attr.aria-labelledby]="'confirm-dialog-title'"
+    [attr.aria-describedby]="'confirm-dialog-message'"
+  >
+    <div
+      class="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-md p-6"
+      (click)="$event.stopPropagation()"
+    >
+      <!-- Icon + Title -->
+      <div class="flex items-start gap-4 mb-4">
+        <div
+          class="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center"
+          [class]="danger() ? 'bg-red-100 dark:bg-red-500/20' : 'bg-amber-100 dark:bg-amber-500/20'"
+        >
+          <ng-icon
+            name="tablerAlertTriangle"
+            size="20"
+            [class]="danger() ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400'"
+          ></ng-icon>
+        </div>
+        <div class="flex-1 min-w-0">
+          <h2
+            id="confirm-dialog-title"
+            class="text-base font-semibold text-gray-900 dark:text-gray-100"
+          >{{ title() }}</h2>
+          <p
+            id="confirm-dialog-message"
+            class="mt-1 text-sm text-gray-500 dark:text-gray-400"
+          >{{ message() }}</p>
+        </div>
+        <button
+          type="button"
+          class="flex-shrink-0 text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400"
+          (click)="onCancel()"
+          aria-label="Close dialog"
+        >
+          <ng-icon name="tablerX" size="18"></ng-icon>
+        </button>
+      </div>
+
+      <!-- Actions -->
+      <div class="flex justify-end gap-3 mt-6">
+        <button
+          type="button"
+          class="px-4 py-2 text-sm font-medium rounded-lg border transition-colors
+                 bg-white dark:bg-gray-800
+                 border-gray-200 dark:border-gray-700/60
+                 text-gray-700 dark:text-gray-300
+                 hover:bg-gray-50 dark:hover:bg-gray-700/50
+                 focus:outline-none focus:ring-2 focus:ring-gray-400"
+          (click)="onCancel()"
+        >
+          {{ cancelLabel() }}
+        </button>
+        <button
+          type="button"
+          class="px-4 py-2 text-sm font-medium rounded-lg transition-colors text-white
+                 focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800"
+          [class]="danger()
+            ? 'bg-red-500 hover:bg-red-600 focus:ring-red-500'
+            : 'bg-indigo-500 hover:bg-indigo-600 focus:ring-indigo-500'"
+          (click)="onConfirm()"
+        >
+          <span class="flex items-center gap-1.5">
+            <ng-icon name="tablerCheck" size="16"></ng-icon>
+            {{ confirmLabel() }}
+          </span>
+        </button>
+      </div>
+    </div>
+  </div>
+}

@@ -21,6 +21,7 @@ import { LayoutComponent } from '../../shared/components/layout/layout.component
 import { ThemeService } from '../../core';
 import { SettingsService, AppSettings, DefaultOrdersFilter, DefaultDriversView } from '../../core';
 import { AuthService } from '../../core';
+import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
 
 /**
  * SettingsComponent - Application settings and preferences page.
@@ -37,7 +38,7 @@ import { AuthService } from '../../core';
 @Component({
   selector: 'app-settings',
   standalone: true,
-  imports: [CommonModule, FormsModule, LayoutComponent, NgIcon],
+  imports: [CommonModule, FormsModule, LayoutComponent, NgIcon, ConfirmDialogComponent],
   viewProviders: [
     provideIcons({
       tablerSun,
@@ -76,6 +77,9 @@ export class SettingsComponent {
 
   // Save confirmation
   readonly saved = signal(false);
+
+  // Confirm reset dialog
+  readonly confirmResetOpen = signal(false);
 
   // Local draft of settings (two-way bound in template)
   autoRefreshEnabled = this.settingsService.autoRefreshEnabled();
@@ -118,15 +122,22 @@ export class SettingsComponent {
   }
 
   onResetDefaults(): void {
-    if (confirm('Reset all settings to their defaults?')) {
-      this.settingsService.resetToDefaults();
-      // Re-sync local draft from service
-      this.autoRefreshEnabled = this.settingsService.autoRefreshEnabled();
-      this.autoRefreshInterval = this.settingsService.autoRefreshInterval();
-      this.defaultOrdersFilter = this.settingsService.defaultOrdersFilter();
-      this.defaultDriversView = this.settingsService.defaultDriversView();
-      this.compactMode = this.settingsService.compactMode();
-    }
+    this.confirmResetOpen.set(true);
+  }
+
+  onConfirmReset(): void {
+    this.confirmResetOpen.set(false);
+    this.settingsService.resetToDefaults();
+    // Re-sync local draft from service
+    this.autoRefreshEnabled = this.settingsService.autoRefreshEnabled();
+    this.autoRefreshInterval = this.settingsService.autoRefreshInterval();
+    this.defaultOrdersFilter = this.settingsService.defaultOrdersFilter();
+    this.defaultDriversView = this.settingsService.defaultDriversView();
+    this.compactMode = this.settingsService.compactMode();
+  }
+
+  onCancelReset(): void {
+    this.confirmResetOpen.set(false);
   }
 
   async onSignOut(): Promise<void> {

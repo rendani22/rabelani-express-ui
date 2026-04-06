@@ -1,4 +1,4 @@
-import { Injectable, computed, inject, signal } from '@angular/core';
+import { Injectable, computed, inject, signal, OnDestroy } from '@angular/core';
 import { AuthService } from '../../../core';
 import { SupabaseService } from '../../services/supabase.service';
 import { Package, PACKAGE_STATUS } from '../../../core/models/package.models';
@@ -11,6 +11,7 @@ import {
   HeaderNotification,
   INITIAL_DROPDOWN_STATE,
 } from './header.models';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 
 /**
  * Base URL for UI Avatars service
@@ -92,9 +93,12 @@ function packageToNotification(pkg: Package): HeaderNotification {
 @Injectable({
   providedIn: 'root',
 })
-export class HeaderService {
+export class HeaderService implements OnDestroy {
   private readonly authService = inject(AuthService);
   private readonly supabaseService = inject(SupabaseService);
+
+  /** Realtime channel for package updates */
+  private realtimeChannel: RealtimeChannel | null = null;
 
   /** Internal dropdown state signal */
   private readonly dropdownState = signal<HeaderDropdownState>(INITIAL_DROPDOWN_STATE);
@@ -103,8 +107,12 @@ export class HeaderService {
   private readonly _notifications = signal<readonly HeaderNotification[]>([]);
   readonly notifications = this._notifications.asReadonly();
 
+  /** Count of unread/new realtime notifications since last open */
+  private readonly _unreadCount = signal(0);
+  readonly unreadCount = this._unreadCount.asReadonly();
+
   /** True when there are notifications to display */
-  readonly hasNotifications = computed(() => this._notifications().length > 0);
+  readonly hasNotifications = computed(() => this._notifications().length > 0 || this._unreadCount() > 0);
 
   // Computed state accessors
   readonly isNotificationsOpen = computed(() => this.dropdownState().notifications);
@@ -161,8 +169,49 @@ export class HeaderService {
 
       const notifications = (data as Package[]).map(packageToNotification);
       this._notifications.set(notifications);
+      this._unreadCount.set(0);
     } catch (err) {
       console.warn('[HeaderService] Unexpected error loading notifications:', err);
+    }
+  }
+
+  /**
+   * Subscribes to Supabase Realtime for live package updates.
+   * Call once on app initialisation.
+   */
+  subscribeToRealtime(): void {
+    if (this.realtimeChannel) return;
+
+    this.realtimeChannel = this.supabaseService.client
+      .channel('public:packages')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'packages' },
+        (payload) => {
+          const pkg = (payload.new ?? payload.old) as Package;
+          if (!pkg) return;
+
+          const notification = packageToNotification(pkg);
+
+          this._notifications.update(existing => {
+            // Prepend and cap at MAX_NOTIFICATIONS
+            const updated = [notification, ...existing.filter(n => n.title !== notification.title)];
+            return updated.slice(0, MAX_NOTIFICATIONS);
+          });
+
+          this._unreadCount.update(n => n + 1);
+        }
+      )
+      .subscribe();
+  }
+
+  /**
+   * Unsubscribes the realtime channel when the service is destroyed.
+   */
+  ngOnDestroy(): void {
+    if (this.realtimeChannel) {
+      void this.supabaseService.client.removeChannel(this.realtimeChannel);
+      this.realtimeChannel = null;
     }
   }
 

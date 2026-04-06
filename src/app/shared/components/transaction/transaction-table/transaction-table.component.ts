@@ -1,13 +1,14 @@
 import { Component, Input, Output, EventEmitter, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Transaction } from '../transaction.model';
+import { ConfirmDialogComponent } from '../../confirm-dialog/confirm-dialog.component';
 
 export type { Transaction } from '../transaction.model';
 
 @Component({
   selector: 'app-transaction-table',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, ConfirmDialogComponent],
   template: `
     <div class="table-container">
       <!-- Bulk Actions Bar (shown when items are selected) -->
@@ -93,6 +94,17 @@ export type { Transaction } from '../transaction.model';
         </table>
       </div>
     </div>
+
+    <!-- Delete Confirmation Dialog -->
+    <app-confirm-dialog
+      [isOpen]="confirmDeleteOpen()"
+      title="Delete Transactions"
+      [message]="'Are you sure you want to delete ' + _selectedIds().size + ' transaction(s)? This action cannot be undone.'"
+      confirmLabel="Delete"
+      [danger]="true"
+      (confirmed)="onConfirmDelete()"
+      (cancelled)="onCancelDelete()"
+    ></app-confirm-dialog>
   `,
   styles: [`
     .table-container {
@@ -452,6 +464,9 @@ export class TransactionTableComponent {
 
   protected readonly _selectedIds = signal<Set<string>>(new Set());
 
+  /** Controls the delete confirmation dialog */
+  readonly confirmDeleteOpen = signal(false);
+
   allSelected = () =>
     this.transactions.length > 0 &&
     this.transactions.every(t => this._selectedIds().has(t.id));
@@ -489,15 +504,22 @@ export class TransactionTableComponent {
   }
 
   exportSelected(): void {
-    console.log('Export selected transactions:', Array.from(this._selectedIds()));
     // Implement export logic
+    console.log('Export selected transactions:', Array.from(this._selectedIds()));
   }
 
   deleteSelected(): void {
-    if (confirm(`Delete ${this._selectedIds().size} transaction(s)?`)) {
-      console.log('Delete selected transactions:', Array.from(this._selectedIds()));
-      // Implement delete logic
-    }
+    this.confirmDeleteOpen.set(true);
+  }
+
+  onConfirmDelete(): void {
+    this.confirmDeleteOpen.set(false);
+    // Implement delete logic
+    this._selectedIds.set(new Set());
+  }
+
+  onCancelDelete(): void {
+    this.confirmDeleteOpen.set(false);
   }
 }
 

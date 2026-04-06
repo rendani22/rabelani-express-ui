@@ -59,12 +59,14 @@ export class HeaderComponent implements OnInit {
   /** Notifications loaded dynamically from the database */
   readonly notifications = this.headerService.notifications;
   readonly hasNotifications = this.headerService.hasNotifications;
+  readonly unreadCount = this.headerService.unreadCount;
 
   /** Controls the documentation modal */
   readonly docsOpen = signal(false);
 
   ngOnInit(): void {
     void this.headerService.loadNotifications();
+    this.headerService.subscribeToRealtime();
   }
 
   toggleSidebar(): void {
