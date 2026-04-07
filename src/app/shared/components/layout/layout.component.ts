@@ -24,7 +24,7 @@ export class LayoutComponent {
   private readonly baseNavItems: NavItem[] = [
     { icon: 'layout-dashboard', label: 'Dashboard', routerLink: '/dashboard' },
     { icon: 'shopping-cart', label: 'Orders', routerLink: '/orders' },
-    { icon: 'orders', label: 'Inventory', routerLink: '/inventory', comingSoon: true },
+    { icon: 'orders', label: 'Inventory', routerLink: '/inventory' },
     { icon: 'truck', label: 'Drivers', routerLink: '/drivers' },
     { icon: 'users', label: 'Customers', routerLink: '/customers' },
     { icon: 'users', label: 'Users', routerLink: '/user-management' },

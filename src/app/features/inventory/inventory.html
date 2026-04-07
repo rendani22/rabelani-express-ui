@@ -1,0 +1,449 @@
+<app-layout>
+  <div class="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-9xl mx-auto">
+
+    <!-- ── Page header ── -->
+    <div class="sm:flex sm:justify-between sm:items-center mb-6">
+      <div class="mb-4 sm:mb-0">
+        <h1 class="text-2xl md:text-3xl text-gray-800 dark:text-gray-100 font-bold">Inventory</h1>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage stock levels and track item usage</p>
+      </div>
+      <div class="flex gap-3">
+        <button type="button"
+          class="btn-sm px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2"
+          (click)="onRefresh()" [disabled]="loading()">
+          <ng-icon name="tablerRefresh" size="16" [class.animate-spin]="loading()"></ng-icon>
+          Refresh
+        </button>
+        <button type="button"
+          class="btn-sm px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg text-sm font-medium flex items-center gap-2"
+          (click)="onShowAddForm()">
+          <ng-icon name="tablerPlus" size="16"></ng-icon>
+          Add Item
+        </button>
+      </div>
+    </div>
+
+    <!-- ── Analytics cards ── -->
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+
+      <!-- Total Active Items -->
+      <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 flex flex-col gap-1">
+        <span class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Total Items</span>
+        <span class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ stats().totalItems }}</span>
+        <span class="text-xs text-gray-400 dark:text-gray-500">Active SKUs</span>
+      </div>
+
+      <!-- Total Stock Units -->
+      <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 flex flex-col gap-1">
+        <span class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Total Stock</span>
+        <span class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ stats().totalStock | number }}</span>
+        <span class="text-xs text-gray-400 dark:text-gray-500">Units on hand</span>
+      </div>
+
+      <!-- Low Stock -->
+      <div class="bg-white dark:bg-gray-800 rounded-xl border p-4 flex flex-col gap-1"
+        [class]="stats().lowStockCount > 0 ? 'border-amber-300 dark:border-amber-600/50' : 'border-gray-200 dark:border-gray-700'">
+        <span class="text-xs font-medium uppercase tracking-wide"
+          [class]="stats().lowStockCount > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-gray-500 dark:text-gray-400'">Low Stock</span>
+        <span class="text-2xl font-bold"
+          [class]="stats().lowStockCount > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-gray-900 dark:text-gray-100'">
+          {{ stats().lowStockCount }}
+        </span>
+        <span class="text-xs text-gray-400 dark:text-gray-500">Items need restocking</span>
+      </div>
+
+      <!-- Out of Stock -->
+      <div class="bg-white dark:bg-gray-800 rounded-xl border p-4 flex flex-col gap-1"
+        [class]="stats().outOfStockCount > 0 ? 'border-red-300 dark:border-red-600/50' : 'border-gray-200 dark:border-gray-700'">
+        <span class="text-xs font-medium uppercase tracking-wide"
+          [class]="stats().outOfStockCount > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'">Out of Stock</span>
+        <span class="text-2xl font-bold"
+          [class]="stats().outOfStockCount > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-gray-100'">
+          {{ stats().outOfStockCount }}
+        </span>
+        <span class="text-xs text-gray-400 dark:text-gray-500">Items depleted</span>
+      </div>
+
+      <!-- Total Value -->
+      <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 flex flex-col gap-1">
+        <span class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Stock Value</span>
+        <span class="text-xl font-bold text-gray-900 dark:text-gray-100 truncate" [title]="formatCurrency(stats().totalValue)">
+          {{ formatCurrency(stats().totalValue) }}
+        </span>
+        <span class="text-xs text-gray-400 dark:text-gray-500">Estimated total</span>
+      </div>
+
+      <!-- Categories -->
+      <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 flex flex-col gap-1">
+        <span class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Categories</span>
+        <span class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ stats().categories.length }}</span>
+        <span class="text-xs text-gray-400 dark:text-gray-500">Unique groups</span>
+      </div>
+    </div>
+
+    <!-- ── Alerts section: low/out of stock ── -->
+    @if (stats().lowStockCount > 0 || stats().outOfStockCount > 0) {
+      <div class="mb-6 space-y-2">
+        @if (stats().outOfStockCount > 0) {
+          <div class="flex items-center gap-3 p-3 rounded-lg bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 text-sm text-red-700 dark:text-red-400">
+            <ng-icon name="tablerAlertTriangle" size="18" class="shrink-0"></ng-icon>
+            <span><strong>{{ stats().outOfStockCount }}</strong> item(s) are out of stock. Restock to avoid delays.</span>
+            <button type="button"
+              class="ml-auto text-red-600 dark:text-red-400 underline text-xs hover:no-underline"
+              (click)="filterOutOfStock.set(true); filterLowStock.set(false)">
+              View
+            </button>
+          </div>
+        }
+        @if (stats().lowStockCount > 0) {
+          <div class="flex items-center gap-3 p-3 rounded-lg bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 text-sm text-amber-700 dark:text-amber-400">
+            <ng-icon name="tablerTrendingDown" size="18" class="shrink-0"></ng-icon>
+            <span><strong>{{ stats().lowStockCount }}</strong> item(s) are running low on stock.</span>
+            <button type="button"
+              class="ml-auto text-amber-600 dark:text-amber-400 underline text-xs hover:no-underline"
+              (click)="filterLowStock.set(true); filterOutOfStock.set(false)">
+              View
+            </button>
+          </div>
+        }
+      </div>
+    }
+
+    <!-- ── Search & Filter bar ── -->
+    <div class="flex flex-wrap gap-3 mb-6">
+      <!-- Search -->
+      <div class="relative flex-1 min-w-[200px]">
+        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+          <ng-icon name="tablerSearch" size="16" class="text-gray-400"></ng-icon>
+        </div>
+        <input type="search" placeholder="Search by name, SKU, category…"
+          class="w-full pl-9 pr-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-sm bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          (input)="onSearchChange($event)" />
+      </div>
+
+      <!-- Category filter -->
+      @if (categories().length > 0) {
+        <select
+          class="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          (change)="onCategoryChange($event)">
+          <option value="">All categories</option>
+          @for (cat of categories(); track cat) {
+            <option [value]="cat">{{ cat }}</option>
+          }
+        </select>
+      }
+
+      <!-- Filter chips -->
+      <button type="button"
+        class="px-3 py-2 rounded-lg border text-sm flex items-center gap-1.5 transition-colors"
+        [class]="filterLowStock() ? 'border-amber-400 bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400' : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'"
+        (click)="onToggleLowStock()">
+        <ng-icon name="tablerTrendingDown" size="14"></ng-icon>
+        Low Stock
+      </button>
+
+      <button type="button"
+        class="px-3 py-2 rounded-lg border text-sm flex items-center gap-1.5 transition-colors"
+        [class]="filterOutOfStock() ? 'border-red-400 bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-400' : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'"
+        (click)="onToggleOutOfStock()">
+        <ng-icon name="tablerAlertTriangle" size="14"></ng-icon>
+        Out of Stock
+      </button>
+
+      <button type="button"
+        class="px-3 py-2 rounded-lg border text-sm flex items-center gap-1.5 transition-colors"
+        [class]="showInactive() ? 'border-indigo-400 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400' : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'"
+        (click)="onToggleShowInactive()">
+        Show Inactive
+      </button>
+    </div>
+
+    <!-- ── Add Item Form ── -->
+    @if (showAddForm()) {
+      <div class="mb-6 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-indigo-200 dark:border-indigo-700/50 p-5">
+        <h2 class="text-base font-semibold text-gray-800 dark:text-gray-100 mb-4 flex items-center gap-2">
+          <ng-icon name="tablerBox" size="18" class="text-indigo-500"></ng-icon>
+          New Inventory Item
+        </h2>
+        <form [formGroup]="addForm" (ngSubmit)="onSubmitAdd()" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+
+          <!-- Name -->
+          <div class="sm:col-span-2 lg:col-span-1">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Name <span class="text-red-500">*</span>
+            </label>
+            <input type="text" formControlName="name" placeholder="e.g. Cardboard Box (Medium)"
+              class="w-full px-3 py-2 rounded-lg border text-sm bg-white dark:bg-gray-800/50 border-gray-200 dark:border-gray-700/60 text-gray-800 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              [class.border-red-400]="getAddFieldError('name')" />
+            @if (getAddFieldError('name'); as err) {
+              <p class="text-xs text-red-500 mt-1">{{ err }}</p>
+            }
+          </div>
+
+          <!-- SKU -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">SKU</label>
+            <input type="text" formControlName="sku" placeholder="BOX-M"
+              class="w-full px-3 py-2 rounded-lg border text-sm bg-white dark:bg-gray-800/50 border-gray-200 dark:border-gray-700/60 text-gray-800 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+          </div>
+
+          <!-- Category -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Category</label>
+            <input type="text" formControlName="category" placeholder="e.g. Packaging"
+              class="w-full px-3 py-2 rounded-lg border text-sm bg-white dark:bg-gray-800/50 border-gray-200 dark:border-gray-700/60 text-gray-800 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+          </div>
+
+          <!-- Unit -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Unit <span class="text-red-500">*</span></label>
+            <input type="text" formControlName="unit" placeholder="pieces / rolls / boxes…"
+              class="w-full px-3 py-2 rounded-lg border text-sm bg-white dark:bg-gray-800/50 border-gray-200 dark:border-gray-700/60 text-gray-800 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+          </div>
+
+          <!-- Quantity -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Quantity <span class="text-red-500">*</span></label>
+            <input type="number" formControlName="quantity" min="0"
+              class="w-full px-3 py-2 rounded-lg border text-sm bg-white dark:bg-gray-800/50 border-gray-200 dark:border-gray-700/60 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              [class.border-red-400]="getAddFieldError('quantity')" />
+            @if (getAddFieldError('quantity'); as err) {
+              <p class="text-xs text-red-500 mt-1">{{ err }}</p>
+            }
+          </div>
+
+          <!-- Low Stock Threshold -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Low Stock Alert at</label>
+            <input type="number" formControlName="low_stock_threshold" min="0"
+              class="w-full px-3 py-2 rounded-lg border text-sm bg-white dark:bg-gray-800/50 border-gray-200 dark:border-gray-700/60 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+          </div>
+
+          <!-- Unit Price -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Unit Price (ZAR)</label>
+            <input type="number" formControlName="unit_price" min="0" step="0.01" placeholder="0.00"
+              class="w-full px-3 py-2 rounded-lg border text-sm bg-white dark:bg-gray-800/50 border-gray-200 dark:border-gray-700/60 text-gray-800 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+          </div>
+
+          <!-- Description -->
+          <div class="sm:col-span-2 lg:col-span-3">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
+            <textarea formControlName="description" rows="2" placeholder="Optional notes about this item…"
+              class="w-full px-3 py-2 rounded-lg border text-sm bg-white dark:bg-gray-800/50 border-gray-200 dark:border-gray-700/60 text-gray-800 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-none"></textarea>
+          </div>
+
+          <!-- Actions -->
+          <div class="sm:col-span-2 lg:col-span-3 flex justify-end gap-3">
+            <button type="button"
+              class="px-4 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700/60 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50"
+              (click)="onCancelAdd()">Cancel</button>
+            <button type="submit"
+              class="px-4 py-2 text-sm rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white font-medium flex items-center gap-2"
+              [disabled]="loading()">
+              <ng-icon name="tablerCheck" size="16"></ng-icon>
+              Save Item
+            </button>
+          </div>
+        </form>
+      </div>
+    }
+
+    <!-- ── Inventory table ── -->
+    @if (loading() && items().length === 0) {
+      <div class="flex items-center justify-center py-16 text-gray-400 dark:text-gray-500">
+        <svg class="animate-spin h-6 w-6 mr-3" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+        </svg>
+        Loading inventory…
+      </div>
+    } @else if (filteredItems().length === 0) {
+      <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-12 text-center">
+        <ng-icon name="tablerPackage" size="48" class="text-gray-300 dark:text-gray-600 mx-auto mb-3"></ng-icon>
+        <p class="text-gray-500 dark:text-gray-400 font-medium">No inventory items found</p>
+        <p class="text-sm text-gray-400 dark:text-gray-500 mt-1">
+          {{ searchQuery() || filterCategory() || filterLowStock() || filterOutOfStock() ? 'Try adjusting your search or filters' : 'Add your first inventory item to get started' }}
+        </p>
+      </div>
+    } @else {
+      <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-gray-200 dark:border-gray-700/60 bg-gray-50 dark:bg-gray-700/30">
+                <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Item</th>
+                <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide hidden sm:table-cell">Category</th>
+                <th class="text-center px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Stock</th>
+                <th class="text-center px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide hidden md:table-cell">Threshold</th>
+                <th class="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide hidden lg:table-cell">Unit Price</th>
+                <th class="text-center px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide hidden lg:table-cell">Status</th>
+                <th class="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Actions</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200 dark:divide-gray-700/60">
+              @for (item of filteredItems(); track item.id) {
+                @if (editingId() === item.id) {
+                  <!-- ── Inline edit row ── -->
+                  <tr class="bg-indigo-50/50 dark:bg-indigo-500/5">
+                    <td colspan="7" class="px-4 py-4">
+                      <form [formGroup]="editForm" (ngSubmit)="onSubmitEdit(item)" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                        <div class="col-span-2 sm:col-span-3 lg:col-span-2">
+                          <input type="text" formControlName="name" placeholder="Name *"
+                            class="w-full px-3 py-2 rounded-lg border text-sm bg-white dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                            [class.border-red-400]="getEditFieldError('name')" />
+                          @if (getEditFieldError('name'); as err) {
+                            <p class="text-xs text-red-500 mt-0.5">{{ err }}</p>
+                          }
+                        </div>
+                        <input type="text" formControlName="sku" placeholder="SKU"
+                          class="px-3 py-2 rounded-lg border text-sm bg-white dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+                        <input type="text" formControlName="category" placeholder="Category"
+                          class="px-3 py-2 rounded-lg border text-sm bg-white dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+                        <div class="flex gap-2">
+                          <input type="number" formControlName="quantity" min="0" placeholder="Qty *"
+                            class="w-full px-3 py-2 rounded-lg border text-sm bg-white dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+                        </div>
+                        <div class="flex gap-2">
+                          <input type="number" formControlName="low_stock_threshold" min="0" placeholder="Alert at"
+                            class="w-full px-3 py-2 rounded-lg border text-sm bg-white dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+                        </div>
+                        <div class="flex gap-2">
+                          <input type="number" formControlName="unit_price" min="0" step="0.01" placeholder="Price"
+                            class="w-full px-3 py-2 rounded-lg border text-sm bg-white dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+                        </div>
+                        <div class="col-span-2 sm:col-span-3 lg:col-span-6 flex justify-end gap-2 pt-1">
+                          <button type="button"
+                            class="px-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 flex items-center gap-1"
+                            (click)="onCancelEdit()">
+                            <ng-icon name="tablerX" size="14"></ng-icon> Cancel
+                          </button>
+                          <button type="submit"
+                            class="px-3 py-1.5 text-sm rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white flex items-center gap-1">
+                            <ng-icon name="tablerCheck" size="14"></ng-icon> Save
+                          </button>
+                        </div>
+                      </form>
+                    </td>
+                  </tr>
+                } @else {
+                  <!-- ── Read row ── -->
+                  <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/20 transition-colors"
+                    [class.opacity-60]="!item.is_active">
+                    <!-- Item info -->
+                    <td class="px-4 py-3">
+                      <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                          [class]="isOutOfStock(item) ? 'bg-red-100 dark:bg-red-500/20' : isLowStock(item) ? 'bg-amber-100 dark:bg-amber-500/20' : 'bg-indigo-100 dark:bg-indigo-500/20'">
+                          <ng-icon name="tablerBox" size="16"
+                            [class]="isOutOfStock(item) ? 'text-red-500' : isLowStock(item) ? 'text-amber-500' : 'text-indigo-500'"></ng-icon>
+                        </div>
+                        <div>
+                          <p class="font-semibold text-gray-900 dark:text-gray-100">{{ item.name }}</p>
+                          @if (item.sku) {
+                            <p class="text-xs text-gray-400 dark:text-gray-500 font-mono">{{ item.sku }}</p>
+                          }
+                        </div>
+                      </div>
+                    </td>
+
+                    <!-- Category -->
+                    <td class="px-4 py-3 hidden sm:table-cell">
+                      @if (item.category) {
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
+                          {{ item.category }}
+                        </span>
+                      } @else {
+                        <span class="text-gray-400 dark:text-gray-600">—</span>
+                      }
+                    </td>
+
+                    <!-- Stock qty with unit -->
+                    <td class="px-4 py-3 text-center">
+                      <div class="flex flex-col items-center gap-0.5">
+                        <span class="font-bold text-base"
+                          [class]="isOutOfStock(item) ? 'text-red-600 dark:text-red-400' : isLowStock(item) ? 'text-amber-600 dark:text-amber-400' : 'text-gray-900 dark:text-gray-100'">
+                          {{ item.quantity | number }}
+                        </span>
+                        <span class="text-xs text-gray-400 dark:text-gray-500">{{ item.unit }}</span>
+                        @if (isOutOfStock(item)) {
+                          <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400">
+                            Out of stock
+                          </span>
+                        } @else if (isLowStock(item)) {
+                          <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400">
+                            Low stock
+                          </span>
+                        }
+                      </div>
+                    </td>
+
+                    <!-- Threshold -->
+                    <td class="px-4 py-3 text-center text-gray-500 dark:text-gray-400 hidden md:table-cell">
+                      {{ item.low_stock_threshold | number }}
+                    </td>
+
+                    <!-- Unit price -->
+                    <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300 hidden lg:table-cell">
+                      {{ formatCurrency(item.unit_price) }}
+                    </td>
+
+                    <!-- Status badge -->
+                    <td class="px-4 py-3 text-center hidden lg:table-cell">
+                      <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
+                        [class]="item.is_active ? 'bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'">
+                        {{ item.is_active ? 'Active' : 'Inactive' }}
+                      </span>
+                    </td>
+
+                    <!-- Actions -->
+                    <td class="px-4 py-3 text-right">
+                      <div class="flex items-center justify-end gap-1">
+                        <button type="button"
+                          class="p-1.5 rounded-lg text-gray-400 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 transition-colors"
+                          title="Edit" (click)="onStartEdit(item)">
+                          <ng-icon name="tablerEdit" size="16"></ng-icon>
+                        </button>
+                        <button type="button"
+                          class="p-1.5 rounded-lg text-gray-400 transition-colors"
+                          [class]="item.is_active ? 'hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-500/10' : 'hover:text-green-500 hover:bg-green-50 dark:hover:bg-green-500/10'"
+                          [title]="item.is_active ? 'Deactivate' : 'Reactivate'"
+                          (click)="onToggleActive(item)">
+                          <ng-icon [name]="item.is_active ? 'tablerToggleRight' : 'tablerToggleLeft'" size="16"></ng-icon>
+                        </button>
+                        <button type="button"
+                          class="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+                          title="Delete" (click)="onDeleteRequest(item)">
+                          <ng-icon name="tablerTrash" size="16"></ng-icon>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                }
+              }
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Table footer: item count -->
+        <div class="px-4 py-2 border-t border-gray-200 dark:border-gray-700/60 bg-gray-50 dark:bg-gray-700/20">
+          <p class="text-xs text-gray-500 dark:text-gray-400">
+            Showing <strong>{{ filteredItems().length }}</strong> of <strong>{{ stats().totalItems }}</strong> active item(s)
+          </p>
+        </div>
+      </div>
+    }
+
+  </div>
+</app-layout>
+
+<!-- ── Delete confirmation ── -->
+<app-confirm-dialog
+  [isOpen]="confirmDeleteOpen()"
+  title="Delete Inventory Item"
+  [message]="getDeleteMessage()"
+  confirmLabel="Delete"
+  [danger]="true"
+  (confirmed)="onConfirmDelete()"
+  (cancelled)="onCancelDelete()"
+></app-confirm-dialog>
