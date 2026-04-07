@@ -123,30 +123,75 @@
 
           <!-- Form -->
           <form [formGroup]="form" (ngSubmit)="onSubmit()" class="space-y-4">
-          <!-- Receiver Email -->
+          <!-- Receiver (Customer) -->
           <div>
             <label for="receiverEmail" class="block text-sm font-medium mb-1 text-gray-600 dark:text-gray-300">
-              Receiver Email <span class="text-red-500" aria-hidden="true">*</span>
+              Receiver <span class="text-red-500" aria-hidden="true">*</span>
             </label>
-            <input
-              id="receiverEmail"
-              type="email"
-              formControlName="receiverEmail"
-              placeholder="recipient@example.com"
-              autocomplete="email"
-              class="w-full rounded-lg border px-3 py-2 text-sm shadow-sm transition-colors
-                     bg-white dark:bg-gray-800/30
-                     border-gray-200 dark:border-gray-700/60
-                     text-gray-800 dark:text-gray-100
-                     placeholder:text-gray-400 dark:placeholder:text-gray-500
-                     hover:border-gray-300 dark:hover:border-gray-600
-                     focus:border-violet-500 dark:focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
-              [class.border-red-400]="getFieldError('receiverEmail')"
-              [attr.aria-invalid]="getFieldError('receiverEmail') ? 'true' : null"
-              [attr.aria-describedby]="getFieldError('receiverEmail') ? 'receiverEmail-error' : null"
-            />
+            @if (isLoadingReceivers()) {
+              <div class="w-full rounded-lg border px-3 py-2 text-sm text-gray-400 dark:text-gray-500 border-gray-200 dark:border-gray-700/60 bg-white dark:bg-gray-800/30">
+                Loading customers…
+              </div>
+            } @else {
+              <select
+                id="receiverEmail"
+                formControlName="receiverEmail"
+                class="w-full rounded-lg border px-3 py-2 text-sm shadow-sm transition-colors
+                       bg-white dark:bg-gray-800/30
+                       border-gray-200 dark:border-gray-700/60
+                       text-gray-800 dark:text-gray-100
+                       hover:border-gray-300 dark:hover:border-gray-600
+                       focus:border-violet-500 dark:focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                [class.border-red-400]="getFieldError('receiverEmail')"
+                [attr.aria-invalid]="getFieldError('receiverEmail') ? 'true' : null"
+                [attr.aria-describedby]="getFieldError('receiverEmail') ? 'receiverEmail-error' : null"
+              >
+                <option value="" disabled selected>— Select a customer —</option>
+                @for (receiver of activeReceivers(); track receiver.id) {
+                  <option [value]="receiver.email">
+                    {{ receiver.name }} {{ receiver.surname }} ({{ receiver.email }})
+                  </option>
+                }
+                @if (activeReceivers().length === 0) {
+                  <option value="" disabled>No active customers found</option>
+                }
+              </select>
+            }
             @if (getFieldError('receiverEmail'); as error) {
               <p id="receiverEmail-error" class="text-xs mt-1 text-red-500" role="alert">{{ error }}</p>
+            }
+          </div>
+
+          <!-- Delivery Location -->
+          <div>
+            <label for="deliveryLocationId" class="block text-sm font-medium mb-1 text-gray-600 dark:text-gray-300">
+              Delivery Location
+            </label>
+            @if (isLoadingLocations()) {
+              <div class="w-full rounded-lg border px-3 py-2 text-sm text-gray-400 dark:text-gray-500 border-gray-200 dark:border-gray-700/60 bg-white dark:bg-gray-800/30">
+                Loading locations…
+              </div>
+            } @else {
+              <select
+                id="deliveryLocationId"
+                formControlName="deliveryLocationId"
+                class="w-full rounded-lg border px-3 py-2 text-sm shadow-sm transition-colors
+                       bg-white dark:bg-gray-800/30
+                       border-gray-200 dark:border-gray-700/60
+                       text-gray-800 dark:text-gray-100
+                       hover:border-gray-300 dark:hover:border-gray-600
+                       focus:border-violet-500 dark:focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+              >
+                <option value="">— No specific location —</option>
+                @for (location of activeLocations(); track location.id) {
+                  <option [value]="location.id">
+                    {{ location.name }}{{ location.address ? ' – ' + location.address : '' }}
+                  </option>
+                }
+                @if (activeLocations().length === 0) {
+                  <option value="" disabled>No active locations found</option>
+                }
+              </select>
             }
           </div>
 

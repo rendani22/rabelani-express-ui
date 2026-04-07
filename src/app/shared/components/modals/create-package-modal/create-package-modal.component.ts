@@ -25,6 +25,10 @@ import {
   PackageItemFormValue,
   PackageItemRequest,
   PackageService,
+  ReceiverService,
+  ReceiverProfile,
+  DeliveryLocationService,
+  DeliveryLocation,
 } from '../../../../core';
 import { ToastService } from '../../toast/toast.service';
 
@@ -33,8 +37,6 @@ import { CommonModule } from '@angular/common';
 /** Duration to show success message before auto-closing */
 const SUCCESS_CLOSE_DELAY_MS = 2000;
 
-/** Email validation pattern */
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
  * Modal component for creating new packages.
@@ -50,6 +52,8 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export class CreatePackageModalComponent {
   private readonly fb = inject(FormBuilder);
   private readonly packageService = inject(PackageService);
+  private readonly receiverService = inject(ReceiverService);
+  private readonly deliveryLocationService = inject(DeliveryLocationService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly toastService = inject(ToastService);
 
@@ -72,7 +76,7 @@ export class CreatePackageModalComponent {
 
   /** Main form group */
   readonly form = this.fb.nonNullable.group({
-    receiverEmail: ['', [Validators.required, Validators.pattern(EMAIL_PATTERN)]],
+    receiverEmail: ['', [Validators.required]],
     notes: [''],
     poNumber: [''],
     deliveryLocationId: [''],
@@ -103,6 +107,22 @@ export class CreatePackageModalComponent {
   /** Loading state from service */
   readonly isLoading = this.packageService.isLoading;
 
+  /** Active receivers for the dropdown */
+  readonly activeReceivers = computed<ReceiverProfile[]>(() =>
+    this.receiverService.receiverList().filter(r => r.is_active)
+  );
+
+  /** Loading state for receivers */
+  readonly isLoadingReceivers = this.receiverService.loading;
+
+  /** Active delivery locations for the dropdown */
+  readonly activeLocations = computed<DeliveryLocation[]>(() =>
+    this.deliveryLocationService.locations().filter(l => l.is_active)
+  );
+
+  /** Loading state for locations */
+  readonly isLoadingLocations = this.deliveryLocationService.loading;
+
   /** Form status as a signal (reacts to form validity changes) */
   private readonly formStatus = toSignal(this.form.statusChanges, {
     initialValue: this.form.status,
@@ -118,10 +138,12 @@ export class CreatePackageModalComponent {
   // =========================================================================
 
   constructor() {
-    // Reset form when modal opens
+    // Reset form and reload lookup data when modal opens
     effect(() => {
       if (this.isOpen()) {
         this.resetForm();
+        this.receiverService.loadAllReceivers();
+        this.deliveryLocationService.loadLocations();
       }
     });
   }
@@ -178,9 +200,6 @@ export class CreatePackageModalComponent {
       return 'This field is required';
     }
 
-    if (control.hasError('pattern')) {
-      return 'Please enter a valid email address';
-    }
 
     return null;
   }
