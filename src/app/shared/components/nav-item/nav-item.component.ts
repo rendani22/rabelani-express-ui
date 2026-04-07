@@ -19,6 +19,7 @@ import {
   tablerShoppingCart,
   tablerLogout,
   tablerBox,
+  tablerMapPin,
 } from '@ng-icons/tabler-icons';
 
 /**
@@ -56,6 +57,7 @@ import {
       tablerShoppingCart,
       tablerLogout,
       tablerBox,
+      tablerMapPin,
     }),
   ],
   templateUrl: './nav-item.component.html',
@@ -97,6 +99,7 @@ export class NavItemComponent {
     'shopping-cart': 'tablerShoppingCart',
     'log-out': 'tablerLogout',
     orders: 'tablerBox',
+    'map-pin': 'tablerMapPin',
   };
 
   /** Get the Tabler icon name for the current icon */

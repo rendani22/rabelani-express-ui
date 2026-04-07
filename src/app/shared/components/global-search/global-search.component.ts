@@ -10,6 +10,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { SupabaseService } from '../../services/supabase.service';
+import { GlobalSearchService } from '../../services/global-search.service';
 
 interface SearchHit {
   readonly type: 'package' | 'driver' | 'customer';
@@ -38,8 +39,9 @@ interface SearchHit {
 export class GlobalSearchComponent implements OnDestroy {
   private readonly supabaseService = inject(SupabaseService);
   private readonly router = inject(Router);
+  private readonly globalSearchService = inject(GlobalSearchService);
 
-  readonly isOpen = signal(false);
+  readonly isOpen = this.globalSearchService.isOpen;
   readonly query = signal('');
   readonly results = signal<SearchHit[]>([]);
   readonly isSearching = signal(false);
@@ -82,14 +84,14 @@ export class GlobalSearchComponent implements OnDestroy {
   // =========================================================================
 
   open(): void {
-    this.isOpen.set(true);
+    this.globalSearchService.open();
     this.query.set('');
     this.results.set([]);
     this.selectedIndex.set(-1);
   }
 
   close(): void {
-    this.isOpen.set(false);
+    this.globalSearchService.close();
   }
 
   onQueryChange(value: string): void {

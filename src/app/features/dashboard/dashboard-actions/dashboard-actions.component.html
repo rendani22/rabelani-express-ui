@@ -8,6 +8,19 @@
   <!-- Right: Actions -->
   <div class="flex flex-wrap sm:flex-nowrap items-center gap-2">
 
+    <!-- Search button -->
+    <button
+      class="btn inline-flex items-center justify-center gap-2 px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-600 hover:text-violet-600 dark:hover:text-violet-400 transition-colors"
+      title="Search (⌘K)"
+      (click)="openSearch()">
+      <svg class="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="8"></circle>
+        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+      </svg>
+      <span class="hidden xs:inline text-sm font-medium">Search</span>
+      <kbd class="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 text-xs font-mono bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded text-slate-400 dark:text-slate-500">⌘K</kbd>
+    </button>
+
     <!-- Filter button -->
     <div class="relative inline-flex">
       <button

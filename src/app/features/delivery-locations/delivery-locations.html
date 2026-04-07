@@ -64,21 +64,9 @@
             }
           </div>
           <!-- Address -->
-          <div>
+          <div class="sm:col-span-2">
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Address</label>
             <input type="text" formControlName="address" placeholder="123 Main St"
-              class="w-full px-3 py-2 rounded-lg border text-sm bg-white dark:bg-gray-800/50 border-gray-200 dark:border-gray-700/60 text-gray-800 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500" />
-          </div>
-          <!-- Building -->
-          <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Building</label>
-            <input type="text" formControlName="building" placeholder="Block A"
-              class="w-full px-3 py-2 rounded-lg border text-sm bg-white dark:bg-gray-800/50 border-gray-200 dark:border-gray-700/60 text-gray-800 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500" />
-          </div>
-          <!-- Floor -->
-          <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Floor</label>
-            <input type="text" formControlName="floor" placeholder="Ground / 2nd"
               class="w-full px-3 py-2 rounded-lg border text-sm bg-white dark:bg-gray-800/50 border-gray-200 dark:border-gray-700/60 text-gray-800 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500" />
           </div>
           <!-- Notes -->
@@ -137,11 +125,7 @@
                     }
                   </div>
                   <input type="text" formControlName="address" placeholder="Address"
-                    class="px-3 py-2 rounded-lg border text-sm bg-white dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
-                  <input type="text" formControlName="building" placeholder="Building"
-                    class="px-3 py-2 rounded-lg border text-sm bg-white dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
-                  <input type="text" formControlName="floor" placeholder="Floor"
-                    class="px-3 py-2 rounded-lg border text-sm bg-white dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+                    class="sm:col-span-2 px-3 py-2 rounded-lg border text-sm bg-white dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
                   <div class="sm:col-span-2 flex justify-end gap-2">
                     <button type="button"
                       class="px-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 flex items-center gap-1"
@@ -173,9 +157,7 @@
                         }
                       </div>
                       <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                        @if (loc.building) { {{ loc.building }}{{ loc.floor ? ', ' + loc.floor : '' }} · }
-                        @if (loc.address) { {{ loc.address }} }
-                        @if (!loc.building && !loc.address) { No address provided }
+                        @if (loc.address) { {{ loc.address }} } @else { No address provided }
                       </p>
                       @if (loc.notes) {
                         <p class="text-xs text-gray-400 dark:text-gray-500 mt-1 italic">{{ loc.notes }}</p>

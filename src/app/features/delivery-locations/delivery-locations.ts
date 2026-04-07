@@ -9,7 +9,6 @@ import {
   tablerTrash,
   tablerCheck,
   tablerX,
-  tablerBuilding,
   tablerSearch,
   tablerRefresh,
 } from '@ng-icons/tabler-icons';
@@ -42,7 +41,6 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
       tablerTrash,
       tablerCheck,
       tablerX,
-      tablerBuilding,
       tablerSearch,
       tablerRefresh,
     }),
@@ -75,8 +73,7 @@ export class DeliveryLocationsComponent implements OnInit {
     return this.locations().filter(
       l => !q ||
         l.name.toLowerCase().includes(q) ||
-        (l.address ?? '').toLowerCase().includes(q) ||
-        (l.building ?? '').toLowerCase().includes(q)
+        (l.address ?? '').toLowerCase().includes(q)
     );
   });
 
@@ -87,16 +84,12 @@ export class DeliveryLocationsComponent implements OnInit {
   readonly addForm = this.fb.nonNullable.group({
     name: ['', [Validators.required, Validators.minLength(2)]],
     address: [''],
-    building: [''],
-    floor: [''],
     notes: [''],
   });
 
   readonly editForm = this.fb.nonNullable.group({
     name: ['', [Validators.required, Validators.minLength(2)]],
     address: [''],
-    building: [''],
-    floor: [''],
     notes: [''],
   });
 
@@ -131,8 +124,6 @@ export class DeliveryLocationsComponent implements OnInit {
     const dto: CreateDeliveryLocationDto = {
       name: v.name,
       address: v.address || undefined,
-      building: v.building || undefined,
-      floor: v.floor || undefined,
       notes: v.notes || undefined,
     };
 
@@ -156,8 +147,6 @@ export class DeliveryLocationsComponent implements OnInit {
     this.editForm.patchValue({
       name: loc.name,
       address: loc.address ?? '',
-      building: loc.building ?? '',
-      floor: loc.floor ?? '',
       notes: loc.notes ?? '',
     });
   }
@@ -175,8 +164,6 @@ export class DeliveryLocationsComponent implements OnInit {
     const dto: UpdateDeliveryLocationDto = {
       name: v.name,
       address: v.address || undefined,
-      building: v.building || undefined,
-      floor: v.floor || undefined,
       notes: v.notes || undefined,
     };
 
