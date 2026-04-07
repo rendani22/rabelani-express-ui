@@ -88,6 +88,13 @@ function packageToNotification(pkg: Package): HeaderNotification {
 }
 
 /**
+ * Generates a stable unique key for a notification to track dismissed state.
+ */
+function notificationKey(n: HeaderNotification): string {
+  return `${n.title}|${n.date}`;
+}
+
+/**
  * Service responsible for header component state management and business logic
  */
 @Injectable({
@@ -102,6 +109,9 @@ export class HeaderService {
 
   /** Internal dropdown state signal */
   private readonly dropdownState = signal<HeaderDropdownState>(INITIAL_DROPDOWN_STATE);
+
+  /** Keys of notifications the user has already opened/dismissed – persisted for the session */
+  private readonly dismissedKeys = new Set<string>();
 
   /** Dynamic notifications loaded from the database */
   private readonly _notifications = signal<readonly HeaderNotification[]>([]);
@@ -167,7 +177,9 @@ export class HeaderService {
 
       if (!data) return;
 
-      const notifications = (data as Package[]).map(packageToNotification);
+      const notifications = (data as Package[])
+        .map(packageToNotification)
+        .filter(n => !this.dismissedKeys.has(notificationKey(n)));
       this._notifications.set(notifications);
       this._unreadCount.set(0);
     } catch (err) {
@@ -192,6 +204,9 @@ export class HeaderService {
           if (!pkg) return;
 
           const notification = packageToNotification(pkg);
+
+          // Skip if the user already dismissed this notification
+          if (this.dismissedKeys.has(notificationKey(notification))) return;
 
           this._notifications.update(existing => {
             // Prepend; deduplicate by href+title (same package updated multiple times)
@@ -265,17 +280,27 @@ export class HeaderService {
   }
 
   /**
-   * Removes a single notification from the list by index
+   * Removes a single notification from the list by index and remembers it so
+   * it is not re-added on the next reload.
    */
   dismissNotification(index: number): void {
-    this._notifications.update(list => list.filter((_, i) => i !== index));
+    this._notifications.update(list => {
+      const target = list[index];
+      if (target) {
+        this.dismissedKeys.add(notificationKey(target));
+      }
+      return list.filter((_, i) => i !== index);
+    });
   }
 
   /**
-   * Clears all notifications from the list
+   * Clears all notifications from the list and remembers them all as dismissed.
    */
   clearAllNotifications(): void {
-    this._notifications.set([]);
+    this._notifications.update(list => {
+      list.forEach(n => this.dismissedKeys.add(notificationKey(n)));
+      return [];
+    });
   }
 
 

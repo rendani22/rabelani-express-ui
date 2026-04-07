@@ -5,8 +5,6 @@ export interface DeliveryLocation {
   readonly id: string;
   readonly name: string;
   readonly address?: string;
-  readonly building?: string;
-  readonly floor?: string;
   readonly notes?: string;
   readonly is_active: boolean;
   readonly created_at: string;
@@ -19,8 +17,6 @@ export interface DeliveryLocation {
 export interface CreateDeliveryLocationDto {
   readonly name: string;
   readonly address?: string;
-  readonly building?: string;
-  readonly floor?: string;
   readonly notes?: string;
 }
 
@@ -30,8 +26,6 @@ export interface CreateDeliveryLocationDto {
 export interface UpdateDeliveryLocationDto {
   readonly name?: string;
   readonly address?: string;
-  readonly building?: string;
-  readonly floor?: string;
   readonly notes?: string;
   readonly is_active?: boolean;
 }
