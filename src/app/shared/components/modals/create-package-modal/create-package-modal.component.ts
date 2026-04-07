@@ -244,9 +244,16 @@ export class CreatePackageModalComponent {
     return null;
   }
 
-  // =========================================================================
-  // Actions
-  // =========================================================================
+  /**
+   * Returns a display label for an inventory item option in the dropdown.
+   */
+  getInventoryItemLabel(item: InventoryItem): string {
+    const skuPart = item.sku ? ` [${item.sku}]` : '';
+    const stockPart = item.quantity === 0
+      ? ' (out of stock)'
+      : ` – ${item.quantity} ${item.unit}`;
+    return `${item.name}${skuPart}${stockPart}`;
+  }
 
   /**
    * Handles modal close action
@@ -337,7 +344,11 @@ export class CreatePackageModalComponent {
       }));
 
     if (deductions.length > 0) {
-      await this.inventoryService.deductStock(deductions);
+      try {
+        await this.inventoryService.deductStock(deductions);
+      } catch {
+        this.toastService.warning('Package created, but inventory stock levels could not be updated. Please adjust them manually.');
+      }
     }
   }
 

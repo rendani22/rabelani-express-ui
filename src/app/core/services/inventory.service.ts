@@ -176,24 +176,25 @@ export class InventoryService {
 
   /**
    * Deduct stock for a list of items consumed by a package.
+   * Uses parallel atomic database-level decrements to avoid race conditions.
    * Called after a package is successfully created.
    * Errors are non-fatal – the package was already created.
    */
   async deductStock(items: Array<{ inventoryItemId: string; quantity: number }>): Promise<void> {
     if (!items.length) return;
 
-    for (const { inventoryItemId, quantity } of items) {
-      const current = this._items().find(i => i.id === inventoryItemId);
-      if (!current) continue;
+    // Execute all decrements in parallel using atomic RPC to avoid race conditions.
+    // Each call uses GREATEST(0, quantity - N) so stock never goes below zero.
+    await Promise.all(
+      items.map(({ inventoryItemId, quantity }) =>
+        this.supabase.client.rpc('decrement_inventory_quantity', {
+          item_id: inventoryItemId,
+          decrement_by: quantity,
+        })
+      )
+    );
 
-      const newQty = Math.max(0, current.quantity - quantity);
-      await this.supabase.client
-        .from('inventory_items')
-        .update({ quantity: newQty })
-        .eq('id', inventoryItemId);
-    }
-
-    // Refresh to reflect new quantities
+    // Refresh to reflect updated quantities in the UI
     await this.loadItems();
   }
 

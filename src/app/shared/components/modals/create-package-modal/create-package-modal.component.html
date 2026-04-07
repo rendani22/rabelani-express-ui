@@ -290,7 +290,7 @@
                         <option value="">— Select from inventory (optional) —</option>
                         @for (invItem of activeInventoryItems(); track invItem.id) {
                           <option [value]="invItem.id" [disabled]="invItem.quantity === 0">
-                            {{ invItem.name }}{{ invItem.sku ? ' [' + invItem.sku + ']' : '' }} – {{ invItem.quantity | number }} {{ invItem.unit }}{{ invItem.quantity === 0 ? ' (out of stock)' : '' }}
+                            {{ getInventoryItemLabel(invItem) }}
                           </option>
                         }
                         @if (activeInventoryItems().length === 0) {

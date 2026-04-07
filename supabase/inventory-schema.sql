@@ -68,6 +68,21 @@ CREATE POLICY "Staff can delete inventory"
   USING (TRUE);
 
 -- ============================================================================
+-- RPC: Atomic inventory stock decrement
+-- Used by the UI when a package is created to deduct consumed quantities.
+-- GREATEST(0, ...) ensures stock never goes below zero.
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION public.decrement_inventory_quantity(item_id UUID, decrement_by INTEGER)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER AS $$
+BEGIN
+  UPDATE public.inventory_items
+  SET quantity = GREATEST(0, quantity - decrement_by)
+  WHERE id = item_id;
+END;
+$$;
+
+-- ============================================================================
 -- inventory_item_id foreign key on package_items (optional)
 -- Add this column so package items link back to the inventory item they consumed.
 -- The UI will deduct stock when a package is created.

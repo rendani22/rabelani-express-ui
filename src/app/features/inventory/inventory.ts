@@ -342,9 +342,9 @@ export class InventoryComponent implements OnInit {
   ): string | null {
     const ctrl = form.get(field);
     if (!ctrl || !ctrl.touched || !ctrl.errors) return null;
-    if (ctrl.errors['required']) return 'This field is required.';
-    if (ctrl.errors['minlength']) return `Must be at least ${ctrl.errors['minlength'].requiredLength} characters.`;
-    if (ctrl.errors['min']) return `Must be ${ctrl.errors['min'].min} or greater.`;
+    if (ctrl.errors?.['required']) return 'This field is required.';
+    if (ctrl.errors?.['minlength']) return `Must be at least ${ctrl.errors['minlength'].requiredLength} characters.`;
+    if (ctrl.errors?.['min']) return `Must be ${ctrl.errors['min'].min} or greater.`;
     return null;
   }
 
