@@ -28,10 +28,16 @@
             [attr.aria-expanded]="notificationsOpen()">
             <span class="sr-only">Notifications</span>
             <ng-icon name="tablerBell" size="16"></ng-icon>
-            <div
-              *ngIf="hasNotifications()"
-              class="absolute top-0.5 right-0.5 w-2 h-2 bg-rose-500 rounded-full ring-2 ring-white dark:ring-slate-800">
-            </div>
+            @if (unreadCount() > 0) {
+              <span
+                class="absolute -top-0.5 -right-0.5 min-w-[1.1rem] h-[1.1rem] bg-rose-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center ring-2 ring-white dark:ring-slate-800 px-0.5">
+                {{ unreadCount() > 9 ? '9+' : unreadCount() }}
+              </span>
+            } @else if (hasNotifications()) {
+              <div
+                class="absolute top-0.5 right-0.5 w-2 h-2 bg-rose-500 rounded-full ring-2 ring-white dark:ring-slate-800">
+              </div>
+            }
           </button>
 
           <div

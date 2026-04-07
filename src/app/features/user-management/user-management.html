@@ -108,3 +108,14 @@
   (userUpdated)="onUserUpdated($event)"
 />
 
+<!-- Deactivate Confirmation Dialog -->
+<app-confirm-dialog
+  [isOpen]="confirmDeactivateOpen()"
+  title="Deactivate User"
+  [message]="deactivateStaffMessage()"
+  confirmLabel="Deactivate"
+  [danger]="true"
+  (confirmed)="onConfirmDeactivate()"
+  (cancelled)="onCancelDeactivate()"
+/>
+

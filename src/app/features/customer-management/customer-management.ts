@@ -1,9 +1,12 @@
 import { Component, inject, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LayoutComponent } from '../../shared/components/layout/layout.component';
-import { ReceiverService, ReceiverProfile } from '../../core';
+import { ReceiverService, ReceiverProfile, Package, PACKAGE_STATUS } from '../../core';
 import { UserCardComponent, User, UserCardAction, UserCardMenuOption } from '../../shared/components/user-card';
 import { AddCustomerModalComponent } from '../../shared/components/modals';
+import { ToastService } from '../../shared/components/toast/toast.service';
+import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
+import { SupabaseService } from '../../shared/services/supabase.service';
 
 /**
  * CustomerManagementComponent handles the display and management of receiver profiles.
@@ -11,15 +14,35 @@ import { AddCustomerModalComponent } from '../../shared/components/modals';
 @Component({
   selector: 'app-customer-management',
   standalone: true,
-  imports: [CommonModule, LayoutComponent, UserCardComponent, AddCustomerModalComponent],
+  imports: [CommonModule, LayoutComponent, UserCardComponent, AddCustomerModalComponent, ConfirmDialogComponent],
   templateUrl: './customer-management.html',
   styleUrl: './customer-management.css'
 })
 export class CustomerManagementComponent implements OnInit {
   private readonly receiverService = inject(ReceiverService);
+  private readonly toastService = inject(ToastService);
+  private readonly supabaseService = inject(SupabaseService);
 
   /** Modal state for adding new customer */
   readonly addCustomerModalOpen = signal(false);
+
+  /** Confirmation dialog for deactivation */
+  readonly confirmDeactivateOpen = signal(false);
+  readonly receiverPendingDeactivation = signal<ReceiverProfile | null>(null);
+
+  /** Computed deactivation message for confirm dialog */
+  readonly deactivateReceiverMessage = computed(() => {
+    const r = this.receiverPendingDeactivation();
+    return r
+      ? `Are you sure you want to deactivate ${r.name} ${r.surname}? They will no longer be able to receive packages.`
+      : 'Are you sure you want to deactivate this customer?';
+  });
+
+  /** Package history panel */
+  readonly historyPanelOpen = signal(false);
+  readonly selectedReceiver = signal<ReceiverProfile | null>(null);
+  readonly receiverPackages = signal<Package[]>([]);
+  readonly loadingPackages = signal(false);
 
   /** List of receiver profiles */
   readonly receiverList = this.receiverService.receiverList;
@@ -35,6 +58,7 @@ export class CustomerManagementComponent implements OnInit {
 
   /** Menu options for active customer cards */
   readonly menuOptions: UserCardMenuOption[] = [
+    { label: 'View Packages', action: 'viewPackages' },
     { label: 'Send Email', action: 'sendEmail' },
     { label: 'Deactivate', action: 'deactivate', isDanger: true }
   ];
@@ -130,6 +154,9 @@ export class CustomerManagementComponent implements OnInit {
    */
   private async handleMenuOption(option: string | undefined, receiver: ReceiverProfile): Promise<void> {
     switch (option) {
+      case 'viewPackages':
+        await this.onViewPackages(receiver);
+        break;
       case 'sendEmail':
         window.location.href = `mailto:${receiver.email}`;
         break;
@@ -143,12 +170,101 @@ export class CustomerManagementComponent implements OnInit {
   }
 
   /**
+   * Open the package history panel for a receiver.
+   */
+  async onViewPackages(receiver: ReceiverProfile): Promise<void> {
+    this.selectedReceiver.set(receiver);
+    this.historyPanelOpen.set(true);
+    await this.loadReceiverPackages(receiver.email);
+  }
+
+  /**
+   * Load all packages for a given receiver email.
+   */
+  private async loadReceiverPackages(email: string): Promise<void> {
+    this.loadingPackages.set(true);
+    try {
+      const { data } = await this.supabaseService.client
+        .from('packages')
+        .select('*')
+        .eq('receiver_email', email)
+        .order('created_at', { ascending: false });
+      this.receiverPackages.set((data ?? []) as Package[]);
+    } catch {
+      this.receiverPackages.set([]);
+    } finally {
+      this.loadingPackages.set(false);
+    }
+  }
+
+  /**
+   * Close the package history panel.
+   */
+  onCloseHistoryPanel(): void {
+    this.historyPanelOpen.set(false);
+    this.selectedReceiver.set(null);
+    this.receiverPackages.set([]);
+  }
+
+  /**
+   * Get a human-readable status label.
+   */
+  getStatusLabel(status: string): string {
+    const labels: Record<string, string> = {
+      [PACKAGE_STATUS.PENDING]: 'Pending',
+      [PACKAGE_STATUS.NOTIFIED]: 'Notified',
+      [PACKAGE_STATUS.IN_TRANSIT]: 'In Transit',
+      [PACKAGE_STATUS.READY_FOR_COLLECTION]: 'Ready',
+      [PACKAGE_STATUS.DELIVERED]: 'Delivered',
+      [PACKAGE_STATUS.COLLECTED]: 'Collected',
+    };
+    return labels[status] ?? status;
+  }
+
+  /**
+   * Get a badge colour class for a package status.
+   */
+  getStatusBadgeClass(status: string): string {
+    const classes: Record<string, string> = {
+      [PACKAGE_STATUS.PENDING]: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-500/20 dark:text-yellow-400',
+      [PACKAGE_STATUS.NOTIFIED]: 'bg-blue-100 text-blue-800 dark:bg-blue-500/20 dark:text-blue-400',
+      [PACKAGE_STATUS.IN_TRANSIT]: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-500/20 dark:text-indigo-400',
+      [PACKAGE_STATUS.READY_FOR_COLLECTION]: 'bg-purple-100 text-purple-800 dark:bg-purple-500/20 dark:text-purple-400',
+      [PACKAGE_STATUS.DELIVERED]: 'bg-green-100 text-green-800 dark:bg-green-500/20 dark:text-green-400',
+      [PACKAGE_STATUS.COLLECTED]: 'bg-green-100 text-green-800 dark:bg-green-500/20 dark:text-green-400',
+    };
+    return classes[status] ?? 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300';
+  }
+
+  /**
+   * Format a date string for display.
+   */
+  formatDate(dateString: string): string {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      month: 'short', day: 'numeric', year: 'numeric'
+    });
+  }
+
+  /**
    * Deactivate a receiver profile.
    */
   async onDeactivate(receiver: ReceiverProfile): Promise<void> {
-    if (confirm(`Are you sure you want to deactivate ${receiver.name} ${receiver.surname}?`)) {
-      await this.receiverService.deactivateReceiver(receiver.id);
-    }
+    this.receiverPendingDeactivation.set(receiver);
+    this.confirmDeactivateOpen.set(true);
+  }
+
+  async onConfirmDeactivate(): Promise<void> {
+    this.confirmDeactivateOpen.set(false);
+    const receiver = this.receiverPendingDeactivation();
+    this.receiverPendingDeactivation.set(null);
+    if (!receiver) return;
+    await this.receiverService.deactivateReceiver(receiver.id);
+    this.toastService.success(`Customer "${receiver.name} ${receiver.surname}" has been deactivated.`);
+  }
+
+  onCancelDeactivate(): void {
+    this.confirmDeactivateOpen.set(false);
+    this.receiverPendingDeactivation.set(null);
   }
 
   /**

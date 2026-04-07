@@ -6,6 +6,7 @@ import { OrdersActionsComponent } from './orders-actions/orders-actions.componen
 import { PackageService, Package, PACKAGE_STATUS, PackageStatus, SettingsService } from '../../core';
 import { CreatePackageModalComponent, PackageDetailsPanelComponent } from '../../shared/components/modals';
 import { QrCodeComponent } from '../../shared/components/qr-code';
+import { ToastService } from '../../shared/components/toast/toast.service';
 
 /**
  * Orders page component that displays packages in a transaction table format.
@@ -29,6 +30,7 @@ import { QrCodeComponent } from '../../shared/components/qr-code';
 export class OrdersComponent implements OnInit {
   private readonly packageService = inject(PackageService);
   private readonly settingsService = inject(SettingsService);
+  private readonly toastService = inject(ToastService);
 
   // Modal state
   createPackageModalOpen = false;
@@ -157,7 +159,7 @@ export class OrdersComponent implements OnInit {
    * Handle package created event.
    */
   async onPackageCreated(pkg: Package): Promise<void> {
-    console.log('Package created:', pkg);
+    this.toastService.success(`Package ${pkg.reference} created successfully!`);
     this.createPackageModalOpen = false;
     // Refresh the packages list
     await this.loadPackages();
@@ -211,20 +213,19 @@ export class OrdersComponent implements OnInit {
           break;
 
         default:
-          console.warn('No action available for status:', pkg.status);
+          this.toastService.warning('No action available for current package status.');
           return;
       }
 
-      if (!result.success) {
-        console.error('Status update failed:', result.error);
-        // TODO: Show error toast notification
+      if (result.success) {
+        this.toastService.success('Package status updated successfully.');
       }
 
       // Close panel and refresh packages
       this.onCloseDetailsPanel();
       await this.loadPackages();
     } catch (error) {
-      console.error('Error updating package status:', error);
+      this.toastService.error('An unexpected error occurred while updating the package status.');
     }
   }
 

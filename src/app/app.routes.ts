@@ -41,4 +41,14 @@ export const routes: Routes = [
     loadComponent: () => import('./features/settings/settings').then(m => m.SettingsComponent),
     canActivate: [authGuard],
   },
+  {
+    path: 'delivery-locations',
+    loadComponent: () => import('./features/delivery-locations/delivery-locations').then(m => m.DeliveryLocationsComponent),
+    canActivate: [authGuard],
+  },
+  {
+    path: 'email-templates',
+    loadComponent: () => import('./features/email-templates/email-templates').then(m => m.EmailTemplatesComponent),
+    canActivate: [authGuard],
+  },
 ];

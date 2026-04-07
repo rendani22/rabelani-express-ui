@@ -4,6 +4,8 @@ import { LayoutComponent } from '../../shared/components/layout/layout.component
 import { StaffService, StaffProfile } from '../../core';
 import { UserCardComponent, User, UserCardAction, UserCardMenuOption } from '../../shared/components/user-card';
 import { AddUserModalComponent, EditUserModalComponent } from '../../shared/components/modals';
+import { ToastService } from '../../shared/components/toast/toast.service';
+import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
 
 /**
  * UserManagementComponent handles the display and management of staff users.
@@ -12,12 +14,13 @@ import { AddUserModalComponent, EditUserModalComponent } from '../../shared/comp
 @Component({
   selector: 'app-user-management',
   standalone: true,
-  imports: [CommonModule, LayoutComponent, UserCardComponent, AddUserModalComponent, EditUserModalComponent],
+  imports: [CommonModule, LayoutComponent, UserCardComponent, AddUserModalComponent, EditUserModalComponent, ConfirmDialogComponent],
   templateUrl: './user-management.html',
   styleUrl: './user-management.css'
 })
 export class UserManagementComponent implements OnInit {
   private readonly staffService = inject(StaffService);
+  private readonly toastService = inject(ToastService);
 
   /** Modal state for adding new user */
   readonly addUserModalOpen = signal(false);
@@ -27,6 +30,18 @@ export class UserManagementComponent implements OnInit {
 
   /** Staff profile being edited */
   readonly staffToEdit = signal<StaffProfile | null>(null);
+
+  /** Confirmation dialog for deactivation */
+  readonly confirmDeactivateOpen = signal(false);
+  readonly staffPendingDeactivation = signal<StaffProfile | null>(null);
+
+  /** Computed deactivation message for confirm dialog */
+  readonly deactivateStaffMessage = computed(() => {
+    const s = this.staffPendingDeactivation();
+    return s
+      ? `Are you sure you want to deactivate ${s.full_name}? They will no longer be able to access the system.`
+      : 'Are you sure you want to deactivate this user?';
+  });
 
   /** List of staff profiles */
   readonly staffList = this.staffService.staffList;
@@ -148,7 +163,7 @@ export class UserManagementComponent implements OnInit {
   private async handleMenuOption(option: string | undefined, staff: StaffProfile): Promise<void> {
     switch (option) {
       case 'viewProfile':
-        console.log('View profile:', staff);
+        // Profile view is handled by the card click
         break;
       case 'edit':
         this.onEditUser(staff);
@@ -165,20 +180,30 @@ export class UserManagementComponent implements OnInit {
   /**
    * Handle card click
    */
-  onCardClick(user: User): void {
-    const staff = this.getStaffById(user.id);
-    if (staff) {
-      console.log('Card clicked:', staff);
-    }
+  onCardClick(_user: User): void {
+    // Card click – reserved for future profile view navigation
   }
 
   /**
    * Deactivate a staff member
    */
   async onDeactivate(staff: StaffProfile): Promise<void> {
-    if (confirm(`Are you sure you want to deactivate ${staff.full_name}?`)) {
-      await this.staffService.deactivateStaff(staff.id);
-    }
+    this.staffPendingDeactivation.set(staff);
+    this.confirmDeactivateOpen.set(true);
+  }
+
+  async onConfirmDeactivate(): Promise<void> {
+    this.confirmDeactivateOpen.set(false);
+    const staff = this.staffPendingDeactivation();
+    this.staffPendingDeactivation.set(null);
+    if (!staff) return;
+    await this.staffService.deactivateStaff(staff.id);
+    this.toastService.success(`User "${staff.full_name}" has been deactivated.`);
+  }
+
+  onCancelDeactivate(): void {
+    this.confirmDeactivateOpen.set(false);
+    this.staffPendingDeactivation.set(null);
   }
 
   /**

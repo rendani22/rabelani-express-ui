@@ -289,3 +289,15 @@
     </div><!-- /space-y-6 -->
   </div>
 </app-layout>
+
+
+<!-- Reset Confirmation Dialog -->
+<app-confirm-dialog
+  [isOpen]="confirmResetOpen()"
+  title="Reset Settings"
+  message="Are you sure you want to reset all settings to their defaults? This cannot be undone."
+  confirmLabel="Reset"
+  [danger]="true"
+  (confirmed)="onConfirmReset()"
+  (cancelled)="onCancelReset()"
+/>

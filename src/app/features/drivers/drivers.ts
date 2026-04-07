@@ -4,7 +4,10 @@ import { LayoutComponent } from '../../shared/components/layout/layout.component
 import { DriverMapComponent } from '../../shared/components/map/driver-map.component';
 import { UserCardComponent, User, UserCardAction, UserCardMenuOption } from '../../shared/components/user-card';
 import { AddDriverModalComponent } from './add-driver-modal/add-driver-modal.component';
+import { EditDriverModalComponent } from './edit-driver-modal/edit-driver-modal.component';
+import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
 import { DriverService, StaffService, DriverProfile, Package, PACKAGE_STATUS, SettingsService } from '../../core';
+import { ToastService } from '../../shared/components/toast/toast.service';
 
 /**
  * DriversComponent - Main page for driver management and tracking
@@ -23,7 +26,9 @@ import { DriverService, StaffService, DriverProfile, Package, PACKAGE_STATUS, Se
     LayoutComponent,
     DriverMapComponent,
     UserCardComponent,
-    AddDriverModalComponent
+    AddDriverModalComponent,
+    EditDriverModalComponent,
+    ConfirmDialogComponent
   ],
   templateUrl: './drivers.html',
   styleUrl: './drivers.css'
@@ -32,6 +37,7 @@ export class DriversComponent implements OnInit, OnDestroy {
   private readonly driverService = inject(DriverService);
   private readonly staffService = inject(StaffService);
   private readonly settingsService = inject(SettingsService);
+  private readonly toastService = inject(ToastService);
 
   /** Reference to the map component */
   @ViewChild(DriverMapComponent) mapComponent?: DriverMapComponent;
@@ -41,6 +47,24 @@ export class DriversComponent implements OnInit, OnDestroy {
 
   /** Modal state for adding new driver */
   readonly addDriverModalOpen = signal(false);
+
+  /** Modal state for editing driver */
+  readonly editDriverModalOpen = signal(false);
+
+  /** Driver profile being edited */
+  readonly driverToEdit = signal<DriverProfile | null>(null);
+
+  /** Confirmation dialog state for deactivation */
+  readonly confirmDeactivateOpen = signal(false);
+  readonly driverPendingDeactivation = signal<DriverProfile | null>(null);
+
+  /** Computed deactivation message for confirm dialog */
+  readonly deactivateDriverMessage = computed(() => {
+    const d = this.driverPendingDeactivation();
+    return d
+      ? `Are you sure you want to deactivate ${d.full_name}? They will no longer be able to access the system.`
+      : 'Are you sure you want to deactivate this driver?';
+  });
 
   /** Search query for filtering drivers */
   readonly searchQuery = signal('');
@@ -238,26 +262,55 @@ export class DriversComponent implements OnInit, OnDestroy {
    * Handle driver created event
    */
   async onDriverCreated(driver: DriverProfile): Promise<void> {
-    console.log('Driver created:', driver);
+    this.toastService.success(`Driver "${driver.full_name}" created successfully!`);
     await this.loadDrivers();
   }
 
   /**
-   * Edit driver (placeholder)
+   * Edit driver – opens the edit modal
    */
   onEditDriver(driver: DriverProfile): void {
-    console.log('Edit driver:', driver);
-    // TODO: Implement edit driver modal
+    this.driverToEdit.set(driver);
+    this.editDriverModalOpen.set(true);
+  }
+
+  /**
+   * Close edit driver modal
+   */
+  onCloseEditDriverModal(): void {
+    this.editDriverModalOpen.set(false);
+    this.driverToEdit.set(null);
+  }
+
+  /**
+   * Handle driver updated event
+   */
+  async onDriverUpdated(driver: DriverProfile): Promise<void> {
+    this.toastService.success(`Driver "${driver.full_name}" updated successfully!`);
+    await this.loadDrivers();
   }
 
   /**
    * Deactivate driver
    */
   async onDeactivateDriver(driver: DriverProfile): Promise<void> {
-    if (confirm(`Are you sure you want to deactivate ${driver.full_name}?`)) {
-      await this.staffService.deactivateStaff(driver.id);
-      await this.loadDrivers();
-    }
+    this.driverPendingDeactivation.set(driver);
+    this.confirmDeactivateOpen.set(true);
+  }
+
+  async onConfirmDeactivate(): Promise<void> {
+    this.confirmDeactivateOpen.set(false);
+    const driver = this.driverPendingDeactivation();
+    this.driverPendingDeactivation.set(null);
+    if (!driver) return;
+    await this.staffService.deactivateStaff(driver.id);
+    this.toastService.success(`Driver "${driver.full_name}" has been deactivated.`);
+    await this.loadDrivers();
+  }
+
+  onCancelDeactivate(): void {
+    this.confirmDeactivateOpen.set(false);
+    this.driverPendingDeactivation.set(null);
   }
 
   /**
