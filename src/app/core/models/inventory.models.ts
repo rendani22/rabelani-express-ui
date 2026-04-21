@@ -75,8 +75,49 @@ export interface InventoryStats {
   readonly totalStock: number;
   readonly lowStockCount: number;
   readonly outOfStockCount: number;
+  /** Active items with quantity > 0 whose stock count hasn't changed in 2+ months */
+  readonly staleStockCount: number;
   readonly totalValue: number;
   readonly categories: string[];
+}
+
+// ============================================================================
+// Stock Movement History
+// ============================================================================
+
+/**
+ * Records a single stock quantity change.
+ * positive delta = stock added, negative delta = stock removed.
+ */
+export type InventoryMovementSource =
+  | 'initial'         // item created with opening stock > 0
+  | 'manual_edit'     // quantity changed via the edit form
+  | 'package_deduct'  // stock deducted when a delivery package was created
+  | 'restock';        // stock added via a restock action
+
+export interface InventoryMovement {
+  readonly id: string;
+  readonly item_id: string;
+  readonly user_id: string | null;
+  readonly delta: number;
+  readonly quantity_before: number;
+  readonly quantity_after: number;
+  readonly source: InventoryMovementSource;
+  readonly reference: string | null;
+  readonly note: string | null;
+  readonly created_at: string;
+}
+
+/**
+ * A movement with the parent item embedded — used by the
+ * global "Recent Movements" view.
+ */
+export interface RecentMovement extends InventoryMovement {
+  readonly item: {
+    readonly name: string;
+    readonly sku: string | null;
+    readonly unit: string;
+  } | null;
 }
 
 // ============================================================================

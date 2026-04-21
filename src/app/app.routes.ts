@@ -47,6 +47,14 @@ export const routes: Routes = [
     canActivate: [authGuard],
   },
   {
+    path: 'inventory/movements',
+    loadComponent: () =>
+      import('./features/inventory/recent-movements/recent-movements').then(
+        m => m.RecentMovementsComponent,
+      ),
+    canActivate: [authGuard],
+  },
+  {
     path: 'delivery-locations',
     loadComponent: () => import('./features/delivery-locations/delivery-locations').then(m => m.DeliveryLocationsComponent),
     canActivate: [authGuard],

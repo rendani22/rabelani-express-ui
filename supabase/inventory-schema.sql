@@ -44,6 +44,12 @@ CREATE INDEX IF NOT EXISTS idx_inventory_items_sku        ON public.inventory_it
 
 ALTER TABLE public.inventory_items ENABLE ROW LEVEL SECURITY;
 
+-- Table-level GRANTs for the `authenticated` role.
+-- PostgREST derives its CORS preflight Access-Control-Allow-Methods list from
+-- these grants, so without them UPDATE (PATCH) / DELETE requests fail in the
+-- browser as CORS errors before RLS is even evaluated.
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.inventory_items TO authenticated;
+
 -- Authenticated users can read all inventory
 CREATE POLICY "Authenticated users can view inventory"
   ON public.inventory_items FOR SELECT
@@ -81,6 +87,9 @@ BEGIN
   WHERE id = item_id;
 END;
 $$;
+
+GRANT EXECUTE ON FUNCTION public.decrement_inventory_quantity(UUID, INTEGER)
+  TO authenticated;
 
 -- ============================================================================
 -- inventory_item_id foreign key on package_items (optional)
