@@ -18,9 +18,9 @@ import { ToastService } from '../../shared/components/toast/toast.service';
 import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
 
 /**
- * Delivery Locations management page.
+ * Delivery Points management page.
  *
- * Provides full CRUD for the delivery_locations table:
+ * Provides full CRUD for the delivery_locations table (UI: "Delivery Points"):
  * create, view, edit (inline), deactivate/reactivate, and delete.
  */
 @Component({
@@ -73,6 +73,7 @@ export class DeliveryLocationsComponent implements OnInit {
     return this.locations().filter(
       l => !q ||
         l.name.toLowerCase().includes(q) ||
+        (l.description ?? '').toLowerCase().includes(q) ||
         (l.address ?? '').toLowerCase().includes(q)
     );
   });
@@ -83,14 +84,20 @@ export class DeliveryLocationsComponent implements OnInit {
 
   readonly addForm = this.fb.nonNullable.group({
     name: ['', [Validators.required, Validators.minLength(2)]],
+    description: [''],
     address: [''],
     notes: [''],
+    latitude: [null as number | null, [Validators.min(-90), Validators.max(90)]],
+    longitude: [null as number | null, [Validators.min(-180), Validators.max(180)]],
   });
 
   readonly editForm = this.fb.nonNullable.group({
     name: ['', [Validators.required, Validators.minLength(2)]],
+    description: [''],
     address: [''],
     notes: [''],
+    latitude: [null as number | null, [Validators.min(-90), Validators.max(90)]],
+    longitude: [null as number | null, [Validators.min(-180), Validators.max(180)]],
   });
 
   // =========================================================================
@@ -119,12 +126,16 @@ export class DeliveryLocationsComponent implements OnInit {
   async onSubmitAdd(): Promise<void> {
     this.addForm.markAllAsTouched();
     if (this.addForm.invalid) return;
+    if (!this.validateGeoPair(this.addForm)) return;
 
     const v = this.addForm.getRawValue();
     const dto: CreateDeliveryLocationDto = {
       name: v.name,
+      description: v.description || undefined,
       address: v.address || undefined,
       notes: v.notes || undefined,
+      latitude: v.latitude ?? undefined,
+      longitude: v.longitude ?? undefined,
     };
 
     const result = await this.locationService.createLocation(dto);
@@ -132,7 +143,7 @@ export class DeliveryLocationsComponent implements OnInit {
     if (result.error) {
       this.toastService.error(result.error);
     } else {
-      this.toastService.success(`Location "${result.location!.name}" created successfully!`);
+      this.toastService.success(`Delivery point "${result.location!.name}" created successfully!`);
       this.onCancelAdd();
     }
   }
@@ -146,8 +157,11 @@ export class DeliveryLocationsComponent implements OnInit {
     this.showAddForm.set(false);
     this.editForm.patchValue({
       name: loc.name,
+      description: loc.description ?? '',
       address: loc.address ?? '',
       notes: loc.notes ?? '',
+      latitude: loc.latitude ?? null,
+      longitude: loc.longitude ?? null,
     });
   }
 
@@ -159,12 +173,16 @@ export class DeliveryLocationsComponent implements OnInit {
   async onSubmitEdit(loc: DeliveryLocation): Promise<void> {
     this.editForm.markAllAsTouched();
     if (this.editForm.invalid) return;
+    if (!this.validateGeoPair(this.editForm)) return;
 
     const v = this.editForm.getRawValue();
     const dto: UpdateDeliveryLocationDto = {
       name: v.name,
+      description: v.description || undefined,
       address: v.address || undefined,
       notes: v.notes || undefined,
+      latitude: v.latitude ?? undefined,
+      longitude: v.longitude ?? undefined,
     };
 
     const result = await this.locationService.updateLocation(loc.id, dto);
@@ -172,7 +190,7 @@ export class DeliveryLocationsComponent implements OnInit {
     if (result.error) {
       this.toastService.error(result.error);
     } else {
-      this.toastService.success(`Location "${result.location!.name}" updated.`);
+      this.toastService.success(`Delivery point "${result.location!.name}" updated.`);
       this.onCancelEdit();
     }
   }
@@ -187,14 +205,14 @@ export class DeliveryLocationsComponent implements OnInit {
       if (result.error) {
         this.toastService.error(result.error);
       } else {
-        this.toastService.success(`"${loc.name}" deactivated.`);
+        this.toastService.success(`Delivery point "${loc.name}" deactivated.`);
       }
     } else {
       const result = await this.locationService.reactivateLocation(loc.id);
       if (result.error) {
         this.toastService.error(result.error);
       } else {
-        this.toastService.success(`"${loc.name}" reactivated.`);
+        this.toastService.success(`Delivery point "${loc.name}" reactivated.`);
       }
     }
   }
@@ -218,7 +236,7 @@ export class DeliveryLocationsComponent implements OnInit {
     if (result.error) {
       this.toastService.error(result.error);
     } else {
-      this.toastService.success(`"${loc.name}" deleted.`);
+      this.toastService.success(`Delivery point "${loc.name}" deleted.`);
     }
   }
 
@@ -257,7 +275,24 @@ export class DeliveryLocationsComponent implements OnInit {
     if (!ctrl || !ctrl.touched || !ctrl.errors) return null;
     if (ctrl.errors['required']) return 'This field is required.';
     if (ctrl.errors['minlength']) return `Must be at least ${ctrl.errors['minlength'].requiredLength} characters.`;
+    if (ctrl.errors['min']) return `Must be ≥ ${ctrl.errors['min'].min}.`;
+    if (ctrl.errors['max']) return `Must be ≤ ${ctrl.errors['max'].max}.`;
     return null;
+  }
+
+  /**
+   * Latitude and longitude must be supplied together (or both empty).
+   */
+  private validateGeoPair(form: { get(field: string): AbstractControl | null }): boolean {
+    const lat = form.get('latitude')?.value;
+    const lng = form.get('longitude')?.value;
+    const latSet = lat !== null && lat !== undefined && lat !== ('' as unknown);
+    const lngSet = lng !== null && lng !== undefined && lng !== ('' as unknown);
+    if (latSet !== lngSet) {
+      this.toastService.warning('Please provide both latitude and longitude, or leave both empty.');
+      return false;
+    }
+    return true;
   }
 
   trackById(_index: number, loc: DeliveryLocation): string {

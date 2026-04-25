@@ -4,7 +4,7 @@
     <!-- Page header -->
     <div class="sm:flex sm:justify-between sm:items-center mb-8">
       <div class="mb-4 sm:mb-0">
-        <h1 class="text-2xl md:text-3xl text-gray-800 dark:text-gray-100 font-bold">Delivery Locations</h1>
+        <h1 class="text-2xl md:text-3xl text-gray-800 dark:text-gray-100 font-bold">Delivery Points</h1>
         <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage collection and drop-off points for packages</p>
       </div>
       <div class="flex gap-3">
@@ -23,7 +23,7 @@
           (click)="onShowAddForm()"
         >
           <ng-icon name="tablerPlus" size="16"></ng-icon>
-          Add Location
+          Add Delivery Point
         </button>
       </div>
     </div>
@@ -36,38 +36,63 @@
         </div>
         <input
           type="search"
-          placeholder="Search locations…"
+          placeholder="Search delivery points…"
           class="w-full pl-9 pr-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-sm bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
           (input)="onSearchChange($event)"
         />
       </div>
     </div>
 
-    <!-- Add Location Form -->
+    <!-- Add Delivery Point Form -->
     @if (showAddForm()) {
       <div class="mb-6 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-indigo-200 dark:border-indigo-700/50 p-5">
         <h2 class="text-base font-semibold text-gray-800 dark:text-gray-100 mb-4 flex items-center gap-2">
           <ng-icon name="tablerMapPin" size="18" class="text-indigo-500"></ng-icon>
-          New Delivery Location
+          New Delivery Point
         </h2>
         <form [formGroup]="addForm" (ngSubmit)="onSubmitAdd()" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <!-- Name -->
           <div class="sm:col-span-2">
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Name <span class="text-red-500">*</span>
+              Delivery Point <span class="text-red-500">*</span>
             </label>
-            <input type="text" formControlName="name" placeholder="e.g. Main Office Lobby"
+            <input type="text" formControlName="name" placeholder="e.g. 000A"
               class="w-full px-3 py-2 rounded-lg border text-sm bg-white dark:bg-gray-800/50 border-gray-200 dark:border-gray-700/60 text-gray-800 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
               [class.border-red-400]="getAddFieldError('name')" />
             @if (getAddFieldError('name'); as err) {
               <p class="text-xs text-red-500 mt-1">{{ err }}</p>
             }
           </div>
+          <!-- Description -->
+          <div class="sm:col-span-2">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
+            <textarea formControlName="description" rows="2" placeholder="e.g. Main Office Lobby"
+              class="w-full px-3 py-2 rounded-lg border text-sm bg-white dark:bg-gray-800/50 border-gray-200 dark:border-gray-700/60 text-gray-800 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 resize-none"></textarea>
+          </div>
           <!-- Address -->
           <div class="sm:col-span-2">
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Address</label>
             <input type="text" formControlName="address" placeholder="123 Main St"
               class="w-full px-3 py-2 rounded-lg border text-sm bg-white dark:bg-gray-800/50 border-gray-200 dark:border-gray-700/60 text-gray-800 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500" />
+          </div>
+          <!-- Latitude / Longitude -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Latitude</label>
+            <input type="number" step="any" min="-90" max="90" formControlName="latitude" placeholder="-26.2041"
+              class="w-full px-3 py-2 rounded-lg border text-sm bg-white dark:bg-gray-800/50 border-gray-200 dark:border-gray-700/60 text-gray-800 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+              [class.border-red-400]="getAddFieldError('latitude')" />
+            @if (getAddFieldError('latitude'); as err) {
+              <p class="text-xs text-red-500 mt-1">{{ err }}</p>
+            }
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Longitude</label>
+            <input type="number" step="any" min="-180" max="180" formControlName="longitude" placeholder="28.0473"
+              class="w-full px-3 py-2 rounded-lg border text-sm bg-white dark:bg-gray-800/50 border-gray-200 dark:border-gray-700/60 text-gray-800 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+              [class.border-red-400]="getAddFieldError('longitude')" />
+            @if (getAddFieldError('longitude'); as err) {
+              <p class="text-xs text-red-500 mt-1">{{ err }}</p>
+            }
           </div>
           <!-- Notes -->
           <div class="sm:col-span-2">
@@ -84,7 +109,7 @@
               class="px-4 py-2 text-sm rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white font-medium flex items-center gap-2"
               [disabled]="loading()">
               <ng-icon name="tablerCheck" size="16"></ng-icon>
-              Save Location
+              Save Delivery Point
             </button>
           </div>
         </form>
@@ -103,9 +128,9 @@
     } @else if (filteredLocations().length === 0) {
       <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-12 text-center">
         <ng-icon name="tablerMapPin" size="48" class="text-gray-300 dark:text-gray-600 mx-auto mb-3"></ng-icon>
-        <p class="text-gray-500 dark:text-gray-400 font-medium">No delivery locations found</p>
+        <p class="text-gray-500 dark:text-gray-400 font-medium">No delivery points found</p>
         <p class="text-sm text-gray-400 dark:text-gray-500 mt-1">
-          {{ searchQuery() ? 'Try a different search term' : 'Add your first delivery location to get started' }}
+          {{ searchQuery() ? 'Try a different search term' : 'Add your first delivery point to get started' }}
         </p>
       </div>
     } @else {
@@ -117,15 +142,33 @@
                 <!-- Inline Edit Form -->
                 <form [formGroup]="editForm" (ngSubmit)="onSubmitEdit(loc)" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div class="sm:col-span-2">
-                    <input type="text" formControlName="name" placeholder="Location name"
+                    <input type="text" formControlName="name" placeholder="Delivery point"
                       class="w-full px-3 py-2 rounded-lg border text-sm bg-white dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                       [class.border-red-400]="getEditFieldError('name')" />
                     @if (getEditFieldError('name'); as err) {
                       <p class="text-xs text-red-500 mt-1">{{ err }}</p>
                     }
                   </div>
+                  <textarea formControlName="description" rows="2" placeholder="Description"
+                    class="sm:col-span-2 px-3 py-2 rounded-lg border text-sm bg-white dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-none"></textarea>
                   <input type="text" formControlName="address" placeholder="Address"
                     class="sm:col-span-2 px-3 py-2 rounded-lg border text-sm bg-white dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+                  <div>
+                    <input type="number" step="any" min="-90" max="90" formControlName="latitude" placeholder="Latitude"
+                      class="w-full px-3 py-2 rounded-lg border text-sm bg-white dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      [class.border-red-400]="getEditFieldError('latitude')" />
+                    @if (getEditFieldError('latitude'); as err) {
+                      <p class="text-xs text-red-500 mt-1">{{ err }}</p>
+                    }
+                  </div>
+                  <div>
+                    <input type="number" step="any" min="-180" max="180" formControlName="longitude" placeholder="Longitude"
+                      class="w-full px-3 py-2 rounded-lg border text-sm bg-white dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      [class.border-red-400]="getEditFieldError('longitude')" />
+                    @if (getEditFieldError('longitude'); as err) {
+                      <p class="text-xs text-red-500 mt-1">{{ err }}</p>
+                    }
+                  </div>
                   <div class="sm:col-span-2 flex justify-end gap-2">
                     <button type="button"
                       class="px-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 flex items-center gap-1"
@@ -156,9 +199,18 @@
                           </span>
                         }
                       </div>
+                      @if (loc.description) {
+                        <p class="text-xs text-gray-600 dark:text-gray-300 mt-0.5">{{ loc.description }}</p>
+                      }
                       <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                         @if (loc.address) { {{ loc.address }} } @else { No address provided }
                       </p>
+                      @if (loc.latitude !== undefined && loc.latitude !== null && loc.longitude !== undefined && loc.longitude !== null) {
+                        <p class="text-xs text-gray-400 dark:text-gray-500 mt-1 flex items-center gap-1">
+                          <ng-icon name="tablerMapPin" size="12"></ng-icon>
+                          {{ loc.latitude }}, {{ loc.longitude }}
+                        </p>
+                      }
                       @if (loc.notes) {
                         <p class="text-xs text-gray-400 dark:text-gray-500 mt-1 italic">{{ loc.notes }}</p>
                       }
@@ -198,8 +250,8 @@
 <!-- Delete Confirmation Dialog -->
 <app-confirm-dialog
   [isOpen]="confirmDeleteOpen()"
-  title="Delete Location"
-  [message]="locationPendingDelete() ? 'Are you sure you want to permanently delete this location? This cannot be undone.' : 'Are you sure you want to delete this location?'"
+  title="Delete Delivery Point"
+  [message]="locationPendingDelete() ? 'Are you sure you want to permanently delete this delivery point? This cannot be undone.' : 'Are you sure you want to delete this delivery point?'"
   confirmLabel="Delete"
   [danger]="true"
   (confirmed)="onConfirmDelete()"
