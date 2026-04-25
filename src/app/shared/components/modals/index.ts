@@ -46,6 +46,9 @@ export * from './edit-user-modal/edit-user-modal.component';
 // Add Customer Modal
 export * from './add-customer-modal/add-customer-modal.component';
 
+// Manage Contacts Modal
+export * from './manage-contacts-modal/manage-contacts-modal.component';
+
 // Documentation Modal
 export * from './docs-modal/docs-modal.component';
 

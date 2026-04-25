@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { LayoutComponent } from '../../shared/components/layout/layout.component';
 import { ReceiverService, ReceiverProfile, Package, PACKAGE_STATUS } from '../../core';
 import { UserCardComponent, User, UserCardAction, UserCardMenuOption } from '../../shared/components/user-card';
-import { AddCustomerModalComponent } from '../../shared/components/modals';
+import { AddCustomerModalComponent, ManageContactsModalComponent } from '../../shared/components/modals';
 import { ToastService } from '../../shared/components/toast/toast.service';
 import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
 import { SupabaseService } from '../../shared/services/supabase.service';
@@ -14,7 +14,7 @@ import { SupabaseService } from '../../shared/services/supabase.service';
 @Component({
   selector: 'app-customer-management',
   standalone: true,
-  imports: [CommonModule, LayoutComponent, UserCardComponent, AddCustomerModalComponent, ConfirmDialogComponent],
+  imports: [CommonModule, LayoutComponent, UserCardComponent, AddCustomerModalComponent, ManageContactsModalComponent, ConfirmDialogComponent],
   templateUrl: './customer-management.html',
   styleUrl: './customer-management.css'
 })
@@ -25,6 +25,10 @@ export class CustomerManagementComponent implements OnInit {
 
   /** Modal state for adding new customer */
   readonly addCustomerModalOpen = signal(false);
+
+  /** Modal state for managing alternative contacts */
+  readonly manageContactsModalOpen = signal(false);
+  readonly contactsReceiver = signal<ReceiverProfile | null>(null);
 
   /** Confirmation dialog for deactivation */
   readonly confirmDeactivateOpen = signal(false);
@@ -59,12 +63,14 @@ export class CustomerManagementComponent implements OnInit {
   /** Menu options for active customer cards */
   readonly menuOptions: UserCardMenuOption[] = [
     { label: 'View Packages', action: 'viewPackages' },
+    { label: 'Manage Contacts', action: 'manageContacts' },
     { label: 'Send Email', action: 'sendEmail' },
     { label: 'Deactivate', action: 'deactivate', isDanger: true }
   ];
 
   /** Menu options for inactive customer cards */
   readonly inactiveMenuOptions: UserCardMenuOption[] = [
+    { label: 'Manage Contacts', action: 'manageContacts' },
     { label: 'Send Email', action: 'sendEmail' },
     { label: 'Reactivate', action: 'reactivate' }
   ];
@@ -79,8 +85,7 @@ export class CustomerManagementComponent implements OnInit {
     return receivers.filter(r =>
       r.name.toLowerCase().includes(query) ||
       r.surname.toLowerCase().includes(query) ||
-      r.email.toLowerCase().includes(query) ||
-      r.employee_number.toLowerCase().includes(query)
+      r.email.toLowerCase().includes(query)
     );
   });
 
@@ -112,7 +117,7 @@ export class CustomerManagementComponent implements OnInit {
       id: receiver.id,
       name: fullName,
       avatar: this.generateAvatarUrl(fullName),
-      country: receiver.employee_number,
+      country: receiver.is_active ? 'Active' : 'Inactive',
       countryFlag: receiver.is_active ? '✅' : '⛔',
       bio: `${receiver.email}${receiver.phone ? ' • ' + receiver.phone : ''}${receiver.is_active ? '' : ' • Inactive'}`
     };
@@ -156,6 +161,9 @@ export class CustomerManagementComponent implements OnInit {
     switch (option) {
       case 'viewPackages':
         await this.onViewPackages(receiver);
+        break;
+      case 'manageContacts':
+        this.onManageContacts(receiver);
         break;
       case 'sendEmail':
         window.location.href = `mailto:${receiver.email}`;
@@ -286,6 +294,22 @@ export class CustomerManagementComponent implements OnInit {
    */
   onCloseAddCustomerModal(): void {
     this.addCustomerModalOpen.set(false);
+  }
+
+  /**
+   * Open the manage-contacts modal for the given receiver.
+   */
+  onManageContacts(receiver: ReceiverProfile): void {
+    this.contactsReceiver.set(receiver);
+    this.manageContactsModalOpen.set(true);
+  }
+
+  /**
+   * Close the manage-contacts modal.
+   */
+  onCloseManageContactsModal(): void {
+    this.manageContactsModalOpen.set(false);
+    this.contactsReceiver.set(null);
   }
 
   /**

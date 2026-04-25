@@ -5,7 +5,6 @@ export interface ReceiverProfile {
   readonly id: string;
   readonly name: string;
   readonly surname: string;
-  readonly employee_number: string;
   readonly email: string;
   readonly phone?: string;
   readonly is_active: boolean;
@@ -20,7 +19,6 @@ export interface ReceiverProfile {
 export interface CreateReceiverProfileDto {
   readonly name: string;
   readonly surname: string;
-  readonly employee_number: string;
   readonly email: string;
   readonly phone?: string;
 }
@@ -31,7 +29,6 @@ export interface CreateReceiverProfileDto {
 export interface UpdateReceiverProfileDto {
   readonly name?: string;
   readonly surname?: string;
-  readonly employee_number?: string;
   readonly email?: string;
   readonly phone?: string;
   readonly is_active?: boolean;

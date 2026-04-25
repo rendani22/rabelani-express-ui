@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, ChangeDetectionStrategy } from '@angular/core';
+import { Component, output, ChangeDetectionStrategy, signal, input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
@@ -14,31 +14,19 @@ import {
   tablerBriefcase
 } from '@ng-icons/tabler-icons';
 import { User, UserCardMenuOption, UserCardAction } from './user-card.interface';
-import { ClickOutsideDirective } from './directives/click-outside.directive';
 import { dropdownAnimation } from './animations/user-card.animations';
 
 /**
  * UserCardComponent
  *
  * A reusable user card component that displays user information with actions.
- * Follows Angular best practices including:
- * - OnPush change detection for better performance
- * - Proper TypeScript typing
- * - Input/Output event handling
- * - Standalone component (Angular 14+)
- * - Accessibility features (ARIA labels, keyboard navigation)
- *
- * @example
- * <app-user-card
- *   [user]="userData"
- *   [menuOptions]="menuOptions"
- *   (actionClick)="handleAction($event)"
- * ></app-user-card>
+ * Uses signal-based inputs and a backdrop overlay for outside-click handling
+ * (works correctly with OnPush + zoneless change detection).
  */
 @Component({
   selector: 'app-user-card',
   standalone: true,
-  imports: [CommonModule, ClickOutsideDirective, NgIcon],
+  imports: [CommonModule, NgIcon],
   templateUrl: './user-card.component.html',
   styleUrls: ['./user-card.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -59,128 +47,90 @@ import { dropdownAnimation } from './animations/user-card.animations';
   ]
 })
 export class UserCardComponent {
-  /**
-   * User data to display in the card
-   */
-  @Input({ required: true }) user!: User;
+  /** User data to display in the card */
+  readonly user = input.required<User>();
 
-  /**
-   * Custom menu options for the dropdown menu
-   */
-  @Input() menuOptions: UserCardMenuOption[] = [
+  /** Custom menu options for the dropdown menu */
+  readonly menuOptions = input<UserCardMenuOption[]>([
     { label: 'Option 1', action: 'option1' },
     { label: 'Option 2', action: 'option2' },
     { label: 'Remove', action: 'remove', isDanger: true }
-  ];
+  ]);
 
-  /**
-   * Enable/disable send email action
-   */
-  @Input() showSendEmail = true;
+  /** Enable/disable send email action */
+  readonly showSendEmail = input(true);
 
-  /**
-   * Enable/disable edit profile action
-   */
-  @Input() showEditProfile = true;
+  /** Enable/disable edit profile action */
+  readonly showEditProfile = input(true);
 
-  /**
-   * Event emitted when any action is clicked
-   */
-  @Output() actionClick = new EventEmitter<UserCardAction>();
+  /** Event emitted when any action is clicked */
+  readonly actionClick = output<UserCardAction>();
 
-  /**
-   * Event emitted when the user card is clicked
-   */
-  @Output() cardClick = new EventEmitter<User>();
+  /** Event emitted when the user card is clicked */
+  readonly cardClick = output<User>();
 
-  /**
-   * Track dropdown menu state
-   */
-  isMenuOpen = false;
+  /** Track dropdown menu state */
+  readonly isMenuOpen = signal(false);
 
-  /**
-   * Handle send email action
-   */
   onSendEmail(event: Event): void {
     event.preventDefault();
     event.stopPropagation();
     this.actionClick.emit({
-      userId: this.user.id,
+      userId: this.user().id,
       actionType: 'sendEmail'
     });
   }
 
-  /**
-   * Handle edit profile action
-   */
   onEditProfile(event: Event): void {
     event.preventDefault();
     event.stopPropagation();
     this.actionClick.emit({
-      userId: this.user.id,
+      userId: this.user().id,
       actionType: 'editProfile'
     });
   }
 
-  /**
-   * Handle menu option selection
-   */
   onMenuOptionClick(option: UserCardMenuOption, event: Event): void {
     event.preventDefault();
     event.stopPropagation();
-    this.isMenuOpen = false;
+    this.isMenuOpen.set(false);
     this.actionClick.emit({
-      userId: this.user.id,
+      userId: this.user().id,
       actionType: 'menuOption',
       menuOption: option.action
     });
   }
 
-  /**
-   * Toggle dropdown menu
-   */
   toggleMenu(event: Event): void {
     event.preventDefault();
     event.stopPropagation();
-    this.isMenuOpen = !this.isMenuOpen;
+    this.isMenuOpen.update((v) => !v);
   }
 
-  /**
-   * Close dropdown menu
-   */
   closeMenu(): void {
-    this.isMenuOpen = false;
+    this.isMenuOpen.set(false);
   }
 
-  /**
-   * Handle user card click
-   */
+  /** Close menu when the transparent backdrop is clicked. */
+  onBackdropClick(event: Event): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.closeMenu();
+  }
+
   onCardClick(): void {
-    this.cardClick.emit(this.user);
+    this.cardClick.emit(this.user());
   }
 
-  /**
-   * Handle keyboard navigation for menu
-   */
   onMenuKeydown(event: KeyboardEvent): void {
     if (event.key === 'Escape') {
       this.closeMenu();
     }
   }
 
-  /**
-   * Track by function for menu options
-   */
-  trackByAction(index: number, item: UserCardMenuOption): string {
-    return item.action;
-  }
-
-  /**
-   * Tailwind classes for the decorative top banner. Uses a role-aware gradient
-   * so different role types feel visually distinct.
-   */
+  /** Tailwind classes for the decorative top banner. */
   get bannerGradientClass(): string {
-    const role = (this.user?.role || '').toLowerCase();
+    const role = (this.user()?.role || '').toLowerCase();
     switch (role) {
       case 'admin':
         return 'bg-gradient-to-r from-violet-500 via-fuchsia-500 to-indigo-500';
@@ -196,11 +146,9 @@ export class UserCardComponent {
     }
   }
 
-  /**
-   * Tailwind classes for the role pill badge (color-coded per role).
-   */
+  /** Tailwind classes for the role pill badge. */
   get roleBadgeClass(): string {
-    const role = (this.user?.role || '').toLowerCase();
+    const role = (this.user()?.role || '').toLowerCase();
     switch (role) {
       case 'admin':
         return 'bg-violet-50 text-violet-700 ring-violet-200 dark:bg-violet-500/15 dark:text-violet-300 dark:ring-violet-500/30';
@@ -216,6 +164,3 @@ export class UserCardComponent {
     }
   }
 }
-
-
-
