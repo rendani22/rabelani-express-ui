@@ -237,6 +237,34 @@ export class OrdersComponent implements OnInit {
   }
 
   /**
+   * Handle delete confirmation from the transaction table.
+   * Deletes the selected packages and refreshes the list.
+   */
+  async onDeletePackages(ids: string[]): Promise<void> {
+    if (!ids || ids.length === 0) {
+      return;
+    }
+
+    try {
+      const result = await this.packageService.deletePackages(ids);
+
+      if (result.success) {
+        this.toastService.success(
+          `${result.deleted} package${result.deleted === 1 ? '' : 's'} deleted successfully.`
+        );
+      } else {
+        this.toastService.error(result.error ?? 'Failed to delete packages.');
+      }
+
+      // Clear local selection state and refresh.
+      this.selectedIds.set(new Set());
+      await this.loadPackages();
+    } catch {
+      this.toastService.error('An unexpected error occurred while deleting packages.');
+    }
+  }
+
+  /**
    * Refresh the packages list.
    */
   async onRefresh(): Promise<void> {

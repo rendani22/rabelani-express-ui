@@ -60,7 +60,8 @@
         [transactions]="transactions()"
         [selectedIds]="selectedIds()"
         (transactionSelected)="onTransactionSelected($event)"
-        (selectionChanged)="onSelectionChanged($event)">
+        (selectionChanged)="onSelectionChanged($event)"
+        (deleteRequested)="onDeletePackages($event)">
       </app-transaction-table>
     </div>
   </div>
