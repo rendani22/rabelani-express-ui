@@ -22,14 +22,15 @@
         </svg>
       </div>
       <!-- Clear button -->
-      <button
-        *ngIf="searchTerm()"
-        (click)="clearSearch()"
-        class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-        <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-          <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
-        </svg>
-      </button>
+      @if (searchTerm()) {
+        <button
+          (click)="clearSearch()"
+          class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+          <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+            <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+          </svg>
+        </button>
+      }
     </div>
 
     <!-- Status filter dropdown -->
@@ -47,25 +48,29 @@
       </button>
 
       <!-- Dropdown menu -->
-      <div
-        *ngIf="statusDropdownOpen()"
-        class="absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-lg bg-white dark:bg-gray-800 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
-        <div class="py-1">
-          <button
-            *ngFor="let option of statusOptions"
-            (click)="selectStatus(option.value)"
-            class="w-full flex items-center justify-between px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-            [class.bg-violet-50]="selectedStatus() === option.value"
-            [class.dark:bg-violet-900/20]="selectedStatus() === option.value"
-            [class.text-violet-600]="selectedStatus() === option.value"
-            [class.dark:text-violet-400]="selectedStatus() === option.value">
-            {{ option.label }}
-            <svg *ngIf="selectedStatus() === option.value" class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-              <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
-            </svg>
-          </button>
+      @if (statusDropdownOpen()) {
+        <div
+          class="absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-lg bg-white dark:bg-gray-800 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
+          <div class="py-1">
+            @for (option of statusOptions; track option.value) {
+              <button
+                (click)="selectStatus(option.value)"
+                class="w-full flex items-center justify-between px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                [class.bg-violet-50]="selectedStatus() === option.value"
+                [class.dark:bg-violet-900/20]="selectedStatus() === option.value"
+                [class.text-violet-600]="selectedStatus() === option.value"
+                [class.dark:text-violet-400]="selectedStatus() === option.value">
+                {{ option.label }}
+                @if (selectedStatus() === option.value) {
+                  <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
+                  </svg>
+                }
+              </button>
+            }
+          </div>
         </div>
-      </div>
+      }
     </div>
 
     <!-- Refresh button -->
@@ -85,7 +90,7 @@
       <svg class="h-4 w-4 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
         <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
       </svg>
-      <span class="hidden xs:inline">Add Package</span>
+      <span class="hidden xs:inline">Add Order</span>
     </button>
   </div>
 </div>

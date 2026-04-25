@@ -58,6 +58,50 @@ export class OrdersComponent implements OnInit {
   // Status filter — initialised from user settings
   readonly statusFilter = signal<string>(this.settingsService.defaultOrdersFilter());
 
+  // Pagination
+  readonly pageSizeOptions = [10, 25, 50, 100] as const;
+  readonly pageSize = signal<number>(10);
+  readonly currentPage = signal<number>(1);
+
+  readonly totalPages = computed(() =>
+    Math.max(1, Math.ceil(this.transactions().length / this.pageSize()))
+  );
+
+  readonly pagedTransactions = computed<Transaction[]>(() => {
+    const all = this.transactions();
+    const size = this.pageSize();
+    // Clamp current page within bounds.
+    const page = Math.min(Math.max(1, this.currentPage()), Math.max(1, Math.ceil(all.length / size)));
+    const start = (page - 1) * size;
+    return all.slice(start, start + size);
+  });
+
+  readonly pageRangeStart = computed(() => {
+    if (this.transactions().length === 0) {
+      return 0;
+    }
+    return (this.currentPage() - 1) * this.pageSize() + 1;
+  });
+
+  readonly pageRangeEnd = computed(() =>
+    Math.min(this.currentPage() * this.pageSize(), this.transactions().length)
+  );
+
+  /** Visible page-number buttons (windowed around the current page). */
+  readonly visiblePages = computed<number[]>(() => {
+    const total = this.totalPages();
+    const current = this.currentPage();
+    const window = 5;
+    let start = Math.max(1, current - Math.floor(window / 2));
+    const end = Math.min(total, start + window - 1);
+    start = Math.max(1, end - window + 1);
+    const pages: number[] = [];
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+    return pages;
+  });
+
   async ngOnInit(): Promise<void> {
     await this.loadPackages();
   }
@@ -130,6 +174,7 @@ export class OrdersComponent implements OnInit {
    * Handle search input from actions component.
    */
   async onSearch(searchTerm: string): Promise<void> {
+    this.currentPage.set(1);
     await this.packageService.loadPackages({ search: searchTerm });
   }
 
@@ -138,6 +183,7 @@ export class OrdersComponent implements OnInit {
    */
   async onStatusFilterChange(status: string): Promise<void> {
     this.statusFilter.set(status);
+    this.currentPage.set(1);
     await this.loadPackages();
   }
 
@@ -292,6 +338,33 @@ export class OrdersComponent implements OnInit {
   closeQrCodeModal(): void {
     this.qrCodeModalOpen.set(false);
     this.qrCodeData.set('');
+  }
+
+  // ---------------- Pagination handlers ----------------
+
+  /** Go to a specific page (clamped to valid range). */
+  goToPage(page: number): void {
+    const clamped = Math.min(Math.max(1, page), this.totalPages());
+    this.currentPage.set(clamped);
+  }
+
+  /** Go to the previous page. */
+  prevPage(): void {
+    this.goToPage(this.currentPage() - 1);
+  }
+
+  /** Go to the next page. */
+  nextPage(): void {
+    this.goToPage(this.currentPage() + 1);
+  }
+
+  /** Change the page size and reset to the first page. */
+  onPageSizeChange(event: Event): void {
+    const value = Number((event.target as HTMLSelectElement).value);
+    if (!Number.isNaN(value) && value > 0) {
+      this.pageSize.set(value);
+      this.currentPage.set(1);
+    }
   }
 }
 

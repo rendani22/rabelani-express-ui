@@ -57,12 +57,83 @@
     <!-- Packages table -->
     <div *ngIf="!isLoading() && !error() && transactions().length > 0" class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
       <app-transaction-table
-        [transactions]="transactions()"
+        [transactions]="pagedTransactions()"
         [selectedIds]="selectedIds()"
         (transactionSelected)="onTransactionSelected($event)"
         (selectionChanged)="onSelectionChanged($event)"
         (deleteRequested)="onDeletePackages($event)">
       </app-transaction-table>
+
+      <!-- Pagination footer -->
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60">
+        <!-- Range + page size -->
+        <div class="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
+          <span>
+            Showing
+            <span class="font-medium text-gray-800 dark:text-gray-200">{{ pageRangeStart() }}</span>
+            to
+            <span class="font-medium text-gray-800 dark:text-gray-200">{{ pageRangeEnd() }}</span>
+            of
+            <span class="font-medium text-gray-800 dark:text-gray-200">{{ transactions().length }}</span>
+          </span>
+          <label class="flex items-center gap-2">
+            <span class="hidden sm:inline">Per page:</span>
+            <select
+              [value]="pageSize()"
+              (change)="onPageSizeChange($event)"
+              class="form-select py-1 pl-2 pr-7 text-sm rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-violet-500 focus:border-transparent">
+              @for (size of pageSizeOptions; track size) {
+                <option [value]="size">{{ size }}</option>
+              }
+            </select>
+          </label>
+        </div>
+
+        <!-- Page controls -->
+        <nav class="flex items-center gap-1" aria-label="Pagination">
+          <button
+            type="button"
+            (click)="prevPage()"
+            [disabled]="currentPage() === 1"
+            class="inline-flex items-center justify-center h-8 w-8 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 disabled:opacity-40 disabled:cursor-not-allowed"
+            aria-label="Previous page">
+            <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M12.79 5.23a.75.75 0 010 1.06L9.06 10l3.73 3.71a.75.75 0 11-1.06 1.06l-4.25-4.25a.75.75 0 010-1.06l4.25-4.25a.75.75 0 011.06 0z" clip-rule="evenodd" />
+            </svg>
+          </button>
+
+          @for (p of visiblePages(); track p) {
+            <button
+              type="button"
+              (click)="goToPage(p)"
+              class="inline-flex items-center justify-center h-8 min-w-[2rem] px-2 rounded-md text-sm font-medium border"
+              [class.bg-violet-600]="p === currentPage()"
+              [class.text-white]="p === currentPage()"
+              [class.border-violet-600]="p === currentPage()"
+              [class.bg-white]="p !== currentPage()"
+              [class.dark:bg-gray-800]="p !== currentPage()"
+              [class.text-gray-700]="p !== currentPage()"
+              [class.dark:text-gray-300]="p !== currentPage()"
+              [class.border-gray-200]="p !== currentPage()"
+              [class.dark:border-gray-700]="p !== currentPage()"
+              [class.hover:bg-gray-50]="p !== currentPage()"
+              [class.dark:hover:bg-gray-700]="p !== currentPage()">
+              {{ p }}
+            </button>
+          }
+
+          <button
+            type="button"
+            (click)="nextPage()"
+            [disabled]="currentPage() === totalPages()"
+            class="inline-flex items-center justify-center h-8 w-8 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 disabled:opacity-40 disabled:cursor-not-allowed"
+            aria-label="Next page">
+            <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 010-1.06L10.94 10 7.21 6.29a.75.75 0 111.06-1.06l4.25 4.25a.75.75 0 010 1.06l-4.25 4.25a.75.75 0 01-1.06 0z" clip-rule="evenodd" />
+            </svg>
+          </button>
+        </nav>
+      </div>
     </div>
   </div>
 
