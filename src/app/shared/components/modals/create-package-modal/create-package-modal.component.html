@@ -198,13 +198,13 @@
           <!-- PO Number -->
           <div>
             <label for="poNumber" class="block text-sm font-medium mb-1 text-gray-600 dark:text-gray-300">
-              Purchase Order Number
+              Purchase Order Number <span class="text-red-500" aria-hidden="true">*</span>
             </label>
             <input
               id="poNumber"
               type="text"
               formControlName="poNumber"
-              placeholder="PO-12345 (optional)"
+              placeholder="PO-12345"
               class="w-full rounded-lg border px-3 py-2 text-sm shadow-sm transition-colors
                      bg-white dark:bg-gray-800/30
                      border-gray-200 dark:border-gray-700/60
@@ -212,7 +212,13 @@
                      placeholder:text-gray-400 dark:placeholder:text-gray-500
                      hover:border-gray-300 dark:hover:border-gray-600
                      focus:border-violet-500 dark:focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+              [class.border-red-400]="getFieldError('poNumber')"
+              [attr.aria-invalid]="getFieldError('poNumber') ? 'true' : null"
+              [attr.aria-describedby]="getFieldError('poNumber') ? 'poNumber-error' : null"
             />
+            @if (getFieldError('poNumber'); as error) {
+              <p id="poNumber-error" class="text-xs mt-1 text-red-500" role="alert">{{ error }}</p>
+            }
           </div>
 
           <!-- Notes -->

@@ -78,7 +78,7 @@ export class CreatePackageModalComponent {
   readonly form = this.fb.nonNullable.group({
     receiverEmail: ['', [Validators.required]],
     notes: [''],
-    poNumber: [''],
+    poNumber: ['', [Validators.required]],
     deliveryLocationId: [''],
     items: this.fb.array<FormGroup>([]),
   });
