@@ -4,6 +4,7 @@ export * from './models/package.models';
 export * from './models/staff-profile.model';
 export * from './models/driver.models';
 export * from './models/receiver-profile.model';
+export * from './models/receiver-contact.model';
 export * from './models/delivery-location.models';
 export * from './models/inventory.models';
 

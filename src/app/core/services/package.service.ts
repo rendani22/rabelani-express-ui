@@ -387,6 +387,78 @@ export class PackageService {
   }
 
   // ============================================================================
+  // Package Deletion
+  // ============================================================================
+
+  /**
+   * Delete a single package by ID via direct Supabase call.
+   * Removes the package from local state on success.
+   *
+   * @param id - Package UUID
+   */
+  async deletePackage(id: string): Promise<{ success: boolean; error?: string }> {
+    this._isLoading.set(true);
+    this._error.set(null);
+
+    try {
+      const { error } = await this.supabaseService.client
+        .from('packages')
+        .delete()
+        .eq('id', id);
+
+      if (error) {
+        this._error.set(error.message);
+        return { success: false, error: error.message };
+      }
+
+      this._packages.update(packages => packages.filter(p => p.id !== id));
+      return { success: true };
+    } catch (error) {
+      return this.handleError(error);
+    } finally {
+      this._isLoading.set(false);
+    }
+  }
+
+  /**
+   * Delete multiple packages by ID. Returns an aggregate result with the
+   * number of successful and failed deletions.
+   *
+   * @param ids - Array of package UUIDs
+   */
+  async deletePackages(
+    ids: readonly string[]
+  ): Promise<{ success: boolean; deleted: number; failed: number; error?: string }> {
+    if (ids.length === 0) {
+      return { success: true, deleted: 0, failed: 0 };
+    }
+
+    this._isLoading.set(true);
+    this._error.set(null);
+
+    try {
+      const { error } = await this.supabaseService.client
+        .from('packages')
+        .delete()
+        .in('id', ids as string[]);
+
+      if (error) {
+        this._error.set(error.message);
+        return { success: false, deleted: 0, failed: ids.length, error: error.message };
+      }
+
+      const idSet = new Set(ids);
+      this._packages.update(packages => packages.filter(p => !idSet.has(p.id)));
+      return { success: true, deleted: ids.length, failed: 0 };
+    } catch (error) {
+      const result = this.handleError(error);
+      return { success: false, deleted: 0, failed: ids.length, error: result.error };
+    } finally {
+      this._isLoading.set(false);
+    }
+  }
+
+  // ============================================================================
   // Lock Status
   // ============================================================================
 

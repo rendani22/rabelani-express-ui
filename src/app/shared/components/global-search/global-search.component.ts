@@ -179,15 +179,15 @@ export class GlobalSearchComponent implements OnDestroy {
   private async searchCustomers(q: string): Promise<SearchHit[]> {
     const { data } = await this.supabaseService.client
       .from('receiver_profiles')
-      .select('id, name, surname, email, employee_number')
-      .or(`name.ilike.%${q}%,surname.ilike.%${q}%,email.ilike.%${q}%,employee_number.ilike.%${q}%`)
+      .select('id, name, surname, email')
+      .or(`name.ilike.%${q}%,surname.ilike.%${q}%,email.ilike.%${q}%`)
       .limit(5);
 
-    return ((data ?? []) as { id: string; name: string; surname: string; email: string; employee_number: string }[]).map(c => ({
+    return ((data ?? []) as { id: string; name: string; surname: string; email: string }[]).map(c => ({
       type: 'customer' as const,
       id: c.id,
       title: `${c.name} ${c.surname}`,
-      subtitle: `${c.email} · ${c.employee_number}`,
+      subtitle: c.email,
       badge: 'Customer',
       badgeColor: 'bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-400',
       route: '/customers',

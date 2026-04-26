@@ -98,6 +98,13 @@
   (customerCreated)="onCustomerCreated($event)"
 />
 
+<!-- Manage Alternative Contacts Modal -->
+<app-manage-contacts-modal
+  [isOpen]="manageContactsModalOpen()"
+  [receiver]="contactsReceiver()"
+  (closeModal)="onCloseManageContactsModal()"
+/>
+
 <!-- Deactivate Confirmation Dialog -->
 <app-confirm-dialog
   [isOpen]="confirmDeactivateOpen()"

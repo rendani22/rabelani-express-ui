@@ -1,6 +1,6 @@
 import { Component, Input, Output, EventEmitter, OnChanges, SimpleChanges, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Package, PackageItem, PackageLockStatus, PACKAGE_STATUS, PackageStatus, PackageService } from '../../../../core';
+import { Package, PackageItem, PACKAGE_STATUS, PackageStatus } from '../../../../core';
 import { SupabaseService } from '../../../services/supabase.service';
 
 /** A single entry in the package status audit log */
@@ -315,7 +315,44 @@ interface TimelineEntry {
           </div>
 
           <!-- Footer Actions -->
-          <footer class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex-shrink-0 bg-gray-50 dark:bg-gray-900/50">
+          <footer class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex-shrink-0 bg-gray-50 dark:bg-gray-900/50 space-y-3">
+            <!-- Admin/Collection: manual status override (forward-only, excludes 'collected') -->
+            @if (canManuallySetStatus(pkg.status) && manualStatusOptions().length > 0) {
+              <div>
+                <label
+                  for="manual-status"
+                  class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5"
+                >
+                  Change Status
+                </label>
+                <div class="flex items-center gap-2">
+                  <select
+                    id="manual-status"
+                    class="flex-1 px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
+                    [value]="selectedManualStatus()"
+                    (change)="onManualStatusChange($event)"
+                  >
+                    <option value="" disabled>Select status…</option>
+                    @for (status of manualStatusOptions(); track status) {
+                      <option [value]="status">{{ getStatusLabel(status) }}</option>
+                    }
+                  </select>
+                  <button
+                    type="button"
+                    class="px-3 py-2 text-sm font-medium text-white bg-violet-600 hover:bg-violet-700 disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed rounded-lg transition-colors"
+                    [disabled]="!selectedManualStatus()"
+                    (click)="onApplyManualStatus()"
+                  >
+                    Apply
+                  </button>
+                </div>
+                <p class="mt-1.5 text-[11px] text-gray-500 dark:text-gray-400">
+                  Marking as <span class="font-medium">Collected</span> requires the
+                  proof-of-delivery flow below.
+                </p>
+              </div>
+            }
+
             <div class="flex items-center justify-between gap-3">
               <button
                 type="button"
@@ -373,6 +410,7 @@ interface TimelineEntry {
 export class PackageDetailsPanelComponent implements OnChanges {
   private readonly supabaseService = inject(SupabaseService);
   private readonly packageService = inject(PackageService);
+  private readonly staffService = inject(StaffService);
 
   @Input() isOpen = false;
   @Input() package: Package | null = null;
@@ -380,6 +418,11 @@ export class PackageDetailsPanelComponent implements OnChanges {
   @Output() closePanel = new EventEmitter<void>();
   @Output() updateStatus = new EventEmitter<Package>();
   @Output() showQrCode = new EventEmitter<Package>();
+  /**
+   * Emitted when an admin/collection user manually applies a new status
+   * (any forward status except `collected`, which uses the POD modal flow).
+   */
+  @Output() setStatus = new EventEmitter<{ pkg: Package; status: PackageStatus }>();
 
   /** Status history loaded from Supabase */
   readonly statusHistory = signal<StatusHistoryEntry[]>([]);
@@ -387,11 +430,21 @@ export class PackageDetailsPanelComponent implements OnChanges {
   /** Loading state for history */
   readonly loadingHistory = signal(false);
 
-  /** POD lock status (contains pdfUrl when a POD exists) */
-  readonly podStatus = signal<PackageLockStatus | null>(null);
+  /** Currently selected status in the manual override dropdown */
+  readonly selectedManualStatus = signal<PackageStatus | ''>('');
 
-  /** Loading state for POD */
-  readonly loadingPod = signal(false);
+  /**
+   * List of statuses an admin/collection user is allowed to set on the
+   * current package (forward-only, excludes `collected`).
+   *
+   * Note: implemented as a method (not a `computed`) because `package` is a
+   * plain `@Input`, not a signal — a computed wouldn't react to its changes.
+   */
+  manualStatusOptions(): readonly PackageStatus[] {
+    const pkg = this.package;
+    if (!pkg) return [];
+    return getAllowedManualStatusTransitions(pkg.status);
+  }
 
   ngOnChanges(changes: SimpleChanges): void {
     const pkgChange = changes['package'];
@@ -407,20 +460,32 @@ export class PackageDetailsPanelComponent implements OnChanges {
         this.podStatus.set(null);
       }
     }
+    // Reset the manual status dropdown whenever the selected package changes.
+    if (pkgChange) {
+      this.selectedManualStatus.set('');
+    }
   }
 
   /**
    * Load the status change history from the package_status_history table.
-   * Silently falls back to the derived timeline if the table doesn't exist.
+   * Silently falls back to the derived timeline if the table doesn't exist
+   * (e.g. the migration hasn't been applied yet) or the query fails.
    */
   private async loadStatusHistory(packageId: string): Promise<void> {
     this.loadingHistory.set(true);
     try {
-      const { data } = await this.supabaseService.client
+      const { data, error } = await this.supabaseService.client
         .from('package_status_history')
         .select('status, changed_at, changed_by, note')
         .eq('package_id', packageId)
         .order('changed_at', { ascending: true });
+
+      if (error) {
+        // Table missing (PGRST205 / 42P01) or any other read error — just
+        // fall back to the derived timeline without surfacing the failure.
+        this.statusHistory.set([]);
+        return;
+      }
 
       this.statusHistory.set((data ?? []) as StatusHistoryEntry[]);
     } catch {
@@ -517,6 +582,44 @@ export class PackageDetailsPanelComponent implements OnChanges {
     }
   }
 
+  /**
+   * Whether the current user can manually set a package status via
+   * the dropdown override (admin or collection roles only).
+   */
+  canManuallySetStatus(status: PackageStatus): boolean {
+    // Final states cannot be changed.
+    if (status === PACKAGE_STATUS.COLLECTED || status === PACKAGE_STATUS.DELIVERED) {
+      return false;
+    }
+    return this.staffService.isAdmin() || this.staffService.hasRole('collection');
+  }
+
+  /**
+   * Handle dropdown selection change for manual status override.
+   */
+  onManualStatusChange(event: Event): void {
+    const value = (event.target as HTMLSelectElement).value as PackageStatus | '';
+    this.selectedManualStatus.set(value);
+  }
+
+  /**
+   * Apply the selected manual status. Emits `setStatus` for the parent
+   * to perform the update via the package service.
+   */
+  onApplyManualStatus(): void {
+    const pkg = this.package;
+    const status = this.selectedManualStatus();
+    if (!pkg || !status) {
+      return;
+    }
+    // Safety: never allow `collected` through this path.
+    if (status === PACKAGE_STATUS.COLLECTED) {
+      return;
+    }
+    this.setStatus.emit({ pkg, status });
+    this.selectedManualStatus.set('');
+  }
+
   onShowQrCode(): void {
     if (this.package) {
       this.showQrCode.emit(this.package);
@@ -572,8 +675,15 @@ export class PackageDetailsPanelComponent implements OnChanges {
   }
 
   canUpdateStatus(status: PackageStatus): boolean {
-    // Only allow status updates for non-final statuses
-    return status !== PACKAGE_STATUS.COLLECTED && status !== PACKAGE_STATUS.DELIVERED;
+    // Final states cannot be updated.
+    if (status === PACKAGE_STATUS.COLLECTED || status === PACKAGE_STATUS.DELIVERED) {
+      return false;
+    }
+    // Marking as collected requires admin or collection role.
+    if (status === PACKAGE_STATUS.READY_FOR_COLLECTION) {
+      return this.staffService.canMarkCollected();
+    }
+    return true;
   }
 
   getNextStatusAction(status: PackageStatus): string {

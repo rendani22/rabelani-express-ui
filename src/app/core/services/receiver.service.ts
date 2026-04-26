@@ -5,6 +5,11 @@ import {
   CreateReceiverProfileDto,
   UpdateReceiverProfileDto
 } from '../models/receiver-profile.model';
+import {
+  ReceiverContact,
+  CreateReceiverContactDto,
+  UpdateReceiverContactDto
+} from '../models/receiver-contact.model';
 
 export interface ReceiverOperationResult {
   readonly profile: ReceiverProfile | null;
@@ -13,6 +18,16 @@ export interface ReceiverOperationResult {
 
 export interface ReceiverActionResult {
   readonly success: boolean;
+  readonly error: string | null;
+}
+
+export interface ReceiverContactOperationResult {
+  readonly contact: ReceiverContact | null;
+  readonly error: string | null;
+}
+
+export interface ReceiverContactsResult {
+  readonly contacts: ReceiverContact[];
   readonly error: string | null;
 }
 
@@ -170,6 +185,90 @@ export class ReceiverService {
       return { profile: null, error: errorMessage };
     } finally {
       this.loading.set(false);
+    }
+  }
+
+  // ===========================================================================
+  // Alternative Contacts
+  // ===========================================================================
+
+  /**
+   * Load all alternative contacts for a given receiver.
+   */
+  async loadContacts(receiverId: string): Promise<ReceiverContactsResult> {
+    try {
+      const { data, error } = await this.supabaseService.client
+        .from('receiver_contacts')
+        .select('*')
+        .eq('receiver_id', receiverId)
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        return { contacts: [], error: error.message };
+      }
+      return { contacts: (data ?? []) as ReceiverContact[], error: null };
+    } catch {
+      return { contacts: [], error: 'An unexpected error occurred while loading contacts.' };
+    }
+  }
+
+  /**
+   * Add a new alternative contact for a receiver.
+   */
+  async addContact(dto: CreateReceiverContactDto): Promise<ReceiverContactOperationResult> {
+    try {
+      const { data, error } = await this.supabaseService.client
+        .from('receiver_contacts')
+        .insert(dto)
+        .select()
+        .single();
+
+      if (error) {
+        return { contact: null, error: error.message };
+      }
+      return { contact: data as ReceiverContact, error: null };
+    } catch {
+      return { contact: null, error: 'An unexpected error occurred while adding contact.' };
+    }
+  }
+
+  /**
+   * Update an existing alternative contact.
+   */
+  async updateContact(id: string, dto: UpdateReceiverContactDto): Promise<ReceiverContactOperationResult> {
+    try {
+      const { data, error } = await this.supabaseService.client
+        .from('receiver_contacts')
+        .update(dto)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) {
+        return { contact: null, error: error.message };
+      }
+      return { contact: data as ReceiverContact, error: null };
+    } catch {
+      return { contact: null, error: 'An unexpected error occurred while updating contact.' };
+    }
+  }
+
+  /**
+   * Delete an alternative contact.
+   */
+  async deleteContact(id: string): Promise<ReceiverActionResult> {
+    try {
+      const { error } = await this.supabaseService.client
+        .from('receiver_contacts')
+        .delete()
+        .eq('id', id);
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+      return { success: true, error: null };
+    } catch {
+      return { success: false, error: 'An unexpected error occurred while deleting contact.' };
     }
   }
 }

@@ -461,6 +461,8 @@ export class TransactionTableComponent {
 
   @Output() transactionSelected = new EventEmitter<Transaction>();
   @Output() selectionChanged = new EventEmitter<Set<string>>();
+  /** Emitted when the user confirms deletion of the currently selected rows. */
+  @Output() deleteRequested = new EventEmitter<string[]>();
 
   protected readonly _selectedIds = signal<Set<string>>(new Set());
 
@@ -513,9 +515,15 @@ export class TransactionTableComponent {
   }
 
   onConfirmDelete(): void {
+    const ids = Array.from(this._selectedIds());
     this.confirmDeleteOpen.set(false);
-    // Implement delete logic
+    if (ids.length === 0) {
+      return;
+    }
+    this.deleteRequested.emit(ids);
+    // Optimistically clear local selection; parent will refresh data.
     this._selectedIds.set(new Set());
+    this.selectionChanged.emit(new Set());
   }
 
   onCancelDelete(): void {

@@ -119,7 +119,11 @@ export class UserManagementComponent implements OnInit {
       avatar: staff.avatar_url || this.generateAvatarUrl(staff.full_name),
       country: staff.department || 'Staff',
       countryFlag: this.getRoleEmoji(staff.role),
-      bio: `${staff.email} • ${staff.role}${staff.is_active ? '' : ' • Inactive'}`
+      bio: `${staff.email} • ${staff.role}${staff.is_active ? '' : ' • Inactive'}`,
+      role: staff.role,
+      email: staff.email,
+      phone: staff.phone,
+      isActive: staff.is_active
     };
   }
 

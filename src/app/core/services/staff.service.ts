@@ -57,6 +57,12 @@ export class StaffService {
     return role === 'driver' || role === 'admin';
   });
 
+  /** Check if current user can mark packages as collected (admin or collection) */
+  readonly canMarkCollected = computed(() => {
+    const role = this.currentProfile()?.role;
+    return role === 'admin' || role === 'collection';
+  });
+
   /** Observable version of currentProfile for compatibility */
   readonly currentProfile$ = toObservable(this.currentProfile);
 
