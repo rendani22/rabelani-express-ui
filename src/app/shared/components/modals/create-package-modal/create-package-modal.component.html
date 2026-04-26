@@ -133,29 +133,66 @@
                 Loading customers…
               </div>
             } @else {
-              <select
-                id="receiverEmail"
-                formControlName="receiverEmail"
-                class="w-full rounded-lg border px-3 py-2 text-sm shadow-sm transition-colors
-                       bg-white dark:bg-gray-800/30
-                       border-gray-200 dark:border-gray-700/60
-                       text-gray-800 dark:text-gray-100
-                       hover:border-gray-300 dark:hover:border-gray-600
-                       focus:border-violet-500 dark:focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
-                [class.border-red-400]="getFieldError('receiverEmail')"
-                [attr.aria-invalid]="getFieldError('receiverEmail') ? 'true' : null"
-                [attr.aria-describedby]="getFieldError('receiverEmail') ? 'receiverEmail-error' : null"
-              >
-                <option value="" disabled selected>— Select a customer —</option>
-                @for (receiver of activeReceivers(); track receiver.id) {
-                  <option [value]="receiver.email">
-                    {{ receiver.name }} {{ receiver.surname }} ({{ receiver.email }})
-                  </option>
+              <div class="relative" (clickOutside)="closeReceiverDropdown()">
+                <input
+                  id="receiverEmail"
+                  type="text"
+                  role="combobox"
+                  autocomplete="off"
+                  [attr.aria-expanded]="receiverDropdownOpen()"
+                  aria-autocomplete="list"
+                  aria-controls="receiver-listbox"
+                  [value]="receiverSearch()"
+                  (input)="onReceiverInput($event)"
+                  (focus)="openReceiverDropdown()"
+                  placeholder="— Select or search customer —"
+                  class="w-full rounded-lg border px-3 py-2 pr-9 text-sm shadow-sm transition-colors
+                         bg-white dark:bg-gray-800/30
+                         border-gray-200 dark:border-gray-700/60
+                         text-gray-800 dark:text-gray-100
+                         placeholder:text-gray-400 dark:placeholder:text-gray-500
+                         hover:border-gray-300 dark:hover:border-gray-600
+                         focus:border-violet-500 dark:focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                  [class.border-red-400]="getFieldError('receiverEmail')"
+                  [attr.aria-invalid]="getFieldError('receiverEmail') ? 'true' : null"
+                  [attr.aria-describedby]="getFieldError('receiverEmail') ? 'receiverEmail-error' : null"
+                />
+                <button
+                  type="button"
+                  class="absolute inset-y-0 right-0 flex items-center px-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 focus:outline-none"
+                  (click)="receiverDropdownOpen() ? closeReceiverDropdown() : openReceiverDropdown()"
+                  tabindex="-1"
+                  aria-label="Toggle customer list"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                  </svg>
+                </button>
+                @if (receiverDropdownOpen()) {
+                  <ul
+                    id="receiver-listbox"
+                    role="listbox"
+                    class="absolute z-10 mt-1 w-full max-h-60 overflow-auto rounded-lg border border-gray-200 dark:border-gray-700/60 bg-white dark:bg-gray-800 shadow-lg py-1 text-sm"
+                  >
+                    @for (receiver of activeReceivers(); track receiver.id) {
+                      <li
+                        role="option"
+                        [attr.aria-selected]="form.controls.receiverEmail.value === receiver.email"
+                        class="px-3 py-2 cursor-pointer text-gray-800 dark:text-gray-100 hover:bg-violet-50 dark:hover:bg-violet-500/10"
+                        [ngClass]="form.controls.receiverEmail.value === receiver.email ? 'bg-violet-50 dark:bg-violet-500/10' : ''"
+                        (mousedown)="$event.preventDefault()"
+                        (click)="selectReceiver(receiver)"
+                      >
+                        {{ receiver.name }} {{ receiver.surname }}
+                        <span class="text-gray-500 dark:text-gray-400">({{ receiver.email }})</span>
+                      </li>
+                    }
+                    @if (activeReceivers().length === 0) {
+                      <li class="px-3 py-2 text-gray-500 dark:text-gray-400 italic">No matching customers</li>
+                    }
+                  </ul>
                 }
-                @if (activeReceivers().length === 0) {
-                  <option value="" disabled>No active customers found</option>
-                }
-              </select>
+              </div>
             }
             @if (getFieldError('receiverEmail'); as error) {
               <p id="receiverEmail-error" class="text-xs mt-1 text-red-500" role="alert">{{ error }}</p>
@@ -172,29 +209,65 @@
                 Loading locations…
               </div>
             } @else {
-              <select
-                id="deliveryLocationId"
-                formControlName="deliveryLocationId"
-                class="w-full rounded-lg border px-3 py-2 text-sm shadow-sm transition-colors
-                       bg-white dark:bg-gray-800/30
-                       border-gray-200 dark:border-gray-700/60
-                       text-gray-800 dark:text-gray-100
-                       hover:border-gray-300 dark:hover:border-gray-600
-                       focus:border-violet-500 dark:focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
-                [class.border-red-400]="getFieldError('deliveryLocationId')"
-                [attr.aria-invalid]="getFieldError('deliveryLocationId') ? 'true' : null"
-                [attr.aria-describedby]="getFieldError('deliveryLocationId') ? 'deliveryLocationId-error' : null"
-              >
-                <option value="" disabled selected>— Select a delivery location —</option>
-                @for (location of activeLocations(); track location.id) {
-                  <option [value]="location.id">
-                    {{ location.name }}{{ location.description ? ' – ' + location.description : '' }}
-                  </option>
+              <div class="relative" (clickOutside)="closeLocationDropdown()">
+                <input
+                  id="deliveryLocationId"
+                  type="text"
+                  role="combobox"
+                  autocomplete="off"
+                  [attr.aria-expanded]="locationDropdownOpen()"
+                  aria-autocomplete="list"
+                  aria-controls="location-listbox"
+                  [value]="locationSearch()"
+                  (input)="onLocationInput($event)"
+                  (focus)="openLocationDropdown()"
+                  placeholder="— Select or search delivery location —"
+                  class="w-full rounded-lg border px-3 py-2 pr-9 text-sm shadow-sm transition-colors
+                         bg-white dark:bg-gray-800/30
+                         border-gray-200 dark:border-gray-700/60
+                         text-gray-800 dark:text-gray-100
+                         placeholder:text-gray-400 dark:placeholder:text-gray-500
+                         hover:border-gray-300 dark:hover:border-gray-600
+                         focus:border-violet-500 dark:focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                  [class.border-red-400]="getFieldError('deliveryLocationId')"
+                  [attr.aria-invalid]="getFieldError('deliveryLocationId') ? 'true' : null"
+                  [attr.aria-describedby]="getFieldError('deliveryLocationId') ? 'deliveryLocationId-error' : null"
+                />
+                <button
+                  type="button"
+                  class="absolute inset-y-0 right-0 flex items-center px-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 focus:outline-none"
+                  (click)="locationDropdownOpen() ? closeLocationDropdown() : openLocationDropdown()"
+                  tabindex="-1"
+                  aria-label="Toggle location list"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                  </svg>
+                </button>
+                @if (locationDropdownOpen()) {
+                  <ul
+                    id="location-listbox"
+                    role="listbox"
+                    class="absolute z-10 mt-1 w-full max-h-60 overflow-auto rounded-lg border border-gray-200 dark:border-gray-700/60 bg-white dark:bg-gray-800 shadow-lg py-1 text-sm"
+                  >
+                    @for (location of activeLocations(); track location.id) {
+                      <li
+                        role="option"
+                        [attr.aria-selected]="form.controls.deliveryLocationId.value === location.id"
+                        class="px-3 py-2 cursor-pointer text-gray-800 dark:text-gray-100 hover:bg-violet-50 dark:hover:bg-violet-500/10"
+                        [ngClass]="form.controls.deliveryLocationId.value === location.id ? 'bg-violet-50 dark:bg-violet-500/10' : ''"
+                        (mousedown)="$event.preventDefault()"
+                        (click)="selectLocation(location)"
+                      >
+                        {{ location.name }}{{ location.description ? ' – ' + location.description : '' }}
+                      </li>
+                    }
+                    @if (activeLocations().length === 0) {
+                      <li class="px-3 py-2 text-gray-500 dark:text-gray-400 italic">No matching locations</li>
+                    }
+                  </ul>
                 }
-                @if (activeLocations().length === 0) {
-                  <option value="" disabled>No active locations found</option>
-                }
-              </select>
+              </div>
             }
             @if (getFieldError('deliveryLocationId'); as error) {
               <p id="deliveryLocationId-error" class="text-xs mt-1 text-red-500" role="alert">{{ error }}</p>

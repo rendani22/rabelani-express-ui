@@ -32,6 +32,7 @@ import {
 } from '../../../../core';
 import { ToastService } from '../../toast/toast.service';
 import { ConfirmService, confirmDiscardIfDirty } from '../../confirm-dialog';
+import { ClickOutsideDirective } from '../../../directives/outside-click.directive';
 
 import { CommonModule } from '@angular/common';
 
@@ -46,7 +47,7 @@ const SUCCESS_CLOSE_DELAY_MS = 2000;
 @Component({
   selector: 'app-create-package-modal',
   standalone: true,
-  imports: [ReactiveFormsModule, CommonModule],
+  imports: [ReactiveFormsModule, CommonModule, ClickOutsideDirective],
   templateUrl: './create-package-modal.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -109,18 +110,42 @@ export class CreatePackageModalComponent {
   /** Loading state from service */
   readonly isLoading = this.packageService.isLoading;
 
-  /** Active receivers for the dropdown */
-  readonly activeReceivers = computed<ReceiverProfile[]>(() =>
-    this.receiverService.receiverList().filter(r => r.is_active)
-  );
+  /** Search query / displayed text for receiver combobox */
+  readonly receiverSearch = signal('');
+
+  /** Whether receiver dropdown is open */
+  readonly receiverDropdownOpen = signal(false);
+
+  /** Search query / displayed text for delivery location combobox */
+  readonly locationSearch = signal('');
+
+  /** Whether location dropdown is open */
+  readonly locationDropdownOpen = signal(false);
+
+  /** Active receivers (filtered by search query when dropdown is open) */
+  readonly activeReceivers = computed<ReceiverProfile[]>(() => {
+    const list = this.receiverService.receiverList().filter(r => r.is_active);
+    if (!this.receiverDropdownOpen()) return list;
+    const query = this.receiverSearch().trim().toLowerCase();
+    if (!query) return list;
+    return list.filter(r =>
+      `${r.name} ${r.surname} ${r.email}`.toLowerCase().includes(query)
+    );
+  });
 
   /** Loading state for receivers */
   readonly isLoadingReceivers = this.receiverService.loading;
 
-  /** Active delivery locations for the dropdown */
-  readonly activeLocations = computed<DeliveryLocation[]>(() =>
-    this.deliveryLocationService.locations().filter(l => l.is_active)
-  );
+  /** Active delivery locations (filtered by search query when dropdown is open) */
+  readonly activeLocations = computed<DeliveryLocation[]>(() => {
+    const list = this.deliveryLocationService.locations().filter(l => l.is_active);
+    if (!this.locationDropdownOpen()) return list;
+    const query = this.locationSearch().trim().toLowerCase();
+    if (!query) return list;
+    return list.filter(l =>
+      `${l.name} ${l.description ?? ''}`.toLowerCase().includes(query)
+    );
+  });
 
   /** Loading state for locations */
   readonly isLoadingLocations = this.deliveryLocationService.loading;
@@ -187,6 +212,100 @@ export class CreatePackageModalComponent {
     this.errorMessage.set(null);
     this.successMessage.set(null);
     this.createdPackage.set(null);
+    this.receiverSearch.set('');
+    this.locationSearch.set('');
+    this.receiverDropdownOpen.set(false);
+    this.locationDropdownOpen.set(false);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Receiver combobox
+  // ---------------------------------------------------------------------------
+
+  /** Format label for a receiver option */
+  private formatReceiverLabel(r: ReceiverProfile): string {
+    return `${r.name} ${r.surname} (${r.email})`;
+  }
+
+  /** Open receiver dropdown and clear filter so all options show */
+  openReceiverDropdown(): void {
+    this.receiverSearch.set('');
+    this.receiverDropdownOpen.set(true);
+  }
+
+  /** Close receiver dropdown and restore display label of selected receiver */
+  closeReceiverDropdown(): void {
+    if (!this.receiverDropdownOpen()) return;
+    this.receiverDropdownOpen.set(false);
+    const email = this.form.controls.receiverEmail.value;
+    const selected = this.receiverService
+      .receiverList()
+      .find(r => r.email === email);
+    this.receiverSearch.set(selected ? this.formatReceiverLabel(selected) : '');
+  }
+
+  /** Handle typing in the receiver combobox: clears any previous selection */
+  onReceiverInput(event: Event): void {
+    const value = (event.target as HTMLInputElement).value;
+    this.receiverSearch.set(value);
+    this.receiverDropdownOpen.set(true);
+    if (this.form.controls.receiverEmail.value) {
+      this.form.controls.receiverEmail.setValue('');
+    }
+  }
+
+  /** Select a receiver from the dropdown */
+  selectReceiver(receiver: ReceiverProfile): void {
+    this.form.controls.receiverEmail.setValue(receiver.email);
+    this.form.controls.receiverEmail.markAsTouched();
+    this.form.controls.receiverEmail.markAsDirty();
+    this.receiverSearch.set(this.formatReceiverLabel(receiver));
+    this.receiverDropdownOpen.set(false);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Location combobox
+  // ---------------------------------------------------------------------------
+
+  /** Format label for a location option */
+  private formatLocationLabel(l: DeliveryLocation): string {
+    return `${l.name}${l.description ? ' – ' + l.description : ''}`;
+  }
+
+  /** Open location dropdown and clear filter so all options show */
+  openLocationDropdown(): void {
+    this.locationSearch.set('');
+    this.locationDropdownOpen.set(true);
+  }
+
+  /** Close location dropdown and restore display label of selected location */
+  closeLocationDropdown(): void {
+    if (!this.locationDropdownOpen()) return;
+    this.locationDropdownOpen.set(false);
+    const id = this.form.controls.deliveryLocationId.value;
+    const selected = this.deliveryLocationService
+      .locations()
+      .find(l => l.id === id);
+    this.locationSearch.set(selected ? this.formatLocationLabel(selected) : '');
+  }
+
+  /** Handle typing in the location combobox: clears any previous selection */
+  onLocationInput(event: Event): void {
+    const value = (event.target as HTMLInputElement).value;
+    this.locationSearch.set(value);
+    this.locationDropdownOpen.set(true);
+    if (this.form.controls.deliveryLocationId.value) {
+      this.form.controls.deliveryLocationId.setValue('');
+    }
+  }
+
+  /** Select a location from the dropdown */
+  selectLocation(location: DeliveryLocation): void {
+    this.form.controls.deliveryLocationId.setValue(location.id);
+    this.form.controls.deliveryLocationId.markAsTouched();
+    this.form.controls.deliveryLocationId.markAsDirty();
+    this.locationSearch.set(this.formatLocationLabel(location));
+    this.locationDropdownOpen.set(false);
   }
 
   /**
