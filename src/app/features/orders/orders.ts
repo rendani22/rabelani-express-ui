@@ -3,8 +3,8 @@ import { CommonModule } from '@angular/common';
 import { LayoutComponent } from '../../shared/components/layout/layout.component';
 import { TransactionTableComponent, Transaction } from '../../shared/components/transaction/transaction-table/transaction-table.component';
 import { OrdersActionsComponent } from './orders-actions/orders-actions.component';
-import { PackageService, Package, PACKAGE_STATUS, PackageStatus, SettingsService } from '../../core';
-import { CreatePackageModalComponent, PackageDetailsPanelComponent } from '../../shared/components/modals';
+import { PackageService, Package, PACKAGE_STATUS, PackageStatus, SettingsService, MarkCollectedPayload } from '../../core';
+import { CreatePackageModalComponent, PackageDetailsPanelComponent, MarkCollectedModalComponent } from '../../shared/components/modals';
 import { QrCodeComponent } from '../../shared/components/qr-code';
 import { ToastService } from '../../shared/components/toast/toast.service';
 
@@ -22,6 +22,7 @@ import { ToastService } from '../../shared/components/toast/toast.service';
     OrdersActionsComponent,
     CreatePackageModalComponent,
     PackageDetailsPanelComponent,
+    MarkCollectedModalComponent,
     QrCodeComponent
   ],
   templateUrl: './orders.html',
@@ -42,6 +43,11 @@ export class OrdersComponent implements OnInit {
   // Details panel state
   detailsPanelOpen = signal(false);
   selectedPackage = signal<Package | null>(null);
+
+  // Mark-collected modal state
+  markCollectedModalOpen = signal(false);
+  packageAwaitingCollection = signal<Package | null>(null);
+  isSubmittingCollection = signal(false);
 
   // Selection state
   selectedIds = signal<Set<string>>(new Set());
@@ -252,11 +258,11 @@ export class OrdersComponent implements OnInit {
           break;
 
         case PACKAGE_STATUS.READY_FOR_COLLECTION:
-          // Mark as collected (final state)
-          result = await this.packageService.updatePackage(pkg.id, {
-            status: PACKAGE_STATUS.COLLECTED
-          });
-          break;
+          // Open the proof-of-delivery modal — admin/collection only.
+          // The actual status update happens after the modal is submitted.
+          this.packageAwaitingCollection.set(pkg);
+          this.markCollectedModalOpen.set(true);
+          return;
 
         default:
           this.toastService.warning('No action available for current package status.');
@@ -272,6 +278,97 @@ export class OrdersComponent implements OnInit {
       await this.loadPackages();
     } catch (error) {
       this.toastService.error('An unexpected error occurred while updating the package status.');
+    }
+  }
+
+  /**
+   * Handle a manual status change requested by an admin/collection user
+   * from the details panel dropdown. Enforces that `collected` is never
+   * set via this path (it requires the proof-of-delivery modal flow).
+   */
+  async onSetPackageStatus(event: { pkg: Package; status: PackageStatus }): Promise<void> {
+    const { pkg, status } = event;
+
+    if (status === PACKAGE_STATUS.COLLECTED) {
+      // Defensive: route to the POD modal flow instead of a direct update.
+      this.packageAwaitingCollection.set(pkg);
+      this.markCollectedModalOpen.set(true);
+      return;
+    }
+
+    try {
+      const result = await this.packageService.updatePackage(pkg.id, { status });
+
+      if (result.success) {
+        this.toastService.success(
+          `Package ${pkg.reference} status updated to ${this.getStatusLabel(status)}.`
+        );
+        this.onCloseDetailsPanel();
+        await this.loadPackages();
+      } else {
+        this.toastService.error(result.error ?? 'Failed to update package status.');
+      }
+    } catch {
+      this.toastService.error('An unexpected error occurred while updating the package status.');
+    }
+  }
+
+  /**
+   * Human-friendly label for a package status.
+   */
+  private getStatusLabel(status: PackageStatus): string {
+    const labels: Record<PackageStatus, string> = {
+      [PACKAGE_STATUS.PENDING]: 'Pending',
+      [PACKAGE_STATUS.NOTIFIED]: 'Notified',
+      [PACKAGE_STATUS.IN_TRANSIT]: 'In Transit',
+      [PACKAGE_STATUS.READY_FOR_COLLECTION]: 'Ready for Collection',
+      [PACKAGE_STATUS.DELIVERED]: 'Delivered',
+      [PACKAGE_STATUS.COLLECTED]: 'Collected',
+    };
+    return labels[status] ?? status;
+  }
+
+  /**
+   * Close the mark-collected modal without submitting.
+   */
+  onCloseMarkCollectedModal(): void {
+    if (this.isSubmittingCollection()) {
+      return;
+    }
+    this.markCollectedModalOpen.set(false);
+    this.packageAwaitingCollection.set(null);
+  }
+
+  /**
+   * Handle proof-of-delivery confirmation: marks the package as collected
+   * with the captured receiver/witness details and signatures.
+   */
+  async onCollectionConfirmed(payload: MarkCollectedPayload): Promise<void> {
+    const pkg = this.packageAwaitingCollection();
+    if (!pkg) {
+      return;
+    }
+
+    this.isSubmittingCollection.set(true);
+    try {
+      const result = await this.packageService.updatePackage(pkg.id, {
+        status: PACKAGE_STATUS.COLLECTED,
+        pod: payload,
+      });
+
+      if (result.success) {
+        this.toastService.success(`Package ${pkg.reference} marked as collected.`);
+        this.markCollectedModalOpen.set(false);
+        this.packageAwaitingCollection.set(null);
+        this.onCloseDetailsPanel();
+        await this.loadPackages();
+      } else {
+        this.toastService.error(result.error ?? 'Failed to mark package as collected.');
+      }
+    } catch {
+      this.toastService.error('An unexpected error occurred while confirming collection.');
+    } finally {
+      this.isSubmittingCollection.set(false);
     }
   }
 

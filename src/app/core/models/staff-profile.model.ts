@@ -1,7 +1,7 @@
 /**
  * Staff role types
  */
-export type StaffRole = 'admin' | 'manager' | 'driver' | 'staff' | 'viewer';
+export type StaffRole = 'admin' | 'manager' | 'driver' | 'staff' | 'viewer' | 'collection';
 
 /**
  * Staff profile entity from the database

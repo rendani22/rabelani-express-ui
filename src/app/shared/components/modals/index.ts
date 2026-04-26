@@ -52,3 +52,6 @@ export * from './manage-contacts-modal/manage-contacts-modal.component';
 // Documentation Modal
 export * from './docs-modal/docs-modal.component';
 
+// Mark Collected (Proof of Delivery) Modal
+export * from './mark-collected-modal/mark-collected-modal.component';
+

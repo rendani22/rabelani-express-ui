@@ -46,12 +46,31 @@ export interface CreatePackageRequest {
   readonly po_number?: string;
 }
 
+/** Proof-of-delivery party (receiver or witness) captured when marking collected */
+export interface PodParty {
+  readonly name: string;
+  readonly employee_number: string;
+  readonly phone: string;
+  /** Signature image as a base64 PNG data URL */
+  readonly signature_data_url: string;
+}
+
+/** Proof-of-delivery payload submitted when marking a package as collected */
+export interface MarkCollectedPayload {
+  readonly receiver: PodParty;
+  readonly witness: PodParty;
+  /** ISO timestamp of when collection was confirmed (client-side) */
+  readonly collected_at: string;
+}
+
 /** Request payload for updating a package */
 export interface UpdatePackageRequest {
   readonly package_id: string;
   readonly status?: PackageStatus;
   readonly notes?: string;
   readonly receiver_email?: string;
+  /** Optional proof-of-delivery payload (sent when transitioning to `collected`) */
+  readonly pod?: MarkCollectedPayload;
 }
 
 /** Filters for loading packages */
@@ -235,3 +254,59 @@ export type GetPackageResult = PackageServiceResult<Package>;
 
 /** Result type for package list fetch */
 export type GetPackagesResult = PackageServiceResult<readonly Package[]>;
+
+// ============================================================================
+// Status Workflow Helpers
+// ============================================================================
+
+/**
+ * Canonical forward order of package statuses.
+ * Used to enforce the process rules when admins/collections manually
+ * change a package's status.
+ */
+export const PACKAGE_STATUS_FLOW: readonly PackageStatus[] = [
+  PACKAGE_STATUS.PENDING,
+  PACKAGE_STATUS.NOTIFIED,
+  PACKAGE_STATUS.IN_TRANSIT,
+  PACKAGE_STATUS.READY_FOR_COLLECTION,
+  PACKAGE_STATUS.COLLECTED,
+] as const;
+
+/**
+ * Returns the list of statuses an admin/collection user is allowed to
+ * manually set given the package's current status.
+ *
+ * Rules:
+ * - Forward-only transitions (no going backwards in the flow)…
+ * - …with one exception: `ready_for_collection` may be moved back to
+ *   `notified` (e.g. to re-notify the receiver).
+ * - `collected` is excluded — it requires the proof-of-delivery modal flow.
+ * - Final states (`collected`, `delivered`) return an empty list.
+ */
+export function getAllowedManualStatusTransitions(
+  currentStatus: PackageStatus
+): readonly PackageStatus[] {
+  // Final states cannot be changed.
+  if (
+    currentStatus === PACKAGE_STATUS.COLLECTED ||
+    currentStatus === PACKAGE_STATUS.DELIVERED
+  ) {
+    return [];
+  }
+
+  // Special case: allow ready_for_collection → notified (re-notify flow).
+  if (currentStatus === PACKAGE_STATUS.READY_FOR_COLLECTION) {
+    return [PACKAGE_STATUS.NOTIFIED];
+  }
+
+  const currentIndex = PACKAGE_STATUS_FLOW.indexOf(currentStatus);
+  if (currentIndex === -1) {
+    return [];
+  }
+
+  // Take statuses strictly after the current one, excluding COLLECTED.
+  return PACKAGE_STATUS_FLOW
+    .slice(currentIndex + 1)
+    .filter((s) => s !== PACKAGE_STATUS.COLLECTED);
+}
+

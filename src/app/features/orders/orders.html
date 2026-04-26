@@ -150,8 +150,18 @@
     [package]="selectedPackage()"
     (closePanel)="onCloseDetailsPanel()"
     (updateStatus)="onUpdatePackageStatus($event)"
+    (setStatus)="onSetPackageStatus($event)"
     (showQrCode)="showQrCode($event)">
   </app-package-details-panel>
+
+  <!-- Mark Collected (Proof of Delivery) Modal -->
+  <app-mark-collected-modal
+    [isOpen]="markCollectedModalOpen()"
+    [package]="packageAwaitingCollection()"
+    [isSubmitting]="isSubmittingCollection()"
+    (closeModal)="onCloseMarkCollectedModal()"
+    (confirmed)="onCollectionConfirmed($event)">
+  </app-mark-collected-modal>
 
   <!-- QR Code Modal -->
   <div *ngIf="qrCodeModalOpen()"
