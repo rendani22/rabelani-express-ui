@@ -84,8 +84,8 @@ export class DeliveryLocationsComponent implements OnInit {
 
   readonly addForm = this.fb.nonNullable.group({
     name: ['', [Validators.required, Validators.minLength(2)]],
-    description: [''],
-    address: [''],
+    description: ['', [Validators.required]],
+    address: ['', [Validators.required]],
     notes: [''],
     latitude: [null as number | null, [Validators.min(-90), Validators.max(90)]],
     longitude: [null as number | null, [Validators.min(-180), Validators.max(180)]],
@@ -93,8 +93,8 @@ export class DeliveryLocationsComponent implements OnInit {
 
   readonly editForm = this.fb.nonNullable.group({
     name: ['', [Validators.required, Validators.minLength(2)]],
-    description: [''],
-    address: [''],
+    description: ['', [Validators.required]],
+    address: ['', [Validators.required]],
     notes: [''],
     latitude: [null as number | null, [Validators.min(-90), Validators.max(90)]],
     longitude: [null as number | null, [Validators.min(-180), Validators.max(180)]],
