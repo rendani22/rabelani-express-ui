@@ -35,6 +35,7 @@ import {
   CreateReceiverProfileDto,
   CreateReceiverContactDto,
 } from '../../../../core';
+import { ConfirmService, confirmDiscardIfDirty } from '../../confirm-dialog';
 
 /** Duration to show success message before auto-closing */
 const SUCCESS_CLOSE_DELAY_MS = 2000;
@@ -76,6 +77,7 @@ export class AddCustomerModalComponent {
   private readonly fb = inject(FormBuilder);
   private readonly receiverService = inject(ReceiverService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly confirmService = inject(ConfirmService);
 
   // =========================================================================
   // Inputs & Outputs
@@ -266,10 +268,20 @@ export class AddCustomerModalComponent {
   /**
    * Handles modal close.
    */
-  onClose(): void {
-    if (!this.isSubmitting()) {
+  async onClose(): Promise<void> {
+    if (this.isSubmitting()) return;
+    if (this.successMessage()) {
       this.resetAndClose();
+      return;
     }
+    const isDirty = this.form.dirty || this.contacts.length > 0;
+    const proceed = await confirmDiscardIfDirty(
+      this.confirmService,
+      isDirty,
+      false,
+    );
+    if (!proceed) return;
+    this.resetAndClose();
   }
 
   /**

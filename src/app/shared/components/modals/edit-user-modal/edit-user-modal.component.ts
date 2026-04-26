@@ -26,6 +26,7 @@ import {
 } from '@ng-icons/tabler-icons';
 
 import { StaffService, StaffProfile, StaffRole, UpdateStaffProfileDto } from '../../../../core';
+import { ConfirmService, confirmDiscardIfDirty } from '../../confirm-dialog';
 
 /** Duration to show success message before auto-closing */
 const SUCCESS_CLOSE_DELAY_MS = 1500;
@@ -56,6 +57,7 @@ export class EditUserModalComponent {
   private readonly fb = inject(FormBuilder);
   private readonly staffService = inject(StaffService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly confirmService = inject(ConfirmService);
 
   // =========================================================================
   // Inputs & Outputs
@@ -227,10 +229,19 @@ export class EditUserModalComponent {
   /**
    * Handles modal close.
    */
-  onClose(): void {
-    if (!this.isSubmitting()) {
+  async onClose(): Promise<void> {
+    if (this.isSubmitting()) return;
+    if (this.successMessage()) {
       this.resetAndClose();
+      return;
     }
+    const proceed = await confirmDiscardIfDirty(
+      this.confirmService,
+      this.form.dirty,
+      false,
+    );
+    if (!proceed) return;
+    this.resetAndClose();
   }
 
   /**

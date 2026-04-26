@@ -20,6 +20,7 @@ import {
 
 import { MarkCollectedPayload, Package } from '../../../../core';
 import { SignaturePadComponent } from '../../signature-pad/signature-pad.component';
+import { ConfirmService, confirmDiscardIfDirty } from '../../confirm-dialog';
 
 const PHONE_PATTERN = /^[+\d][\d\s().-]{6,}$/;
 
@@ -38,6 +39,7 @@ type PartyKey = 'receiver' | 'witness';
 })
 export class MarkCollectedModalComponent {
   private readonly fb = inject(FormBuilder);
+  private readonly confirmService = inject(ConfirmService);
 
   // ---- Inputs / Outputs ---------------------------------------------------
 
@@ -117,7 +119,14 @@ export class MarkCollectedModalComponent {
     }
   }
 
-  onClose(): void {
+  async onClose(): Promise<void> {
+    if (this.isSubmitting()) return;
+    const proceed = await confirmDiscardIfDirty(
+      this.confirmService,
+      this.form.dirty,
+      false,
+    );
+    if (!proceed) return;
     this.closeModal.emit();
   }
 

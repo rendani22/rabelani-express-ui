@@ -26,6 +26,7 @@ import {
 } from '@ng-icons/tabler-icons';
 
 import { StaffService, StaffProfile, StaffRole, CreateStaffProfileDto } from '../../../../core';
+import { ConfirmService, confirmDiscardIfDirty } from '../../confirm-dialog';
 
 /** Duration to show success message before auto-closing */
 const SUCCESS_CLOSE_DELAY_MS = 2000;
@@ -63,6 +64,7 @@ export class AddUserModalComponent {
   private readonly fb = inject(FormBuilder);
   private readonly staffService = inject(StaffService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly confirmService = inject(ConfirmService);
 
   // =========================================================================
   // Inputs & Outputs
@@ -208,12 +210,22 @@ export class AddUserModalComponent {
   }
 
   /**
-   * Handles modal close.
+   * Handles modal close. Prompts to confirm if the form is dirty.
    */
-  onClose(): void {
-    if (!this.isSubmitting()) {
+  async onClose(): Promise<void> {
+    if (this.isSubmitting()) return;
+    // Skip confirmation in the success state (form already saved).
+    if (this.successMessage()) {
       this.resetAndClose();
+      return;
     }
+    const proceed = await confirmDiscardIfDirty(
+      this.confirmService,
+      this.form.dirty,
+      false,
+    );
+    if (!proceed) return;
+    this.resetAndClose();
   }
 
   /**

@@ -31,6 +31,7 @@ import {
   DeliveryLocation,
 } from '../../../../core';
 import { ToastService } from '../../toast/toast.service';
+import { ConfirmService, confirmDiscardIfDirty } from '../../confirm-dialog';
 
 import { CommonModule } from '@angular/common';
 
@@ -56,6 +57,7 @@ export class CreatePackageModalComponent {
   private readonly deliveryLocationService = inject(DeliveryLocationService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly toastService = inject(ToastService);
+  private readonly confirmService = inject(ConfirmService);
 
   // =========================================================================
   // Inputs & Outputs
@@ -209,9 +211,27 @@ export class CreatePackageModalComponent {
   // =========================================================================
 
   /**
-   * Handles modal close action
+   * Handles modal close action. Prompts the user to confirm if the form has
+   * unsaved changes. Always allows closing in the success state (after a
+   * package was created).
    */
-  onClose(): void {
+  async onClose(): Promise<void> {
+    // Once a package has been successfully created we always allow closing
+    // without confirmation (form data is no longer "unsaved").
+    if (this.createdPackage()) {
+      this.resetForm();
+      this.closeModal.emit();
+      return;
+    }
+
+    const isDirty = this.form.dirty || this.itemsArray.length > 0;
+    const proceed = await confirmDiscardIfDirty(
+      this.confirmService,
+      isDirty,
+      this.isSubmitting(),
+    );
+    if (!proceed) return;
+
     this.resetForm();
     this.closeModal.emit();
   }

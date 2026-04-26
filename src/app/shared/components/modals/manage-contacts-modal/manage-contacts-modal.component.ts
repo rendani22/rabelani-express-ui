@@ -29,6 +29,7 @@ import {
   ReceiverContact,
   CreateReceiverContactDto,
 } from '../../../../core';
+import { ConfirmService, confirmDiscardIfDirty } from '../../confirm-dialog';
 
 /**
  * Modal for managing alternative contact people for a receiver profile.
@@ -55,6 +56,7 @@ import {
 export class ManageContactsModalComponent {
   private readonly fb = inject(FormBuilder);
   private readonly receiverService = inject(ReceiverService);
+  private readonly confirmService = inject(ConfirmService);
 
   /** Controls modal visibility */
   readonly isOpen = input(false);
@@ -156,10 +158,19 @@ export class ManageContactsModalComponent {
     this.contacts.update((list) => list.filter((c) => c.id !== contact.id));
   }
 
-  onClose(): void {
-    if (!this.isSubmitting() && !this.deletingId()) {
-      this.closeModal.emit();
-    }
+  async onClose(): Promise<void> {
+    if (this.isSubmitting() || this.deletingId()) return;
+    // Only consider the inline add-contact draft as "unsaved": persisted
+    // contacts in the list are saved/deleted immediately.
+    const { name, phone } = this.form.getRawValue();
+    const draftDirty = !!(name?.trim() || phone?.trim());
+    const proceed = await confirmDiscardIfDirty(
+      this.confirmService,
+      draftDirty,
+      false,
+    );
+    if (!proceed) return;
+    this.closeModal.emit();
   }
 
   trackById(_index: number, contact: ReceiverContact): string {

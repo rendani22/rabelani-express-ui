@@ -16,6 +16,7 @@ import { LayoutComponent } from '../../shared/components/layout/layout.component
 import { DeliveryLocationService, DeliveryLocation, CreateDeliveryLocationDto, UpdateDeliveryLocationDto } from '../../core';
 import { ToastService } from '../../shared/components/toast/toast.service';
 import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
+import { ConfirmService, confirmDiscardIfDirty } from '../../shared/components/confirm-dialog';
 
 /**
  * Delivery Points management page.
@@ -52,6 +53,7 @@ export class DeliveryLocationsComponent implements OnInit {
   private readonly locationService = inject(DeliveryLocationService);
   private readonly toastService = inject(ToastService);
   private readonly fb = inject(FormBuilder);
+  private readonly confirmService = inject(ConfirmService);
 
   // =========================================================================
   // State
@@ -118,7 +120,13 @@ export class DeliveryLocationsComponent implements OnInit {
     this.editingId.set(null);
   }
 
-  onCancelAdd(): void {
+  async onCancelAdd(): Promise<void> {
+    const proceed = await confirmDiscardIfDirty(
+      this.confirmService,
+      this.addForm.dirty,
+      false,
+    );
+    if (!proceed) return;
     this.showAddForm.set(false);
     this.addForm.reset();
   }
@@ -144,7 +152,9 @@ export class DeliveryLocationsComponent implements OnInit {
       this.toastService.error(result.error);
     } else {
       this.toastService.success(`Delivery point "${result.location!.name}" created successfully!`);
-      this.onCancelAdd();
+      // Close without prompting — form was just saved.
+      this.showAddForm.set(false);
+      this.addForm.reset();
     }
   }
 
@@ -165,7 +175,13 @@ export class DeliveryLocationsComponent implements OnInit {
     });
   }
 
-  onCancelEdit(): void {
+  async onCancelEdit(): Promise<void> {
+    const proceed = await confirmDiscardIfDirty(
+      this.confirmService,
+      this.editForm.dirty,
+      false,
+    );
+    if (!proceed) return;
     this.editingId.set(null);
     this.editForm.reset();
   }
@@ -191,7 +207,9 @@ export class DeliveryLocationsComponent implements OnInit {
       this.toastService.error(result.error);
     } else {
       this.toastService.success(`Delivery point "${result.location!.name}" updated.`);
-      this.onCancelEdit();
+      // Close without prompting — form was just saved.
+      this.editingId.set(null);
+      this.editForm.reset();
     }
   }
 
