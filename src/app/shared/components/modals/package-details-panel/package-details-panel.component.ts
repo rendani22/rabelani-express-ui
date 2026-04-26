@@ -1,6 +1,15 @@
 import { Component, Input, Output, EventEmitter, OnChanges, SimpleChanges, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Package, PackageItem, PACKAGE_STATUS, PackageStatus } from '../../../../core';
+import {
+  Package,
+  PackageItem,
+  PACKAGE_STATUS,
+  PackageStatus,
+  PackageLockStatus,
+  PackageService,
+  StaffService,
+  getAllowedManualStatusTransitions,
+} from '../../../../core';
 import { SupabaseService } from '../../../services/supabase.service';
 
 /** A single entry in the package status audit log */
@@ -429,6 +438,12 @@ export class PackageDetailsPanelComponent implements OnChanges {
 
   /** Loading state for history */
   readonly loadingHistory = signal(false);
+
+  /** POD lock status for delivered/collected packages */
+  readonly podStatus = signal<PackageLockStatus | null>(null);
+
+  /** Loading state for POD status */
+  readonly loadingPod = signal(false);
 
   /** Currently selected status in the manual override dropdown */
   readonly selectedManualStatus = signal<PackageStatus | ''>('');
