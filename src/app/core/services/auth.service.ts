@@ -27,7 +27,11 @@ export class AuthService {
   readonly isLoading = this.supabaseService.isLoading;
 
   /**
-   * Attempt to sign in with email and password
+   * Attempt to sign in with email and password.
+   *
+   * Drivers are not allowed to sign into the dashboard. If the authenticated
+   * user has the `driver` role, they are immediately signed out and an error
+   * is returned.
    */
   async signIn(credentials: LoginCredentials): Promise<AuthResult> {
     const response = await this.supabaseService.signIn(
@@ -35,9 +39,34 @@ export class AuthService {
       credentials.password
     );
 
+    if (!response.success) {
+      return {
+        success: response.success,
+        error: response.error,
+      };
+    }
+
+    // Block driver-role users from accessing the dashboard.
+    const userId = response.user?.id;
+    if (userId) {
+      const { data, error } = await this.supabaseService.client
+        .from('staff_profiles')
+        .select('role')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (!error && data?.role === 'driver') {
+        await this.supabaseService.signOut();
+        return {
+          success: false,
+          error:
+            'Drivers are not permitted to sign in here. Please use the driver app.',
+        };
+      }
+    }
+
     return {
-      success: response.success,
-      error: response.error,
+      success: true,
     };
   }
 
