@@ -81,8 +81,8 @@ export class CreatePackageModalComponent {
     receiverEmail: ['', [Validators.required]],
     notes: [''],
     poNumber: ['', [Validators.required]],
-    deliveryLocationId: [''],
-    items: this.fb.array<FormGroup>([]),
+    deliveryLocationId: ['', [Validators.required]],
+    items: this.fb.array<FormGroup>([], [Validators.required, Validators.minLength(1)]),
   });
 
   /** Typed accessor for items FormArray */
@@ -192,7 +192,7 @@ export class CreatePackageModalComponent {
   /**
    * Gets error message for a form control
    */
-  getFieldError(fieldName: 'receiverEmail' | 'notes' | 'poNumber'): string | null {
+  getFieldError(fieldName: 'receiverEmail' | 'notes' | 'poNumber' | 'deliveryLocationId'): string | null {
     const control = this.form.controls[fieldName];
     if (!control.touched || control.valid) {
       return null;
