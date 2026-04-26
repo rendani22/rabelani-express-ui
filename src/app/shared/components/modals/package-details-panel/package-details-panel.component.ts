@@ -5,6 +5,8 @@ import {
   PackageItem,
   PACKAGE_STATUS,
   PackageStatus,
+  PackageLockStatus,
+  PackageService,
   StaffService,
   getAllowedManualStatusTransitions,
 } from '../../../../core';
@@ -213,6 +215,67 @@ interface TimelineEntry {
               </div>
             }
 
+            <!-- Proof of Delivery -->
+            @if (pkg.status === 'delivered' || pkg.status === 'collected') {
+              <div class="px-6 py-5 border-b border-gray-200 dark:border-gray-700">
+                <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
+                  Proof of Delivery
+                </h3>
+                @if (loadingPod()) {
+                  <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                    <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                    </svg>
+                    Loading POD…
+                  </div>
+                } @else if (podStatus()?.pdfUrl) {
+                  <div class="rounded-lg border border-green-200 dark:border-green-700 bg-green-50 dark:bg-green-900/20 p-4 space-y-3">
+                    <!-- POD reference -->
+                    @if (podStatus()?.podReference) {
+                      <div class="flex items-center justify-between">
+                        <span class="text-xs text-gray-500 dark:text-gray-400">POD Reference</span>
+                        <span class="text-xs font-mono font-medium text-gray-900 dark:text-white">{{ podStatus()!.podReference }}</span>
+                      </div>
+                    }
+                    @if (podStatus()?.lockedAt) {
+                      <div class="flex items-center justify-between">
+                        <span class="text-xs text-gray-500 dark:text-gray-400">Signed At</span>
+                        <span class="text-xs text-gray-900 dark:text-white">{{ formatDateTime(podStatus()!.lockedAt!) }}</span>
+                      </div>
+                    }
+                    <!-- Action buttons -->
+                    <div class="flex gap-2 pt-1">
+                      <a
+                        [href]="podStatus()!.pdfUrl!"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium text-green-700 dark:text-green-400 bg-white dark:bg-gray-800 border border-green-300 dark:border-green-600 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/40 transition-colors"
+                      >
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                        </svg>
+                        View POD
+                      </a>
+                      <a
+                        [href]="podStatus()!.pdfUrl!"
+                        [download]="getPodFilename(pkg)"
+                        class="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors"
+                      >
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                        </svg>
+                        Download POD
+                      </a>
+                    </div>
+                  </div>
+                } @else {
+                  <p class="text-sm text-gray-500 dark:text-gray-400 italic">No POD document available for this package.</p>
+                }
+              </div>
+            }
+
             <!-- Timeline / Activity Log -->
             <div class="px-6 py-5">
               <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
@@ -307,6 +370,20 @@ interface TimelineEntry {
               >
                 Close
               </button>
+              @if (podStatus()?.pdfUrl && (pkg.status === 'delivered' || pkg.status === 'collected')) {
+                <a
+                  [href]="podStatus()!.pdfUrl!"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="px-4 py-2 text-sm font-medium text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/50 transition-colors flex items-center gap-2"
+                  title="View Proof of Delivery"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                  </svg>
+                  View POD
+                </a>
+              }
               <button
                 type="button"
                 class="px-4 py-2 text-sm font-medium text-violet-700 dark:text-violet-400 bg-violet-50 dark:bg-violet-900/30 border border-violet-200 dark:border-violet-700 rounded-lg hover:bg-violet-100 dark:hover:bg-violet-900/50 transition-colors flex items-center gap-2"
@@ -341,6 +418,7 @@ interface TimelineEntry {
 })
 export class PackageDetailsPanelComponent implements OnChanges {
   private readonly supabaseService = inject(SupabaseService);
+  private readonly packageService = inject(PackageService);
   private readonly staffService = inject(StaffService);
 
   @Input() isOpen = false;
@@ -360,6 +438,12 @@ export class PackageDetailsPanelComponent implements OnChanges {
 
   /** Loading state for history */
   readonly loadingHistory = signal(false);
+
+  /** POD lock status for delivered/collected packages */
+  readonly podStatus = signal<PackageLockStatus | null>(null);
+
+  /** Loading state for POD status */
+  readonly loadingPod = signal(false);
 
   /** Currently selected status in the manual override dropdown */
   readonly selectedManualStatus = signal<PackageStatus | ''>('');
@@ -382,6 +466,14 @@ export class PackageDetailsPanelComponent implements OnChanges {
     const openChange = changes['isOpen'];
     if ((pkgChange || openChange) && this.isOpen && this.package) {
       void this.loadStatusHistory(this.package.id);
+      if (
+        this.package.status === PACKAGE_STATUS.DELIVERED ||
+        this.package.status === PACKAGE_STATUS.COLLECTED
+      ) {
+        void this.loadPodStatus(this.package.id);
+      } else {
+        this.podStatus.set(null);
+      }
     }
     // Reset the manual status dropdown whenever the selected package changes.
     if (pkgChange) {
@@ -415,6 +507,22 @@ export class PackageDetailsPanelComponent implements OnChanges {
       this.statusHistory.set([]);
     } finally {
       this.loadingHistory.set(false);
+    }
+  }
+
+  /**
+   * Load the POD lock status for a delivered/collected package.
+   * Populates podStatus signal with pdfUrl if a signed POD exists.
+   */
+  private async loadPodStatus(packageId: string): Promise<void> {
+    this.loadingPod.set(true);
+    try {
+      const status = await this.packageService.getPackageLockStatus(packageId);
+      this.podStatus.set(status);
+    } catch {
+      this.podStatus.set(null);
+    } finally {
+      this.loadingPod.set(false);
     }
   }
 
@@ -631,6 +739,12 @@ export class PackageDetailsPanelComponent implements OnChanges {
       minute: '2-digit',
       hour12: true
     });
+  }
+
+  /** Returns a filename for the POD PDF download. */
+  getPodFilename(pkg: Package): string {
+    const ref = this.podStatus()?.podReference ?? pkg.reference;
+    return `POD-${ref}.pdf`;
   }
 
   /**

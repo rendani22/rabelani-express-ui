@@ -216,6 +216,7 @@ export function isApiError(
 
 /** Shape of package item form group */
 export interface PackageItemFormValue {
+  inventoryItemId?: string;
   quantity: number;
   description: string;
 }

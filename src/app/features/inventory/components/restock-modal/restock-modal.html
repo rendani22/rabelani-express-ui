@@ -1,0 +1,116 @@
+<!-- ── Backdrop + centered modal ── -->
+@if (isOpen() && item(); as currentItem) {
+  <div
+    class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/50"
+    (click)="onCancel()"
+    aria-hidden="true"
+  ></div>
+
+  <div
+    class="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="restock-modal-title"
+  >
+    <div
+      class="pointer-events-auto w-full max-w-md bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden"
+      (click)="$event.stopPropagation()"
+    >
+      <!-- Header -->
+      <header class="flex items-start justify-between gap-3 px-5 py-4 border-b border-gray-200 dark:border-gray-700">
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="w-9 h-9 rounded-lg flex items-center justify-center bg-emerald-100 dark:bg-emerald-500/20 flex-shrink-0">
+            <ng-icon name="tablerTrendingUp" size="18" class="text-emerald-500"></ng-icon>
+          </div>
+          <div class="min-w-0">
+            <h2 id="restock-modal-title" class="text-base font-semibold text-gray-900 dark:text-white">Add Stock</h2>
+            <p class="text-sm text-gray-500 dark:text-gray-400 truncate">{{ currentItem.name }}</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          class="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex-shrink-0"
+          (click)="onCancel()"
+          aria-label="Close"
+        >
+          <ng-icon name="tablerX" size="18"></ng-icon>
+        </button>
+      </header>
+
+      <!-- Body -->
+      <form [formGroup]="form" (ngSubmit)="onSubmit()" class="px-5 py-4 space-y-4">
+        <!-- Current stock summary -->
+        <div class="flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-700/40 text-sm">
+          <div class="flex items-center gap-2 text-gray-500 dark:text-gray-400">
+            <ng-icon name="tablerBox" size="14"></ng-icon>
+            On hand
+          </div>
+          <span class="font-semibold text-gray-900 dark:text-gray-100">
+            {{ currentItem.quantity | number }} {{ currentItem.unit }}
+          </span>
+        </div>
+
+        <!-- Quantity to add -->
+        <div>
+          <label for="restock-qty" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Quantity to add <span class="text-red-500">*</span>
+          </label>
+          <input
+            id="restock-qty"
+            type="number"
+            min="1"
+            formControlName="quantity"
+            class="w-full px-3 py-2 rounded-lg border text-sm bg-white dark:bg-gray-800/50 border-gray-200 dark:border-gray-700/60 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+            [class.border-red-400]="getQuantityError()"
+          />
+          @if (getQuantityError(); as err) {
+            <p class="text-xs text-red-500 mt-1">{{ err }}</p>
+          }
+        </div>
+
+        <!-- Preview -->
+        <div class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+          <span class="font-mono">{{ currentItem.quantity | number }}</span>
+          <span class="text-gray-300 dark:text-gray-600">→</span>
+          <span class="font-mono font-semibold text-emerald-600 dark:text-emerald-400">
+            {{ previewAfter() | number }}
+          </span>
+          <span class="text-gray-400 dark:text-gray-500">{{ currentItem.unit }}</span>
+        </div>
+
+        <!-- Note -->
+        <div>
+          <label for="restock-note" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Note <span class="text-gray-400 dark:text-gray-500 font-normal">(optional)</span>
+          </label>
+          <textarea
+            id="restock-note"
+            rows="2"
+            formControlName="note"
+            placeholder="e.g. PO #4512 from Supplier X"
+            class="w-full px-3 py-2 rounded-lg border text-sm bg-white dark:bg-gray-800/50 border-gray-200 dark:border-gray-700/60 text-gray-800 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 resize-none"
+          ></textarea>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex justify-end gap-2 pt-1">
+          <button
+            type="button"
+            class="px-4 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700/60 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50"
+            (click)="onCancel()"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            class="px-4 py-2 text-sm rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-medium flex items-center gap-2"
+          >
+            <ng-icon name="tablerCheck" size="16"></ng-icon>
+            Add Stock
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+}
+

@@ -29,6 +29,8 @@ import {
   ReceiverProfile,
   DeliveryLocationService,
   DeliveryLocation,
+  InventoryService,
+  InventoryItem,
 } from '../../../../core';
 import { ToastService } from '../../toast/toast.service';
 import { ConfirmService, confirmDiscardIfDirty } from '../../confirm-dialog';
@@ -56,6 +58,7 @@ export class CreatePackageModalComponent {
   private readonly packageService = inject(PackageService);
   private readonly receiverService = inject(ReceiverService);
   private readonly deliveryLocationService = inject(DeliveryLocationService);
+  private readonly inventoryService = inject(InventoryService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly toastService = inject(ToastService);
   private readonly confirmService = inject(ConfirmService);
@@ -150,6 +153,12 @@ export class CreatePackageModalComponent {
   /** Loading state for locations */
   readonly isLoadingLocations = this.deliveryLocationService.loading;
 
+  /** Active inventory items for selection in the items section */
+  readonly activeInventoryItems = this.inventoryService.activeItems;
+
+  /** Loading state for inventory */
+  readonly isLoadingInventory = this.inventoryService.loading;
+
   /** Form status as a signal (reacts to form validity changes) */
   private readonly formStatus = toSignal(this.form.statusChanges, {
     initialValue: this.form.status,
@@ -171,6 +180,7 @@ export class CreatePackageModalComponent {
         this.resetForm();
         this.receiverService.loadAllReceivers();
         this.deliveryLocationService.loadLocations();
+        this.inventoryService.loadItems();
       }
     });
   }
@@ -184,9 +194,39 @@ export class CreatePackageModalComponent {
    */
   private createItemGroup(item?: PackageItemFormValue): FormGroup {
     return this.fb.group({
+      inventoryItemId: [item?.inventoryItemId ?? ''],
       quantity: [item?.quantity ?? 1, [Validators.required, Validators.min(1)]],
       description: [item?.description ?? '', Validators.required],
     });
+  }
+
+  /**
+   * Handles inventory item selection for a specific items-array index.
+   * Auto-fills description from the selected inventory item.
+   */
+  onInventoryItemSelect(index: number, event: Event): void {
+    const selectedId = (event.target as HTMLSelectElement).value;
+    const itemGroup = this.itemsArray.at(index) as FormGroup;
+
+    if (!selectedId) {
+      itemGroup.patchValue({ description: '' });
+      return;
+    }
+
+    const invItem = this.activeInventoryItems().find(i => i.id === selectedId);
+    if (invItem) {
+      itemGroup.patchValue({ description: invItem.name });
+    }
+  }
+
+  /**
+   * Returns the available stock for an inventory item selected in a specific row.
+   */
+  getAvailableStock(index: number): number | null {
+    const itemGroup = this.itemsArray.at(index) as FormGroup;
+    const selectedId = itemGroup?.get('inventoryItemId')?.value as string | undefined;
+    if (!selectedId) return null;
+    return this.activeInventoryItems().find(i => i.id === selectedId)?.quantity ?? null;
   }
 
   /**
@@ -325,9 +365,16 @@ export class CreatePackageModalComponent {
     return null;
   }
 
-  // =========================================================================
-  // Actions
-  // =========================================================================
+  /**
+   * Returns a display label for an inventory item option in the dropdown.
+   */
+  getInventoryItemLabel(item: InventoryItem): string {
+    const skuPart = item.sku ? ` [${item.sku}]` : '';
+    const stockPart = item.quantity === 0
+      ? ' (out of stock)'
+      : ` – ${item.quantity} ${item.unit}`;
+    return `${item.name}${skuPart}${stockPart}`;
+  }
 
   /**
    * Handles modal close action. Prompts the user to confirm if the form has
@@ -376,6 +423,8 @@ export class CreatePackageModalComponent {
       const result = await this.packageService.createPackage(request);
 
       if (result.success) {
+        // Deduct inventory stock for items that came from inventory
+        await this.deductInventoryStock();
         this.handleSuccess(result.data.package);
       } else {
         this.errorMessage.set(result.error);
@@ -414,6 +463,32 @@ export class CreatePackageModalComponent {
       ...(deliveryLocationId?.trim() && { delivery_location_id: deliveryLocationId.trim() }),
       ...(validItems.length > 0 && { items: validItems }),
     };
+  }
+
+  /**
+   * Deducts inventory stock for all form items that have an inventoryItemId selected.
+   * Non-fatal: errors do not prevent package creation from succeeding.
+   */
+  private async deductInventoryStock(): Promise<void> {
+    const items = this.form.getRawValue().items as Array<Record<string, unknown>>;
+    const deductions = items
+      .filter((item) => {
+        const id = item['inventoryItemId'] as string | undefined;
+        const qty = item['quantity'] as number | undefined;
+        return id && qty && qty > 0;
+      })
+      .map((item) => ({
+        inventoryItemId: item['inventoryItemId'] as string,
+        quantity: item['quantity'] as number,
+      }));
+
+    if (deductions.length > 0) {
+      try {
+        await this.inventoryService.deductStock(deductions);
+      } catch {
+        this.toastService.warning('Package created, but inventory stock levels could not be updated. Please adjust them manually.');
+      }
+    }
   }
 
   /**
