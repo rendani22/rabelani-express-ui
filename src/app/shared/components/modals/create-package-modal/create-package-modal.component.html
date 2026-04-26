@@ -185,7 +185,7 @@
                 <option value="">— No specific location —</option>
                 @for (location of activeLocations(); track location.id) {
                   <option [value]="location.id">
-                    {{ location.name }}{{ location.address ? ' – ' + location.address : '' }}
+                    {{ location.name }}{{ location.description ? ' – ' + location.description : '' }}
                   </option>
                 }
                 @if (activeLocations().length === 0) {
