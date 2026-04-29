@@ -4,7 +4,7 @@ import { LayoutComponent } from '../../shared/components/layout/layout.component
 import { TransactionTableComponent, Transaction } from '../../shared/components/transaction/transaction-table/transaction-table.component';
 import { OrdersActionsComponent } from './orders-actions/orders-actions.component';
 import { PackageService, Package, PACKAGE_STATUS, PackageStatus, SettingsService, MarkCollectedPayload } from '../../core';
-import { CreatePackageModalComponent, PackageDetailsPanelComponent, MarkCollectedModalComponent } from '../../shared/components/modals';
+import { CreatePackageModalComponent, PackageDetailsPanelComponent, MarkCollectedModalComponent, PodDocumentComponent } from '../../shared/components/modals';
 import { QrCodeComponent } from '../../shared/components/qr-code';
 import { ToastService } from '../../shared/components/toast/toast.service';
 
@@ -23,6 +23,7 @@ import { ToastService } from '../../shared/components/toast/toast.service';
     CreatePackageModalComponent,
     PackageDetailsPanelComponent,
     MarkCollectedModalComponent,
+    PodDocumentComponent,
     QrCodeComponent
   ],
   templateUrl: './orders.html',
@@ -48,6 +49,10 @@ export class OrdersComponent implements OnInit {
   markCollectedModalOpen = signal(false);
   packageAwaitingCollection = signal<Package | null>(null);
   isSubmittingCollection = signal(false);
+
+  // POD document modal state
+  podDocumentOpen = signal(false);
+  podDocumentPackage = signal<Package | null>(null);
 
   // Selection state
   selectedIds = signal<Set<string>>(new Set());
@@ -357,7 +362,19 @@ export class OrdersComponent implements OnInit {
       });
 
       if (result.success) {
-        this.toastService.success(`Package ${pkg.reference} marked as collected.`);
+        const warning = result.data.pod_warning;
+        if (warning) {
+          // Status was updated, but the POD row was not persisted. This
+          // typically means the `update-package` edge function is out of
+          // date or the `pods` table is missing the receiver/witness
+          // columns. Surface the underlying error so it can be acted on.
+          this.toastService.warning(
+            `Package ${pkg.reference} marked as collected, but the POD record was not saved: ${warning}`,
+          );
+          console.error('[Orders] POD persistence warning:', warning);
+        } else {
+          this.toastService.success(`Package ${pkg.reference} marked as collected.`);
+        }
         this.markCollectedModalOpen.set(false);
         this.packageAwaitingCollection.set(null);
         this.onCloseDetailsPanel();
@@ -435,6 +452,22 @@ export class OrdersComponent implements OnInit {
   closeQrCodeModal(): void {
     this.qrCodeModalOpen.set(false);
     this.qrCodeData.set('');
+  }
+
+  /**
+   * Open the printable Proof-of-Delivery document for a package.
+   */
+  onViewPodDocument(pkg: Package): void {
+    this.podDocumentPackage.set(pkg);
+    this.podDocumentOpen.set(true);
+  }
+
+  /**
+   * Close the POD document modal.
+   */
+  onClosePodDocument(): void {
+    this.podDocumentOpen.set(false);
+    this.podDocumentPackage.set(null);
   }
 
   // ---------------- Pagination handlers ----------------

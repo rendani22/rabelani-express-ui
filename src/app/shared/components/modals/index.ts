@@ -55,3 +55,6 @@ export * from './docs-modal/docs-modal.component';
 // Mark Collected (Proof of Delivery) Modal
 export * from './mark-collected-modal/mark-collected-modal.component';
 
+// POD Document (printable proof of delivery)
+export * from './pod-document/pod-document.component';
+

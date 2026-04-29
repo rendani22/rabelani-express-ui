@@ -103,6 +103,7 @@ export interface Package {
   readonly created_at: string;
   readonly created_by?: string;
   readonly updated_at?: string;
+  readonly po_number?: string | null;
   readonly items?: readonly PackageItem[];
 }
 
@@ -122,6 +123,12 @@ export interface ApiErrorResponse {
 /** Successful response from update-package endpoint */
 export interface UpdatePackageSuccessResponse {
   readonly package: Package;
+  /**
+   * Optional warning surfaced when the package status update succeeded but
+   * a side-effect (e.g. persisting the POD row, sending an email) failed.
+   * The package row is still authoritative.
+   */
+  readonly pod_warning?: string;
 }
 
 /** Successful response from driver-pickup/receive-at-collection endpoints */
@@ -129,6 +136,36 @@ export interface PackageActionSuccessResponse {
   readonly package: Package;
   readonly email_sent: boolean;
   readonly email_error: string | null;
+}
+
+/**
+ * Proof-of-Delivery record persisted in the `pods` table.
+ * Captured by the mark-collected modal and rendered by the POD document.
+ */
+export interface PodRecord {
+  readonly id: string;
+  readonly package_id: string;
+  readonly pod_reference: string | null;
+  readonly is_locked: boolean | null;
+  readonly locked_at: string | null;
+
+  // Receiver
+  readonly receiver_name: string | null;
+  readonly receiver_employee_number: string | null;
+  readonly receiver_phone: string | null;
+  /** Base64 PNG data URL */
+  readonly receiver_signature: string | null;
+
+  // Witness
+  readonly witness_name: string | null;
+  readonly witness_employee_number: string | null;
+  readonly witness_phone: string | null;
+  /** Base64 PNG data URL */
+  readonly witness_signature: string | null;
+
+  // Completion metadata
+  readonly completed_at: string | null;
+  readonly completed_by: string | null;
 }
 
 /** Package lock status information */

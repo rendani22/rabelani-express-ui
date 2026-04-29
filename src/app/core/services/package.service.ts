@@ -5,6 +5,7 @@ import {
   Package,
   PackageFilters,
   PackageLockStatus,
+  PodRecord,
   CreatePackageRequest,
   UpdatePackageRequest,
   CreatePackageApiResponse,
@@ -502,6 +503,49 @@ export class PackageService {
         pdfUrl: status.pdf_url,
       };
     } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Fetch the proof-of-delivery record for a package, including receiver
+   * and witness identification fields and signature data URLs.
+   *
+   * @param packageId - Package UUID
+   * @returns The POD record, or `null` if none exists / on error.
+   */
+  async getPodForPackage(packageId: string): Promise<PodRecord | null> {
+    try {
+      const { data, error } = await this.supabaseService.client
+        .from('pods')
+        .select(
+          'id, package_id, pod_reference, is_locked, locked_at, ' +
+          'receiver_name, receiver_employee_number, receiver_phone, receiver_signature, ' +
+          'witness_name, witness_employee_number, witness_phone, witness_signature, ' +
+          'completed_at, completed_by'
+        )
+        .eq('package_id', packageId)
+        .maybeSingle();
+
+      if (error) {
+        console.error('[PackageService] getPodForPackage error:', error);
+        return null;
+      }
+
+      if (!data) {
+        // Could be: row genuinely missing OR RLS hides it. Log a hint so
+        // operators can tell the difference from the browser console.
+        console.warn(
+          '[PackageService] No POD row visible for package',
+          packageId,
+          '— if you expected one to exist, check the SELECT RLS policies on `public.pods`.'
+        );
+        return null;
+      }
+
+      return data as unknown as PodRecord;
+    } catch (err) {
+      console.error('[PackageService] getPodForPackage threw:', err);
       return null;
     }
   }

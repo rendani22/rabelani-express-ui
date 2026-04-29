@@ -151,8 +151,16 @@
     (closePanel)="onCloseDetailsPanel()"
     (updateStatus)="onUpdatePackageStatus($event)"
     (setStatus)="onSetPackageStatus($event)"
-    (showQrCode)="showQrCode($event)">
+    (showQrCode)="showQrCode($event)"
+    (viewPodDocument)="onViewPodDocument($event)">
   </app-package-details-panel>
+
+  <!-- POD Document (printable) -->
+  <app-pod-document
+    [isOpen]="podDocumentOpen()"
+    [package]="podDocumentPackage()"
+    (closeModal)="onClosePodDocument()">
+  </app-pod-document>
 
   <!-- Mark Collected (Proof of Delivery) Modal -->
   <app-mark-collected-modal

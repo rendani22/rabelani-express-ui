@@ -40,6 +40,7 @@
     "angularx-qrcode": "^21.0.4",
     "chart.js": "^4.5.1",
     "flatpickr": "^4.6.13",
+    "html2pdf.js": "^0.14.0",
     "leaflet": "^1.9.4",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0"

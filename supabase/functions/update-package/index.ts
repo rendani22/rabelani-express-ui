@@ -84,7 +84,7 @@ serve(async (req) => {
     // Check if calling user has appropriate role
     const { data: callerProfile, error: profileError } = await userClient
       .from('staff_profiles')
-      .select('id, role, full_name, is_active')
+      .select('id, role, full_name, email, is_active')
       .eq('user_id', callingUser.id)
       .single()
 
@@ -241,16 +241,44 @@ serve(async (req) => {
     }
 
     // Persist the Proof-of-Delivery payload (receiver + witness identification
-    // and signatures) when transitioning to `collected`. We upsert against
-    // `package_id` so retrying the action does not create duplicate POD rows.
+    // and signatures) when transitioning to `collected`.
     //
-    // Signatures are stored inline as base64 PNG data URLs (TEXT). If/when
-    // we move to Supabase Storage, this is the only place that needs to
-    // change — replace the *_signature fields with uploaded object URLs.
+    // The `pods` table has a `prevent_pod_modification` trigger that blocks
+    // UPDATEs once a row exists, so we cannot rely on upsert. Instead we
+    // check for an existing row first and only INSERT when none exists.
+    // Retries after a successful POD persist are therefore no-ops.
+    //
+    // Signatures are stored inline as base64 PNG data URLs (TEXT). The
+    // legacy `signature_url` / `signature_path` / `signed_at` columns are
+    // populated with the receiver's data URL / a synthetic path / the
+    // collected_at timestamp respectively, until/unless the signatures are
+    // moved to Supabase Storage. The new nullable `receiver_signature` /
+    // `witness_signature` columns hold the per-party data URLs the UI
+    // renders.
     let podPersistError: string | null = null
     if (status === 'collected' && pod) {
-      const podRow = {
+      // Resolve a staff email — prefer the staff_profiles row, fall back
+      // to the auth user's email so the NOT NULL constraint is satisfied.
+      const staffEmail =
+        (callerProfile as { email?: string }).email ||
+        callingUser.email ||
+        ''
+
+      const podRow: Record<string, unknown> = {
         package_id,
+        // NOT NULL columns mirrored from the package / caller.
+        package_reference:        existingPackage.reference,
+        receiver_email:           existingPackage.receiver_email,
+        staff_id:                 callerProfile.id,
+        staff_name:               callerProfile.full_name ?? 'Unknown',
+        staff_email:              staffEmail,
+        // Legacy single-signature columns (NOT NULL). Use the receiver's
+        // signature as the canonical POD signature; `signature_path` is a
+        // synthetic marker indicating the signature is stored inline.
+        signature_url:            pod.receiver.signature_data_url,
+        signature_path:           `inline:${package_id}/receiver`,
+        signed_at:                pod.collected_at,
+        // New per-party fields (nullable).
         receiver_name:            pod.receiver.name,
         receiver_employee_number: pod.receiver.employee_number,
         receiver_phone:           pod.receiver.phone,
@@ -263,17 +291,28 @@ serve(async (req) => {
         completed_by:             callingUser.id
       }
 
-      const { error: podError } = await adminClient
+      // Insert only if no POD row exists yet (the unique index on
+      // package_id is enforced anyway; checking first lets us return a
+      // clearer signal on retries instead of a generic constraint error).
+      const { data: existingPod } = await adminClient
         .from('pods')
-        .upsert(podRow, { onConflict: 'package_id' })
+        .select('id')
+        .eq('package_id', package_id)
+        .maybeSingle()
 
-      if (podError) {
-        // Don't roll back the package status update — but surface the
-        // failure so the caller / audit log can act on it. The collection
-        // event has effectively happened; missing POD metadata can be
-        // re-captured on retry.
-        console.error('POD persistence error:', podError)
-        podPersistError = podError.message
+      if (existingPod) {
+        // Row already exists and is immutable — nothing to do.
+      } else {
+        const { error: podError } = await adminClient
+          .from('pods')
+          .insert(podRow)
+
+        if (podError) {
+          // Don't roll back the package status update — but surface the
+          // failure so the caller / audit log can act on it.
+          console.error('POD persistence error:', podError)
+          podPersistError = podError.message
+        }
       }
     }
 

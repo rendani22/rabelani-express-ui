@@ -1,0 +1,264 @@
+<!-- Backdrop + scrollable container -->
+@if (isOpen && package) {
+  <div
+    class="pod-overlay fixed inset-0 z-50 overflow-y-auto bg-gray-900/60 backdrop-blur-sm"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="pod-document-title"
+  >
+    <div class="min-h-full flex items-start justify-center p-4 sm:p-8">
+      <div class="pod-shell w-full max-w-4xl">
+        <!-- Action bar (hidden on print) -->
+        <div
+          class="pod-actions flex items-center justify-between mb-4 px-4 py-2 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700"
+        >
+          <h2
+            id="pod-document-title"
+            class="text-sm font-semibold text-gray-700 dark:text-gray-200"
+          >
+            Proof of Delivery — {{ package.reference }}
+          </h2>
+          <div class="flex items-center gap-2">
+            <button
+              type="button"
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-violet-600 hover:bg-violet-700 rounded-md transition-colors"
+              (click)="onPrint()"
+              [disabled]="loading() || !pod() || generating()"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+              </svg>
+              {{ generating() ? 'Generating…' : 'Download PDF' }}
+            </button>
+            <button
+              type="button"
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              (click)="onClose()"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+
+        <!-- Loading -->
+        @if (loading()) {
+          <div class="pod-document bg-white p-8 rounded-lg shadow-md text-center text-gray-500">
+            <svg class="animate-spin mx-auto h-8 w-8 text-violet-600 mb-3" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+            </svg>
+            Loading proof-of-delivery…
+          </div>
+        }
+
+        <!-- Error / empty -->
+        @if (!loading() && errorMessage() && !pod()) {
+          <div class="pod-document bg-white p-8 rounded-lg shadow-md text-center text-gray-600">
+            <svg class="mx-auto h-10 w-10 text-yellow-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <p class="text-sm">{{ errorMessage() }}</p>
+            <p class="mt-3 text-xs text-gray-500 max-w-md mx-auto">
+              If this package was marked as collected, the POD row may exist but be
+              hidden by row-level security. Check the SELECT policies on
+              <code class="font-mono bg-gray-100 px-1 py-0.5 rounded">public.pods</code>
+              and the browser console for details.
+            </p>
+          </div>
+        }
+
+        <!-- Document -->
+        @if (pod(); as podRecord) {
+          <article
+            #documentEl
+            class="pod-document bg-white text-gray-900 p-8 sm:p-12 rounded-lg shadow-md print:shadow-none print:rounded-none"
+          >
+            <!-- Header -->
+            <header class="flex items-start justify-between border-b-2 border-gray-900 pb-5 mb-6">
+              <div>
+                <h1 class="text-3xl font-bold tracking-tight">PROOF OF DELIVERY</h1>
+                <p class="text-sm text-gray-600 mt-1">Rabelani Express</p>
+              </div>
+              <div class="text-right">
+                <p class="text-xs uppercase tracking-wide text-gray-500">POD Reference</p>
+                <p class="font-mono text-sm font-semibold">
+                  {{ podRecord.pod_reference || '—' }}
+                </p>
+                @if (podRecord.is_locked) {
+                  <span class="mt-2 inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide bg-red-600 text-white rounded">
+                    <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                      <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd" />
+                    </svg>
+                    Locked
+                  </span>
+                } @else {
+                  <span class="mt-2 inline-flex px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide bg-gray-200 text-gray-700 rounded">
+                    Draft
+                  </span>
+                }
+              </div>
+            </header>
+
+            <!-- Order details -->
+            <section class="mb-6">
+              <h2 class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">Order Details</h2>
+              <dl class="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                <div class="flex justify-between border-b border-gray-100 pb-1">
+                  <dt class="text-gray-500">Reference</dt>
+                  <dd class="font-mono font-semibold">{{ package!.reference }}</dd>
+                </div>
+                <div class="flex justify-between border-b border-gray-100 pb-1">
+                  <dt class="text-gray-500">Purchase Order #</dt>
+                  <dd class="font-mono font-semibold">{{ package!.po_number || '—' }}</dd>
+                </div>
+                <div class="flex justify-between border-b border-gray-100 pb-1">
+                  <dt class="text-gray-500">Status</dt>
+                  <dd class="font-semibold">{{ getStatusLabel(package!.status) }}</dd>
+                </div>
+                <div class="flex justify-between border-b border-gray-100 pb-1">
+                  <dt class="text-gray-500">Created</dt>
+                  <dd>{{ formatDateTime(package!.created_at) }}</dd>
+                </div>
+                <div class="flex justify-between border-b border-gray-100 pb-1">
+                  <dt class="text-gray-500">Completed</dt>
+                  <dd>{{ formatDateTime(podRecord.completed_at) }}</dd>
+                </div>
+                <div class="flex justify-between border-b border-gray-100 pb-1 col-span-2">
+                  <dt class="text-gray-500">Receiver Email</dt>
+                  <dd>{{ package!.receiver_email }}</dd>
+                </div>
+                @if (package!.notes) {
+                  <div class="col-span-2 pt-2">
+                    <dt class="text-gray-500 mb-1">Notes</dt>
+                    <dd class="text-sm whitespace-pre-wrap text-gray-800">{{ package!.notes }}</dd>
+                  </div>
+                }
+              </dl>
+            </section>
+
+            <!-- Items -->
+            @if (package!.items && package!.items.length > 0) {
+              <section class="mb-8">
+                <h2 class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">
+                  Items ({{ package!.items.length }})
+                </h2>
+                <table class="w-full text-sm border-collapse">
+                  <thead>
+                    <tr class="bg-gray-100 text-left">
+                      <th class="px-3 py-2 font-semibold border border-gray-300">Description</th>
+                      <th class="px-3 py-2 font-semibold border border-gray-300 w-24 text-right">Qty</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (item of package!.items; track item.id) {
+                      <tr>
+                        <td class="px-3 py-2 border border-gray-300">{{ item.description }}</td>
+                        <td class="px-3 py-2 border border-gray-300 text-right font-mono">{{ item.quantity }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                  <tfoot>
+                    <tr class="bg-gray-50 font-semibold">
+                      <td class="px-3 py-2 border border-gray-300 text-right">Total</td>
+                      <td class="px-3 py-2 border border-gray-300 text-right font-mono">{{ totalQuantity() }}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </section>
+            }
+
+            <!-- Receiver / Witness blocks -->
+            <section class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 pod-parties">
+              <!-- Receiver -->
+              <div class="border border-gray-300 rounded-md p-4">
+                <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">Receiver</h3>
+                <dl class="space-y-1.5 text-sm mb-4">
+                  <div class="flex justify-between gap-3">
+                    <dt class="text-gray-500">Name</dt>
+                    <dd class="font-medium text-right">{{ podRecord.receiver_name || '—' }}</dd>
+                  </div>
+                  <div class="flex justify-between gap-3">
+                    <dt class="text-gray-500">Employee #</dt>
+                    <dd class="font-mono text-right">{{ podRecord.receiver_employee_number || '—' }}</dd>
+                  </div>
+                  <div class="flex justify-between gap-3">
+                    <dt class="text-gray-500">Phone</dt>
+                    <dd class="font-mono text-right">{{ podRecord.receiver_phone || '—' }}</dd>
+                  </div>
+                </dl>
+                <div class="border-t border-gray-200 pt-3">
+                  <p class="text-[10px] uppercase tracking-wide text-gray-500 mb-1">Signature</p>
+                  <div class="signature-box h-24 flex items-center justify-center bg-gray-50 border border-dashed border-gray-300 rounded">
+                    @if (podRecord.receiver_signature) {
+                      <img
+                        [src]="podRecord.receiver_signature"
+                        alt="Receiver signature"
+                        class="max-h-full max-w-full object-contain"
+                      />
+                    } @else {
+                      <span class="text-xs italic text-gray-400">No signature on file</span>
+                    }
+                  </div>
+                </div>
+              </div>
+
+              <!-- Witness -->
+              <div class="border border-gray-300 rounded-md p-4">
+                <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">Witness</h3>
+                <dl class="space-y-1.5 text-sm mb-4">
+                  <div class="flex justify-between gap-3">
+                    <dt class="text-gray-500">Name</dt>
+                    <dd class="font-medium text-right">{{ podRecord.witness_name || '—' }}</dd>
+                  </div>
+                  <div class="flex justify-between gap-3">
+                    <dt class="text-gray-500">Employee #</dt>
+                    <dd class="font-mono text-right">{{ podRecord.witness_employee_number || '—' }}</dd>
+                  </div>
+                  <div class="flex justify-between gap-3">
+                    <dt class="text-gray-500">Phone</dt>
+                    <dd class="font-mono text-right">{{ podRecord.witness_phone || '—' }}</dd>
+                  </div>
+                </dl>
+                <div class="border-t border-gray-200 pt-3">
+                  <p class="text-[10px] uppercase tracking-wide text-gray-500 mb-1">Signature</p>
+                  <div class="signature-box h-24 flex items-center justify-center bg-gray-50 border border-dashed border-gray-300 rounded">
+                    @if (podRecord.witness_signature) {
+                      <img
+                        [src]="podRecord.witness_signature"
+                        alt="Witness signature"
+                        class="max-h-full max-w-full object-contain"
+                      />
+                    } @else {
+                      <span class="text-xs italic text-gray-400">No signature on file</span>
+                    }
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- Footer -->
+            <footer class="mt-10 pt-4 border-t border-gray-300 text-xs text-gray-500">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <p>
+                  Generated {{ formatDateTime(podRecord.completed_at) }}
+                  @if (podRecord.locked_at) {
+                    · Locked {{ formatDateTime(podRecord.locked_at) }}
+                  }
+                </p>
+                <p class="font-mono">{{ podRecord.pod_reference }}</p>
+              </div>
+              <p class="mt-2 italic">
+                This document confirms receipt of the goods listed above by the
+                named receiver in the presence of the named witness. Signatures
+                are stored as captured at the time of collection.
+              </p>
+            </footer>
+          </article>
+        }
+      </div>
+    </div>
+  </div>
+}
+

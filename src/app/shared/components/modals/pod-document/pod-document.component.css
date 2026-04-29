@@ -1,0 +1,95 @@
+/* ============================================================================
+ * Proof-of-Delivery document styles
+ *
+ * On-screen: rendered as a centered A4-style card inside a backdrop modal.
+ * On print:  hide the backdrop chrome / action bar and print just the card.
+ * ============================================================================ */
+
+:host {
+  display: contents;
+}
+
+/* On-screen: enforce a printable maximum width matching A4. */
+.pod-document {
+  max-width: 210mm;
+  margin: 0 auto;
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  color: #111827;
+  line-height: 1.45;
+}
+
+/* Signature image bounding box. */
+.signature-box img {
+  display: block;
+}
+
+/* ----------------------------------------------------------------------------
+ * Print rules
+ * ---------------------------------------------------------------------------- */
+@media print {
+  /* Reset the page layout. */
+  @page {
+    size: A4;
+    margin: 15mm;
+  }
+
+  /* Hide everything outside our document container by default. */
+  body * {
+    visibility: hidden;
+  }
+
+  /* But show the document and all of its descendants. */
+  .pod-document,
+  .pod-document * {
+    visibility: visible;
+  }
+
+  /* Move the document to the page origin and remove the modal backdrop. */
+  .pod-overlay {
+    position: static !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+    overflow: visible !important;
+    padding: 0 !important;
+  }
+
+  .pod-shell {
+    max-width: none !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .pod-document {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    background: white !important;
+    color: black !important;
+  }
+
+  /* Hide chrome / action bar. */
+  .pod-actions {
+    display: none !important;
+  }
+
+  /* Avoid awkward page breaks inside party blocks. */
+  .pod-parties > div {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Force backgrounds (signature box, table headers) to print. */
+  .pod-document,
+  .pod-document * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
+
