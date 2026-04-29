@@ -13,6 +13,8 @@ export interface TransactionDetails {
 export interface Transaction {
   id: string;
   reference?: string;
+  /** Purchase-order / order number associated with the transaction */
+  orderNumber?: string;
   counterparty: string;
   counterpartyImage: string;
   paymentDate: string;

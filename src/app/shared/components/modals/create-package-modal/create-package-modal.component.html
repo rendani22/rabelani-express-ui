@@ -109,6 +109,49 @@
             }
           </div>
         } @else {
+          <!-- Duplicate PO warning (non-blocking) -->
+          @if (duplicatePackage(); as dup) {
+            <div class="mb-4 p-3 rounded-lg bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30" role="alert">
+              <div class="flex items-start gap-2">
+                <svg class="w-5 h-5 text-amber-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86l-8.18 14.18A2 2 0 003.83 21h16.34a2 2 0 001.72-2.96L13.71 3.86a2 2 0 00-3.42 0z"></path>
+                </svg>
+                <div class="flex-1">
+                  <p class="text-sm font-medium text-amber-800 dark:text-amber-300">
+                    An order with this PO number already exists.
+                  </p>
+                  <div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-amber-700 dark:text-amber-300/90">
+                    <span>Existing order:</span>
+                    <span class="font-mono font-semibold">{{ dup.reference }}</span>
+                    <span>·</span>
+                    <span>{{ dup.receiver_email }}</span>
+                  </div>
+                  <div class="mt-2 flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      (click)="onViewDuplicate()"
+                      class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-white dark:bg-gray-800 border border-amber-300 dark:border-amber-500/40 text-amber-800 dark:text-amber-200 text-xs font-medium hover:bg-amber-50 dark:hover:bg-amber-500/10 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    >
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                      </svg>
+                      View existing order
+                    </button>
+                    <button
+                      type="button"
+                      (click)="onCreateAnyway()"
+                      [disabled]="isSubmitting()"
+                      class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-amber-600 hover:bg-amber-700 text-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Create anyway
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          }
+
           <!-- Error message -->
           @if (errorMessage(); as message) {
             <div class="mb-4 p-3 rounded-lg bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20" role="alert">

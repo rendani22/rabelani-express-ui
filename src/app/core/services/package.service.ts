@@ -222,6 +222,41 @@ export class PackageService {
   }
 
   /**
+   * Get a package by purchase order (PO) number.
+   * Returns the most recently created match if multiple exist.
+   *
+   * @param poNumber - Purchase order number to search for
+   */
+  async getPackageByPoNumber(poNumber: string): Promise<GetPackageResult> {
+    try {
+      const trimmed = poNumber.trim();
+      if (!trimmed) {
+        return { success: false, error: 'PO number is required' };
+      }
+
+      const { data, error } = await this.supabaseService.client
+        .from('packages')
+        .select('*, items:package_items(id, quantity, description)')
+        .eq('po_number', trimmed)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      if (!data) {
+        return { success: false, error: 'Not found' };
+      }
+
+      return { success: true, data: data as Package };
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
    * Get recent packages created by current user.
    *
    * @param limit - Maximum number of packages to return (default: 5)

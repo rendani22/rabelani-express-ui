@@ -6,6 +6,7 @@ import {
   PACKAGE_STATUS,
   PackageStatus,
   PackageLockStatus,
+  PodRecord,
   PackageService,
   StaffService,
   getAllowedManualStatusTransitions,
@@ -164,7 +165,7 @@ interface TimelineEntry {
                 @if (pkg.created_by) {
                   <div class="flex justify-between">
                     <dt class="text-sm text-gray-500 dark:text-gray-400">Created By</dt>
-                    <dd class="text-sm font-medium text-gray-900 dark:text-white">{{ pkg.created_by }}</dd>
+                    <dd class="text-sm font-medium text-gray-900 dark:text-white">{{ createdByName() || pkg.created_by }}</dd>
                   </div>
                 }
               </dl>
@@ -235,19 +236,19 @@ interface TimelineEntry {
                     </svg>
                     Loading POD…
                   </div>
-                } @else if (podStatus()?.pdfUrl) {
+                } @else if (hasPod()) {
                   <div class="rounded-lg border border-green-200 dark:border-green-700 bg-green-50 dark:bg-green-900/20 p-4 space-y-3">
                     <!-- POD reference -->
-                    @if (podStatus()?.podReference) {
+                    @if (podStatus()?.podReference || podRecord()?.pod_reference) {
                       <div class="flex items-center justify-between">
                         <span class="text-xs text-gray-500 dark:text-gray-400">POD Reference</span>
-                        <span class="text-xs font-mono font-medium text-gray-900 dark:text-white">{{ podStatus()!.podReference }}</span>
+                        <span class="text-xs font-mono font-medium text-gray-900 dark:text-white">{{ podStatus()?.podReference || podRecord()?.pod_reference }}</span>
                       </div>
                     }
-                    @if (podStatus()?.lockedAt) {
+                    @if (podStatus()?.lockedAt || podRecord()?.locked_at || podRecord()?.completed_at) {
                       <div class="flex items-center justify-between">
                         <span class="text-xs text-gray-500 dark:text-gray-400">Signed At</span>
-                        <span class="text-xs text-gray-900 dark:text-white">{{ formatDateTime(podStatus()!.lockedAt!) }}</span>
+                        <span class="text-xs text-gray-900 dark:text-white">{{ formatDateTime((podStatus()?.lockedAt || podRecord()?.locked_at || podRecord()?.completed_at)!) }}</span>
                       </div>
                     }
                     <!-- Action buttons -->
@@ -262,28 +263,30 @@ interface TimelineEntry {
                         </svg>
                         View Document
                       </button>
-                      <a
-                        [href]="podStatus()!.pdfUrl!"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        class="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium text-green-700 dark:text-green-400 bg-white dark:bg-gray-800 border border-green-300 dark:border-green-600 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/40 transition-colors"
-                      >
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                        </svg>
-                        View PDF
-                      </a>
-                      <a
-                        [href]="podStatus()!.pdfUrl!"
-                        [download]="getPodFilename(pkg)"
-                        class="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors"
-                      >
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
-                        </svg>
-                        Download
-                      </a>
+                      @if (podStatus()?.pdfUrl) {
+                        <a
+                          [href]="podStatus()!.pdfUrl!"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          class="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium text-green-700 dark:text-green-400 bg-white dark:bg-gray-800 border border-green-300 dark:border-green-600 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/40 transition-colors"
+                        >
+                          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                          </svg>
+                          View PDF
+                        </a>
+                        <a
+                          [href]="podStatus()!.pdfUrl!"
+                          [download]="getPodFilename(pkg)"
+                          class="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors"
+                        >
+                          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                          </svg>
+                          Download
+                        </a>
+                      }
                     </div>
                   </div>
                 } @else {
@@ -485,8 +488,27 @@ export class PackageDetailsPanelComponent implements OnChanges {
   /** POD lock status for delivered/collected packages */
   readonly podStatus = signal<PackageLockStatus | null>(null);
 
+  /**
+   * The full POD record from the `pods` table, if one exists.
+   * A row may exist even when no PDF has been generated yet — in that
+   * case `podStatus().pdfUrl` is null but the document can still be
+   * rendered from the database via the printable POD modal.
+   */
+  readonly podRecord = signal<PodRecord | null>(null);
+
+  /** True when either a lock-status with a PDF URL, or a POD row, exists. */
+  hasPod(): boolean {
+    return !!this.podStatus()?.pdfUrl || !!this.podRecord();
+  }
+
   /** Loading state for POD status */
   readonly loadingPod = signal(false);
+
+  /**
+   * Resolved display name for the package's `created_by` user_id.
+   * Looked up from `staff_profiles` so we show a human name instead of a UUID.
+   */
+  readonly createdByName = signal<string | null>(null);
 
   /** Currently selected status in the manual override dropdown */
   readonly selectedManualStatus = signal<PackageStatus | ''>('');
@@ -509,6 +531,7 @@ export class PackageDetailsPanelComponent implements OnChanges {
     const openChange = changes['isOpen'];
     if ((pkgChange || openChange) && this.isOpen && this.package) {
       void this.loadStatusHistory(this.package.id);
+      void this.loadCreatedByName(this.package.created_by);
       if (
         this.package.status === PACKAGE_STATUS.DELIVERED ||
         this.package.status === PACKAGE_STATUS.COLLECTED
@@ -516,11 +539,43 @@ export class PackageDetailsPanelComponent implements OnChanges {
         void this.loadPodStatus(this.package.id);
       } else {
         this.podStatus.set(null);
+        this.podRecord.set(null);
       }
     }
     // Reset the manual status dropdown whenever the selected package changes.
     if (pkgChange) {
       this.selectedManualStatus.set('');
+      this.createdByName.set(null);
+    }
+  }
+
+  /**
+   * Resolve the package's `created_by` user_id to a human-readable name
+   * by looking it up in `staff_profiles`. Falls back silently to `null`
+   * if no matching profile is found or the query fails — the template
+   * will then display the raw user_id.
+   */
+  private async loadCreatedByName(userId: string | undefined | null): Promise<void> {
+    if (!userId) {
+      this.createdByName.set(null);
+      return;
+    }
+    try {
+      const { data, error } = await this.supabaseService.client
+        .from('staff_profiles')
+        .select('full_name, email')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (error || !data) {
+        this.createdByName.set(null);
+        return;
+      }
+
+      const name = (data.full_name ?? '').trim() || (data.email ?? '').trim() || null;
+      this.createdByName.set(name);
+    } catch {
+      this.createdByName.set(null);
     }
   }
 
@@ -554,16 +609,23 @@ export class PackageDetailsPanelComponent implements OnChanges {
   }
 
   /**
-   * Load the POD lock status for a delivered/collected package.
-   * Populates podStatus signal with pdfUrl if a signed POD exists.
+   * Load the POD lock status and the underlying POD record for a
+   * delivered/collected package. The lock-status RPC tells us whether a
+   * signed PDF exists; the POD row tells us whether the document can be
+   * rendered from the database (signatures, receiver/witness details).
    */
   private async loadPodStatus(packageId: string): Promise<void> {
     this.loadingPod.set(true);
     try {
-      const status = await this.packageService.getPackageLockStatus(packageId);
+      const [status, record] = await Promise.all([
+        this.packageService.getPackageLockStatus(packageId),
+        this.packageService.getPodForPackage(packageId),
+      ]);
       this.podStatus.set(status);
+      this.podRecord.set(record);
     } catch {
       this.podStatus.set(null);
+      this.podRecord.set(null);
     } finally {
       this.loadingPod.set(false);
     }

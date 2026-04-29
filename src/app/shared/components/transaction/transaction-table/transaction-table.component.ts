@@ -39,6 +39,7 @@ export type { Transaction } from '../transaction.model';
                 </label>
               </th>
               <th class="text-left">Reference</th>
+              <th class="text-left">Order #</th>
               <th class="text-left">Receiver</th>
               <th class="text-left">Created Date</th>
               <th class="text-left">Status</th>
@@ -63,6 +64,9 @@ export type { Transaction } from '../transaction.model';
               </td>
               <td class="reference-col">
                 <span class="reference">{{ transaction.reference || '—' }}</span>
+              </td>
+              <td class="order-col">
+                <span class="order-number">{{ transaction.orderNumber || '—' }}</span>
               </td>
               <td class="counterparty-col">
                 <div class="counterparty-info">
@@ -309,6 +313,12 @@ export type { Transaction } from '../transaction.model';
       font-size: 0.8125rem;
     }
 
+    .order-number {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.8125rem;
+      color: #374151;
+    }
+
     .amount {
       font-weight: 600;
       font-size: 0.875rem;
@@ -443,6 +453,10 @@ export type { Transaction } from '../transaction.model';
 
     :host-context(.dark) .reference {
       color: #818cf8;
+    }
+
+    :host-context(.dark) .order-number {
+      color: #cbd5e1;
     }
 
     :host-context(.dark) .checkbox-label input[type="checkbox"] {

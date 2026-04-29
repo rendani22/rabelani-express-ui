@@ -141,7 +141,8 @@
   <app-create-package-modal
     [isOpen]="createPackageModalOpen"
     (closeModal)="onCloseCreatePackageModal()"
-    (packageCreated)="onPackageCreated($event)">
+    (packageCreated)="onPackageCreated($event)"
+    (viewDuplicatePackage)="onViewDuplicatePackage($event)">
   </app-create-package-modal>
 
   <!-- Package Details Panel -->

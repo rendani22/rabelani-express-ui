@@ -76,6 +76,9 @@ export class CreatePackageModalComponent {
   /** Emits the created package on success */
   readonly packageCreated = output<Package>();
 
+  /** Emits an existing duplicate package when the user clicks "View existing order" */
+  readonly viewDuplicatePackage = output<Package>();
+
   // =========================================================================
   // Form Definition
   // =========================================================================
@@ -109,6 +112,12 @@ export class CreatePackageModalComponent {
 
   /** Stores the created package with item IDs from the database */
   readonly createdPackage = signal<Package | null>(null);
+
+  /** Stores an existing package with the same PO number (duplicate detection) */
+  readonly duplicatePackage = signal<Package | null>(null);
+
+  /** Whether the user has chosen to proceed despite a duplicate-PO warning */
+  readonly duplicateAcknowledged = signal(false);
 
   /** Loading state from service */
   readonly isLoading = this.packageService.isLoading;
@@ -183,6 +192,18 @@ export class CreatePackageModalComponent {
         this.inventoryService.loadItems();
       }
     });
+
+    // Clear any stale duplicate-PO warning whenever the user edits the PO
+    // number — they're attempting to fix the conflict.
+    this.form.controls.poNumber.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        if (this.duplicatePackage()) {
+          this.duplicatePackage.set(null);
+          this.duplicateAcknowledged.set(false);
+          this.errorMessage.set(null);
+        }
+      });
   }
 
   // =========================================================================
@@ -252,6 +273,8 @@ export class CreatePackageModalComponent {
     this.errorMessage.set(null);
     this.successMessage.set(null);
     this.createdPackage.set(null);
+    this.duplicatePackage.set(null);
+    this.duplicateAcknowledged.set(false);
     this.receiverSearch.set('');
     this.locationSearch.set('');
     this.receiverDropdownOpen.set(false);
@@ -420,6 +443,37 @@ export class CreatePackageModalComponent {
 
     try {
       const request = this.buildRequest();
+
+      // Duplicate PO number check — warn (non-blocking) the user before
+      // creating a new order with a PO number that already exists. The user
+      // can still proceed by clicking "Create anyway" or resubmitting.
+      if (request.po_number && !this.duplicateAcknowledged()) {
+        const existing = await this.packageService.getPackageByPoNumber(
+          request.po_number,
+        );
+        if (existing.success && existing.data) {
+          this.duplicatePackage.set(existing.data);
+          this.toastService.warning(
+            `An order with PO number "${request.po_number}" already exists.`,
+          );
+          this.isSubmitting.set(false);
+          return;
+        }
+      }
+
+      await this.submitCreate(request);
+    } catch {
+      this.errorMessage.set('An unexpected error occurred');
+      this.isSubmitting.set(false);
+    }
+  }
+
+  /**
+   * Performs the actual package creation. Shared by `onSubmit` and the
+   * "Create anyway" override path after a duplicate-PO warning.
+   */
+  private async submitCreate(request: CreatePackageRequest): Promise<void> {
+    try {
       const result = await this.packageService.createPackage(request);
 
       if (result.success) {
@@ -429,11 +483,19 @@ export class CreatePackageModalComponent {
       } else {
         this.errorMessage.set(result.error);
       }
-    } catch {
-      this.errorMessage.set('An unexpected error occurred');
     } finally {
       this.isSubmitting.set(false);
     }
+  }
+
+  /**
+   * User chose to proceed despite the duplicate-PO warning. Records the
+   * acknowledgement and submits the form.
+   */
+  async onCreateAnyway(): Promise<void> {
+    this.duplicateAcknowledged.set(true);
+    this.duplicatePackage.set(null);
+    await this.onSubmit();
   }
 
   /**
@@ -503,6 +565,18 @@ export class CreatePackageModalComponent {
 
     // Show success toast notification
     this.toastService.success(`Package created successfully! Reference: ${pkg.reference}`);
+  }
+
+  /**
+   * Open the existing duplicate order in the details panel.
+   * Emits the duplicate package to the parent and closes this modal.
+   */
+  onViewDuplicate(): void {
+    const dup = this.duplicatePackage();
+    if (!dup) return;
+    this.viewDuplicatePackage.emit(dup);
+    this.resetForm();
+    this.closeModal.emit();
   }
 
   /**

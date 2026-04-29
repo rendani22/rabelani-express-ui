@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { LayoutComponent } from '../../shared/components/layout/layout.component';
 import { TransactionTableComponent, Transaction } from '../../shared/components/transaction/transaction-table/transaction-table.component';
 import { OrdersActionsComponent } from './orders-actions/orders-actions.component';
-import { PackageService, Package, PACKAGE_STATUS, PackageStatus, SettingsService, MarkCollectedPayload } from '../../core';
+import { PackageService, Package, PACKAGE_STATUS, PackageStatus, SettingsService, MarkCollectedPayload, ReceiverService, ReceiverProfile } from '../../core';
 import { CreatePackageModalComponent, PackageDetailsPanelComponent, MarkCollectedModalComponent, PodDocumentComponent } from '../../shared/components/modals';
 import { QrCodeComponent } from '../../shared/components/qr-code';
 import { ToastService } from '../../shared/components/toast/toast.service';
@@ -33,6 +33,10 @@ export class OrdersComponent implements OnInit {
   private readonly packageService = inject(PackageService);
   private readonly settingsService = inject(SettingsService);
   private readonly toastService = inject(ToastService);
+  private readonly receiverService = inject(ReceiverService);
+
+  /** Map of receiver email (lowercased) → full name for quick lookup. */
+  private readonly receiverNamesByEmail = signal<Map<string, string>>(new Map());
 
   // Modal state
   createPackageModalOpen = false;
@@ -114,7 +118,26 @@ export class OrdersComponent implements OnInit {
   });
 
   async ngOnInit(): Promise<void> {
-    await this.loadPackages();
+    // Load receivers in parallel so we can resolve names instead of emails.
+    await Promise.all([this.loadReceivers(), this.loadPackages()]);
+  }
+
+  /**
+   * Load receiver profiles and build an email → full name map used by
+   * `mapPackageToTransaction` to display names instead of email addresses.
+   */
+  private async loadReceivers(): Promise<void> {
+    const receivers = await this.receiverService.loadAllReceivers();
+    const map = new Map<string, string>();
+    for (const r of receivers as ReceiverProfile[]) {
+      const email = (r.email ?? '').trim().toLowerCase();
+      if (!email) continue;
+      const fullName = `${r.name ?? ''} ${r.surname ?? ''}`.trim();
+      if (fullName) {
+        map.set(email, fullName);
+      }
+    }
+    this.receiverNamesByEmail.set(map);
   }
 
   /**
@@ -130,23 +153,41 @@ export class OrdersComponent implements OnInit {
    * Maps a Package entity to a Transaction for table display.
    */
   private mapPackageToTransaction(pkg: Package): Transaction {
+    const email = (pkg.receiver_email ?? '').trim().toLowerCase();
+    const displayName =
+      this.receiverNamesByEmail().get(email) ||
+      // Fall back to the local-part of the email (formatted) so we never
+      // expose the raw email address in the table.
+      this.formatEmailLocalPart(pkg.receiver_email);
+
     return {
       id: pkg.id,
       reference: pkg.reference,
-      counterparty: pkg.receiver_email,
-      counterpartyImage: this.getAvatarUrl(pkg.receiver_email),
+      orderNumber: pkg.po_number ?? undefined,
+      counterparty: displayName,
+      counterpartyImage: this.getAvatarUrl(displayName),
       paymentDate: this.formatDate(pkg.created_at),
       status: this.mapPackageStatusToTransactionStatus(pkg.status),
       notes: pkg.notes || undefined
     };
   }
 
+  /** Convert "first.last@example.com" → "First Last" as a display fallback. */
+  private formatEmailLocalPart(email: string): string {
+    if (!email) return '';
+    const local = email.split('@')[0] ?? '';
+    return local
+      .replace(/[._-]+/g, ' ')
+      .trim()
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+
   /**
-   * Gets a placeholder avatar URL based on email.
+   * Gets a placeholder avatar URL based on the receiver's display name.
    */
-  private getAvatarUrl(email: string): string {
+  private getAvatarUrl(displayName: string): string {
     // Use UI Avatars service for consistent avatars
-    const name = email.split('@')[0].replace(/[^a-zA-Z]/g, ' ');
+    const name = (displayName || 'Receiver').replace(/[^a-zA-Z ]/g, ' ').trim() || 'Receiver';
     return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random&size=64`;
   }
 
@@ -220,6 +261,19 @@ export class OrdersComponent implements OnInit {
     this.createPackageModalOpen = false;
     // Refresh the packages list
     await this.loadPackages();
+  }
+
+  /**
+   * Handle a duplicate-PO conflict from the create modal: the user opted to
+   * view the existing order. Open the details panel for that package.
+   */
+  onViewDuplicatePackage(pkg: Package): void {
+    this.createPackageModalOpen = false;
+    this.selectedPackage.set(pkg);
+    this.detailsPanelOpen.set(true);
+    this.toastService.info(
+      `Showing existing order ${pkg.reference} with the same PO number.`,
+    );
   }
 
   /**
