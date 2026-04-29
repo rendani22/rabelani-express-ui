@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { LayoutComponent } from '../../shared/components/layout/layout.component';
 import { ReceiverService, ReceiverProfile, Package, PACKAGE_STATUS } from '../../core';
 import { UserCardComponent, User, UserCardAction, UserCardMenuOption } from '../../shared/components/user-card';
-import { AddCustomerModalComponent, ManageContactsModalComponent } from '../../shared/components/modals';
+import { AddCustomerModalComponent, EditCustomerModalComponent, ManageContactsModalComponent } from '../../shared/components/modals';
 import { ToastService } from '../../shared/components/toast/toast.service';
 import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
 import { SupabaseService } from '../../shared/services/supabase.service';
@@ -14,7 +14,7 @@ import { SupabaseService } from '../../shared/services/supabase.service';
 @Component({
   selector: 'app-customer-management',
   standalone: true,
-  imports: [CommonModule, LayoutComponent, UserCardComponent, AddCustomerModalComponent, ManageContactsModalComponent, ConfirmDialogComponent],
+  imports: [CommonModule, LayoutComponent, UserCardComponent, AddCustomerModalComponent, EditCustomerModalComponent, ManageContactsModalComponent, ConfirmDialogComponent],
   templateUrl: './customer-management.html',
   styleUrl: './customer-management.css'
 })
@@ -29,6 +29,10 @@ export class CustomerManagementComponent implements OnInit {
   /** Modal state for managing alternative contacts */
   readonly manageContactsModalOpen = signal(false);
   readonly contactsReceiver = signal<ReceiverProfile | null>(null);
+
+  /** Modal state for editing a customer */
+  readonly editCustomerModalOpen = signal(false);
+  readonly editingReceiver = signal<ReceiverProfile | null>(null);
 
   /** Confirmation dialog for deactivation */
   readonly confirmDeactivateOpen = signal(false);
@@ -63,6 +67,7 @@ export class CustomerManagementComponent implements OnInit {
   /** Menu options for active customer cards */
   readonly menuOptions: UserCardMenuOption[] = [
     { label: 'View Packages', action: 'viewPackages' },
+    { label: 'Edit Details', action: 'editDetails' },
     { label: 'Manage Contacts', action: 'manageContacts' },
     { label: 'Send Email', action: 'sendEmail' },
     { label: 'Deactivate', action: 'deactivate', isDanger: true }
@@ -70,6 +75,7 @@ export class CustomerManagementComponent implements OnInit {
 
   /** Menu options for inactive customer cards */
   readonly inactiveMenuOptions: UserCardMenuOption[] = [
+    { label: 'Edit Details', action: 'editDetails' },
     { label: 'Manage Contacts', action: 'manageContacts' },
     { label: 'Send Email', action: 'sendEmail' },
     { label: 'Reactivate', action: 'reactivate' }
@@ -161,6 +167,9 @@ export class CustomerManagementComponent implements OnInit {
     switch (option) {
       case 'viewPackages':
         await this.onViewPackages(receiver);
+        break;
+      case 'editDetails':
+        this.onEditCustomer(receiver);
         break;
       case 'manageContacts':
         this.onManageContacts(receiver);
@@ -316,6 +325,30 @@ export class CustomerManagementComponent implements OnInit {
    * Handle customer created event.
    */
   onCustomerCreated(_receiver: ReceiverProfile): void {
+    // List auto-refreshes via the service
+  }
+
+  /**
+   * Open the edit customer modal for the given receiver.
+   */
+  onEditCustomer(receiver: ReceiverProfile): void {
+    this.editingReceiver.set(receiver);
+    this.editCustomerModalOpen.set(true);
+  }
+
+  /**
+   * Close the edit customer modal.
+   */
+  onCloseEditCustomerModal(): void {
+    this.editCustomerModalOpen.set(false);
+    this.editingReceiver.set(null);
+  }
+
+  /**
+   * Handle customer updated event.
+   */
+  onCustomerUpdated(receiver: ReceiverProfile): void {
+    this.toastService.success(`Customer "${receiver.name} ${receiver.surname}" updated successfully.`);
     // List auto-refreshes via the service
   }
 

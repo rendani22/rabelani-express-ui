@@ -98,6 +98,14 @@
   (customerCreated)="onCustomerCreated($event)"
 />
 
+<!-- Edit Customer Modal -->
+<app-edit-customer-modal
+  [isOpen]="editCustomerModalOpen()"
+  [receiver]="editingReceiver()"
+  (closeModal)="onCloseEditCustomerModal()"
+  (customerUpdated)="onCustomerUpdated($event)"
+/>
+
 <!-- Manage Alternative Contacts Modal -->
 <app-manage-contacts-modal
   [isOpen]="manageContactsModalOpen()"

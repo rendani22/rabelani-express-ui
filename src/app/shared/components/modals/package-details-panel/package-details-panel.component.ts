@@ -145,6 +145,12 @@ interface TimelineEntry {
                   <dt class="text-sm text-gray-500 dark:text-gray-400">Reference</dt>
                   <dd class="text-sm font-medium text-gray-900 dark:text-white font-mono">{{ pkg.reference }}</dd>
                 </div>
+                @if (pkg.po_number) {
+                  <div class="flex justify-between">
+                    <dt class="text-sm text-gray-500 dark:text-gray-400">PO Number</dt>
+                    <dd class="text-sm font-medium text-gray-900 dark:text-white font-mono">{{ pkg.po_number }}</dd>
+                  </div>
+                }
                 <div class="flex justify-between">
                   <dt class="text-sm text-gray-500 dark:text-gray-400">Created</dt>
                   <dd class="text-sm font-medium text-gray-900 dark:text-white">{{ formatDate(pkg.created_at) }}</dd>
