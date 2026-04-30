@@ -887,11 +887,9 @@ export class PackageDetailsPanelComponent implements OnChanges {
     if (!printWindow) return;
 
     const qrData = this.getItemQrData(item);
-    // QR code at 170px for good scanning on 57mm wide label
-    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=170x170&data=${encodeURIComponent(qrData)}`;
+    // QR code rendered at higher pixel density for sharp scanning, displayed smaller via CSS
+    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=130x130&data=${encodeURIComponent(qrData)}`;
 
-    // Truncate item ID for display (show first 8 and last 4 chars)
-    const shortId = item.id.length > 14 ? `${item.id.slice(0, 8)}...${item.id.slice(-4)}` : item.id;
     const poNumberHtml = pkg.po_number ? `<div class="po-number">PO: ${pkg.po_number}</div>` : '';
 
     printWindow.document.write(`
@@ -985,8 +983,8 @@ export class PackageDetailsPanelComponent implements OnChanges {
             width: 100%;
           }
           .qr-code {
-            width: 1.7in;
-            height: 1.7in;
+            width: 1.3in;
+            height: 1.3in;
             margin: 0.05in 0;
           }
           .item-id {
@@ -1054,11 +1052,9 @@ export class PackageDetailsPanelComponent implements OnChanges {
           4. Margins: <strong>None</strong>
         </div>
         <div class="label">
-          <div class="package-ref">${pkg.reference}</div>
-          ${poNumberHtml}
           <div class="item-title">${item.description}</div>
+          ${poNumberHtml}
           <img class="qr-code" src="${qrCodeUrl}" alt="QR Code" />
-          <div class="item-id">${shortId}</div>
           <div class="qty-badge">QTY: ${item.quantity}</div>
         </div>
         <button class="print-btn" onclick="window.print(); return false;">Print Label</button>
@@ -1084,16 +1080,13 @@ export class PackageDetailsPanelComponent implements OnChanges {
     const poNumberHtml = pkg.po_number ? `<div class="po-number">PO: ${pkg.po_number}</div>` : '';
     const itemsHtml = pkg.items.map((item) => {
       const qrData = this.getItemQrData(item);
-      const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=170x170&data=${encodeURIComponent(qrData)}`;
-      const shortId = item.id.length > 14 ? `${item.id.slice(0, 8)}...${item.id.slice(-4)}` : item.id;
+      const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrData)}`;
 
       return `
         <div class="label">
-          <div class="package-ref">${pkg.reference}</div>
-          ${poNumberHtml}
           <div class="item-title">${item.description}</div>
+          ${poNumberHtml}
           <img class="qr-code" src="${qrCodeUrl}" alt="QR Code" />
-          <div class="item-id">${shortId}</div>
           <div class="qty-badge">QTY: ${item.quantity}</div>
         </div>
       `;
@@ -1194,8 +1187,8 @@ export class PackageDetailsPanelComponent implements OnChanges {
             width: 100%;
           }
           .qr-code {
-            width: 1.7in;
-            height: 1.7in;
+            width: 1.3in;
+            height: 1.3in;
             margin: 0.05in 0;
           }
           .item-id {
