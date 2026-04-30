@@ -15,6 +15,8 @@ import {
   FormBuilder,
   FormGroup,
   ReactiveFormsModule,
+  ValidationErrors,
+  ValidatorFn,
   Validators,
 } from '@angular/forms';
 
@@ -61,10 +63,13 @@ export class MarkCollectedModalComponent {
     });
   }
 
-  readonly form = this.fb.nonNullable.group({
-    receiver: this.buildPartyGroup(),
-    witness: this.buildPartyGroup(),
-  });
+  readonly form = this.fb.nonNullable.group(
+    {
+      receiver: this.buildPartyGroup(),
+      witness: this.buildPartyGroup(),
+    },
+    { validators: [uniqueEmployeeNumberValidator()] },
+  );
 
   // ---- UI state -----------------------------------------------------------
 
@@ -103,6 +108,9 @@ export class MarkCollectedModalComponent {
     if (c.hasError('required')) return 'Required';
     if (c.hasError('minlength')) return 'Too short';
     if (c.hasError('pattern')) return 'Invalid phone number';
+    if (c.hasError('duplicateEmployeeNumber')) {
+      return 'Receiver and witness must have different employee numbers';
+    }
     return 'Invalid value';
   }
 
@@ -133,7 +141,12 @@ export class MarkCollectedModalComponent {
   onSubmit(): void {
     this.form.markAllAsTouched();
     if (this.form.invalid) {
-      this.errorMessage.set('Please complete all fields and capture both signatures.');
+      const dup = this.form.hasError('duplicateEmployeeNumber');
+      this.errorMessage.set(
+        dup
+          ? 'Receiver and witness cannot share the same employee number.'
+          : 'Please complete all fields and capture both signatures.',
+      );
       return;
     }
 
@@ -158,6 +171,44 @@ export class MarkCollectedModalComponent {
     this.errorMessage.set(null);
     this.confirmed.emit(payload);
   }
+}
+
+/**
+ * Cross-field validator: ensures the receiver's and witness's employee
+ * numbers are not identical. The same person cannot sign for the package
+ * as both receiver and witness.
+ *
+ * Sets a `duplicateEmployeeNumber` error on both employee-number controls
+ * (so they are highlighted in the UI) and on the form itself (so callers
+ * can surface a top-level error message).
+ */
+function uniqueEmployeeNumberValidator(): ValidatorFn {
+  return (group: AbstractControl): ValidationErrors | null => {
+    const receiver = group.get(['receiver', 'employeeNumber']);
+    const witness = group.get(['witness', 'employeeNumber']);
+    if (!receiver || !witness) return null;
+
+    const norm = (v: unknown) => String(v ?? '').trim().toLowerCase();
+    const r = norm(receiver.value);
+    const w = norm(witness.value);
+
+    const clearError = (ctrl: AbstractControl) => {
+      if (!ctrl.errors) return;
+      const { duplicateEmployeeNumber, ...rest } = ctrl.errors;
+      ctrl.setErrors(Object.keys(rest).length ? rest : null);
+    };
+
+    if (r && w && r === w) {
+      const err = { duplicateEmployeeNumber: true };
+      receiver.setErrors({ ...(receiver.errors ?? {}), ...err });
+      witness.setErrors({ ...(witness.errors ?? {}), ...err });
+      return err;
+    }
+
+    clearError(receiver);
+    clearError(witness);
+    return null;
+  };
 }
 
 
