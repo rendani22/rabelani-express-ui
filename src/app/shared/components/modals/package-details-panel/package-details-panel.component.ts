@@ -892,6 +892,7 @@ export class PackageDetailsPanelComponent implements OnChanges {
 
     // Truncate item ID for display (show first 8 and last 4 chars)
     const shortId = item.id.length > 14 ? `${item.id.slice(0, 8)}...${item.id.slice(-4)}` : item.id;
+    const poNumberHtml = pkg.po_number ? `<div class="po-number">PO: ${pkg.po_number}</div>` : '';
 
     printWindow.document.write(`
       <!DOCTYPE html>
@@ -964,6 +965,14 @@ export class PackageDetailsPanelComponent implements OnChanges {
             padding-bottom: 0.05in;
             margin-bottom: 0.05in;
             border-bottom: 1px solid #000;
+          }
+          .po-number {
+            font-size: 9pt;
+            font-weight: bold;
+            text-align: center;
+            width: 100%;
+            margin-bottom: 0.05in;
+            letter-spacing: 0.5px;
           }
           .item-title {
             font-size: 9pt;
@@ -1046,6 +1055,7 @@ export class PackageDetailsPanelComponent implements OnChanges {
         </div>
         <div class="label">
           <div class="package-ref">${pkg.reference}</div>
+          ${poNumberHtml}
           <div class="item-title">${item.description}</div>
           <img class="qr-code" src="${qrCodeUrl}" alt="QR Code" />
           <div class="item-id">${shortId}</div>
@@ -1071,6 +1081,7 @@ export class PackageDetailsPanelComponent implements OnChanges {
     if (!printWindow) return;
 
     // Generate HTML for all items - each item on its own label page
+    const poNumberHtml = pkg.po_number ? `<div class="po-number">PO: ${pkg.po_number}</div>` : '';
     const itemsHtml = pkg.items.map((item) => {
       const qrData = this.getItemQrData(item);
       const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=170x170&data=${encodeURIComponent(qrData)}`;
@@ -1079,6 +1090,7 @@ export class PackageDetailsPanelComponent implements OnChanges {
       return `
         <div class="label">
           <div class="package-ref">${pkg.reference}</div>
+          ${poNumberHtml}
           <div class="item-title">${item.description}</div>
           <img class="qr-code" src="${qrCodeUrl}" alt="QR Code" />
           <div class="item-id">${shortId}</div>
@@ -1162,6 +1174,14 @@ export class PackageDetailsPanelComponent implements OnChanges {
             padding-bottom: 0.05in;
             margin-bottom: 0.05in;
             border-bottom: 1px solid #000;
+          }
+          .po-number {
+            font-size: 9pt;
+            font-weight: bold;
+            text-align: center;
+            width: 100%;
+            margin-bottom: 0.05in;
+            letter-spacing: 0.5px;
           }
           .item-title {
             font-size: 9pt;
