@@ -4,7 +4,7 @@ import { LayoutComponent } from '../../shared/components/layout/layout.component
 import { TransactionTableComponent, Transaction } from '../../shared/components/transaction/transaction-table/transaction-table.component';
 import { OrdersActionsComponent } from './orders-actions/orders-actions.component';
 import { PackageService, Package, PACKAGE_STATUS, PackageStatus, SettingsService, MarkCollectedPayload, ReceiverService, ReceiverProfile } from '../../core';
-import { CreatePackageModalComponent, PackageDetailsPanelComponent, MarkCollectedModalComponent, PodDocumentComponent } from '../../shared/components/modals';
+import { CreatePackageModalComponent, PackageDetailsPanelComponent, MarkCollectedModalComponent, PodDocumentComponent, AssignDriverModalComponent, AssignDriverPayload } from '../../shared/components/modals';
 import { QrCodeComponent } from '../../shared/components/qr-code';
 import { ToastService } from '../../shared/components/toast/toast.service';
 
@@ -24,6 +24,7 @@ import { ToastService } from '../../shared/components/toast/toast.service';
     PackageDetailsPanelComponent,
     MarkCollectedModalComponent,
     PodDocumentComponent,
+    AssignDriverModalComponent,
     QrCodeComponent
   ],
   templateUrl: './orders.html',
@@ -57,6 +58,13 @@ export class OrdersComponent implements OnInit {
   // POD document modal state
   podDocumentOpen = signal(false);
   podDocumentPackage = signal<Package | null>(null);
+
+  // Assign-driver modal state — opened whenever a package is being
+  // transitioned to `in_transit` (either via the workflow action or via the
+  // manual status dropdown).
+  assignDriverModalOpen = signal(false);
+  packageAwaitingDriver = signal<Package | null>(null);
+  isAssigningDriver = signal(false);
 
   // Selection state
   selectedIds = signal<Set<string>>(new Set());
@@ -307,9 +315,13 @@ export class OrdersComponent implements OnInit {
       switch (pkg.status) {
         case PACKAGE_STATUS.PENDING:
         case PACKAGE_STATUS.NOTIFIED:
-          // Driver picks up package - marks as in_transit
-          result = await this.packageService.driverPickup(pkg.id);
-          break;
+          // Driver picks up package — open the assign-driver modal so the
+          // user can choose which driver gets the package. The actual
+          // status change to `in_transit` happens after the modal is
+          // submitted (see `onDriverAssigned`).
+          this.packageAwaitingDriver.set(pkg);
+          this.assignDriverModalOpen.set(true);
+          return;
 
         case PACKAGE_STATUS.IN_TRANSIT:
           // Collection point receives package - marks as ready_for_collection
@@ -352,6 +364,13 @@ export class OrdersComponent implements OnInit {
       // Defensive: route to the POD modal flow instead of a direct update.
       this.packageAwaitingCollection.set(pkg);
       this.markCollectedModalOpen.set(true);
+      return;
+    }
+
+    if (status === PACKAGE_STATUS.IN_TRANSIT) {
+      // Transitioning to in_transit always requires a driver assignment.
+      this.packageAwaitingDriver.set(pkg);
+      this.assignDriverModalOpen.set(true);
       return;
     }
 
@@ -440,6 +459,52 @@ export class OrdersComponent implements OnInit {
       this.toastService.error('An unexpected error occurred while confirming collection.');
     } finally {
       this.isSubmittingCollection.set(false);
+    }
+  }
+
+  /**
+   * Close the assign-driver modal without submitting.
+   */
+  onCloseAssignDriverModal(): void {
+    if (this.isAssigningDriver()) {
+      return;
+    }
+    this.assignDriverModalOpen.set(false);
+    this.packageAwaitingDriver.set(null);
+  }
+
+  /**
+   * Handle driver-assignment confirmation: persist the chosen driver on
+   * the package along with the `in_transit` status transition.
+   */
+  async onDriverAssigned(payload: AssignDriverPayload): Promise<void> {
+    const pkg = this.packageAwaitingDriver();
+    if (!pkg) {
+      return;
+    }
+
+    this.isAssigningDriver.set(true);
+    try {
+      const result = await this.packageService.updatePackage(pkg.id, {
+        status: PACKAGE_STATUS.IN_TRANSIT,
+        driver_user_id: payload.driverUserId,
+      });
+
+      if (result.success) {
+        this.toastService.success(
+          `Package ${pkg.reference} assigned to ${payload.driverName} and marked in transit.`,
+        );
+        this.assignDriverModalOpen.set(false);
+        this.packageAwaitingDriver.set(null);
+        this.onCloseDetailsPanel();
+        await this.loadPackages();
+      } else {
+        this.toastService.error(result.error ?? 'Failed to assign driver.');
+      }
+    } catch {
+      this.toastService.error('An unexpected error occurred while assigning the driver.');
+    } finally {
+      this.isAssigningDriver.set(false);
     }
   }
 

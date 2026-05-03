@@ -25,6 +25,12 @@ interface UpdatePackageRequest {
   notes?: string
   receiver_email?: string
   /**
+   * Optional auth.users.id of the driver this package is being assigned to.
+   * Persisted to `packages.picked_up_by`. Typically supplied alongside a
+   * status change to `in_transit`.
+   */
+  driver_user_id?: string
+  /**
    * Optional Proof-of-Delivery payload sent by the UI when transitioning a
    * package to `collected`. Persistence is intentionally not handled here —
    * see the TODO further down once the `pods` schema for receiver/witness
@@ -120,7 +126,7 @@ serve(async (req) => {
 
     // Parse request body
     const body: UpdatePackageRequest = await req.json()
-    const { package_id, status, notes, receiver_email, pod } = body
+    const { package_id, status, notes, receiver_email, driver_user_id, pod } = body
 
     if (!package_id) {
       return new Response(
@@ -219,6 +225,44 @@ serve(async (req) => {
         )
       }
       updateData.receiver_email = receiver_email.toLowerCase().trim()
+    }
+
+    // Driver assignment: validate that the supplied user id corresponds to
+    // an active driver before persisting it on the package.
+    if (driver_user_id !== undefined) {
+      const trimmedDriverId = String(driver_user_id).trim()
+      if (!trimmedDriverId) {
+        updateData.picked_up_by = null
+      } else {
+        const { data: driverProfile, error: driverLookupError } = await adminClient
+          .from('staff_profiles')
+          .select('id, user_id, role, is_active')
+          .eq('user_id', trimmedDriverId)
+          .eq('role', 'driver')
+          .maybeSingle()
+
+        if (driverLookupError || !driverProfile) {
+          return new Response(
+            JSON.stringify({
+              error: 'Invalid driver',
+              details: driverLookupError?.message || 'No driver found with the provided user id'
+            }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        if (!driverProfile.is_active) {
+          return new Response(
+            JSON.stringify({
+              error: 'Driver is inactive',
+              details: 'Cannot assign a package to a deactivated driver'
+            }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        updateData.picked_up_by = trimmedDriverId
+      }
     }
 
     // Perform update

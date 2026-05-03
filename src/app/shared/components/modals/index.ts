@@ -58,6 +58,9 @@ export * from './docs-modal/docs-modal.component';
 // Mark Collected (Proof of Delivery) Modal
 export * from './mark-collected-modal/mark-collected-modal.component';
 
+// Assign Driver Modal (used when transitioning a package to in_transit)
+export * from './assign-driver-modal/assign-driver-modal.component';
+
 // POD Document (printable proof of delivery)
 export * from './pod-document/pod-document.component';
 

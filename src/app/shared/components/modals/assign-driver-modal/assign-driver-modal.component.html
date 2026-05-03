@@ -1,0 +1,146 @@
+@if (isOpen()) {
+  <!-- Backdrop -->
+  <div
+    class="fixed inset-0 bg-gray-900/60 z-50 transition-opacity"
+    (click)="onBackdropClick()"
+    aria-hidden="true"
+  ></div>
+
+  <!-- Modal -->
+  <div
+    class="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="assign-driver-title"
+  >
+    <div
+      class="pointer-events-auto w-full max-w-lg max-h-[90vh] flex flex-col bg-white dark:bg-gray-800 rounded-xl shadow-xl overflow-hidden"
+    >
+      <!-- Header -->
+      <header class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-start justify-between flex-shrink-0">
+        <div>
+          <h2 id="assign-driver-title" class="text-lg font-semibold text-gray-900 dark:text-white">
+            Assign Driver
+          </h2>
+          @if (package(); as pkg) {
+            <p class="text-sm text-gray-500 dark:text-gray-400 font-mono mt-0.5">
+              {{ pkg.reference }}
+            </p>
+          }
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            Select a driver to pick up this package and mark it in transit.
+          </p>
+        </div>
+        <button
+          type="button"
+          class="p-2 -mr-2 -mt-2 text-gray-400 hover:text-gray-500 dark:text-gray-500 dark:hover:text-gray-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+          (click)="onClose()"
+          [disabled]="isSubmitting()"
+          aria-label="Close"
+        >
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+          </svg>
+        </button>
+      </header>
+
+      <!-- Body -->
+      <form [formGroup]="form" (ngSubmit)="onSubmit()" class="flex-1 overflow-y-auto">
+        <div class="p-6 space-y-4">
+          @if (isLoadingDrivers() && !hasDrivers()) {
+            <div class="flex items-center justify-center py-8">
+              <svg class="animate-spin h-6 w-6 text-violet-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              <span class="ml-3 text-sm text-gray-500 dark:text-gray-400">Loading drivers…</span>
+            </div>
+          } @else if (!hasDrivers()) {
+            <div class="text-center py-8">
+              <p class="text-sm text-gray-500 dark:text-gray-400">
+                No active drivers found. Add a driver in the Drivers section before assigning packages.
+              </p>
+            </div>
+          } @else {
+            <fieldset class="space-y-2">
+              <legend class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Available drivers
+              </legend>
+
+              <div class="border border-gray-200 dark:border-gray-700 rounded-lg divide-y divide-gray-200 dark:divide-gray-700 max-h-72 overflow-y-auto">
+                @for (driver of drivers(); track trackByDriverId($index, driver)) {
+                  <label
+                    class="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors"
+                  >
+                    <input
+                      type="radio"
+                      [value]="driver.user_id"
+                      formControlName="driverUserId"
+                      class="h-4 w-4 text-violet-600 border-gray-300 focus:ring-violet-500"
+                    />
+                    <div class="flex-1 min-w-0">
+                      <p class="text-sm font-medium text-gray-900 dark:text-white truncate">
+                        {{ driver.full_name }}
+                      </p>
+                      <p class="text-xs text-gray-500 dark:text-gray-400 truncate">
+                        {{ driver.email }}
+                        @if (driver.phone) {
+                          · {{ driver.phone }}
+                        }
+                      </p>
+                    </div>
+                    <span
+                      class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
+                      [class.bg-emerald-100]="driver.is_available !== false"
+                      [class.text-emerald-700]="driver.is_available !== false"
+                      [class.dark:bg-emerald-900/40]="driver.is_available !== false"
+                      [class.dark:text-emerald-300]="driver.is_available !== false"
+                      [class.bg-amber-100]="driver.is_available === false"
+                      [class.text-amber-700]="driver.is_available === false"
+                      [class.dark:bg-amber-900/40]="driver.is_available === false"
+                      [class.dark:text-amber-300]="driver.is_available === false"
+                    >
+                      {{ driverStatusLabel(driver) }}
+                    </span>
+                  </label>
+                }
+              </div>
+            </fieldset>
+          }
+
+          @if (errorMessage(); as err) {
+            <p class="text-sm text-red-600 dark:text-red-400">{{ err }}</p>
+          }
+        </div>
+
+        <!-- Footer -->
+        <footer class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-end gap-3 bg-gray-50 dark:bg-gray-800/60">
+          <button
+            type="button"
+            class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+            (click)="onClose()"
+            [disabled]="isSubmitting()"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-violet-600 hover:bg-violet-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            [disabled]="isSubmitting() || !hasDrivers() || form.invalid"
+          >
+            @if (isSubmitting()) {
+              <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              Assigning…
+            } @else {
+              Assign &amp; mark in transit
+            }
+          </button>
+        </footer>
+      </form>
+    </div>
+  </div>
+}
+

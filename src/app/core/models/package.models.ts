@@ -69,6 +69,12 @@ export interface UpdatePackageRequest {
   readonly status?: PackageStatus;
   readonly notes?: string;
   readonly receiver_email?: string;
+  /**
+   * Optional driver user_id to assign to the package. Typically sent
+   * when transitioning to `in_transit` so the package's `picked_up_by`
+   * column is populated with the assigned driver's auth user id.
+   */
+  readonly driver_user_id?: string;
   /** Optional proof-of-delivery payload (sent when transitioning to `collected`) */
   readonly pod?: MarkCollectedPayload;
 }
@@ -104,6 +110,8 @@ export interface Package {
   readonly created_by?: string;
   readonly updated_at?: string;
   readonly po_number?: string | null;
+  /** auth.users.id of the driver currently assigned to this package, if any */
+  readonly picked_up_by?: string | null;
   readonly items?: readonly PackageItem[];
 }
 

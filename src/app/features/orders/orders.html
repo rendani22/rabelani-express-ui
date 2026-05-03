@@ -172,6 +172,15 @@
     (confirmed)="onCollectionConfirmed($event)">
   </app-mark-collected-modal>
 
+  <!-- Assign Driver Modal (opens whenever a package transitions to in_transit) -->
+  <app-assign-driver-modal
+    [isOpen]="assignDriverModalOpen()"
+    [package]="packageAwaitingDriver()"
+    [isSubmitting]="isAssigningDriver()"
+    (closeModal)="onCloseAssignDriverModal()"
+    (confirmed)="onDriverAssigned($event)">
+  </app-assign-driver-modal>
+
   <!-- QR Code Modal -->
   <div *ngIf="qrCodeModalOpen()"
     class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
