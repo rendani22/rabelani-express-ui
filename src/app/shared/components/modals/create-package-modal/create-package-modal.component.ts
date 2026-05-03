@@ -251,10 +251,30 @@ export class CreatePackageModalComponent {
   }
 
   /**
-   * Adds a new item to the items array
+   * Adds a new item to the items array and scrolls it into view (within the
+   * modal body) so the user doesn't have to scroll down manually.
    */
   addItem(): void {
     this.itemsArray.push(this.createItemGroup());
+    const newIndex = this.itemsArray.length - 1;
+
+    // Wait for Angular to render the new row, then scroll the modal body
+    // (not the page) so the new item is visible.
+    setTimeout(() => {
+      const el = document.getElementById(`item-inv-${newIndex}`);
+      if (!el) return;
+
+      // Find the closest scroll container (the modal body has overflow-y-auto).
+      const container = el.closest('.overflow-y-auto') as HTMLElement | null;
+      if (container) {
+        const elTop = el.getBoundingClientRect().top;
+        const containerTop = container.getBoundingClientRect().top;
+        const offset = elTop - containerTop + container.scrollTop - 24;
+        container.scrollTo({ top: offset, behavior: 'smooth' });
+      } else {
+        el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }, 0);
   }
 
   /**

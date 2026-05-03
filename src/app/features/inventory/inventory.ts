@@ -33,6 +33,8 @@ import {
   tablerToggleLeft,
   tablerClock,
   tablerHistory,
+  tablerChevronLeft,
+  tablerChevronRight,
 } from '@ng-icons/tabler-icons';
 
 import { LayoutComponent } from '../../shared/components/layout/layout.component';
@@ -80,6 +82,8 @@ import {
       tablerToggleLeft,
       tablerClock,
       tablerHistory,
+      tablerChevronLeft,
+      tablerChevronRight,
     }),
   ],
   templateUrl: './inventory.html',
@@ -136,6 +140,14 @@ export class InventoryComponent implements OnInit {
   readonly selectedCount = computed(() => this.selectedIds().size);
 
   // =========================================================================
+  // Pagination
+  // =========================================================================
+
+  readonly pageSizeOptions = [5, 10, 25, 50, 100] as const;
+  readonly pageSize = signal<number>(5);
+  readonly currentPage = signal<number>(1);
+
+  // =========================================================================
   // Computed filtered list
   // =========================================================================
 
@@ -166,9 +178,42 @@ export class InventoryComponent implements OnInit {
 
   readonly categories = computed(() => this.stats().categories);
 
-  /** True if every visible item is currently selected (and list is non-empty). */
+  readonly totalPages = computed(() =>
+    Math.max(1, Math.ceil(this.filteredItems().length / this.pageSize()))
+  );
+
+  readonly pagedItems = computed(() => {
+    const all = this.filteredItems();
+    const size = this.pageSize();
+    const page = Math.min(Math.max(1, this.currentPage()), Math.max(1, Math.ceil(all.length / size)));
+    const start = (page - 1) * size;
+    return all.slice(start, start + size);
+  });
+
+  readonly pageRangeStart = computed(() =>
+    this.filteredItems().length === 0 ? 0 : (this.currentPage() - 1) * this.pageSize() + 1
+  );
+
+  readonly pageRangeEnd = computed(() =>
+    Math.min(this.currentPage() * this.pageSize(), this.filteredItems().length)
+  );
+
+  /** Visible page-number buttons (windowed around the current page). */
+  readonly visiblePages = computed<number[]>(() => {
+    const total = this.totalPages();
+    const current = this.currentPage();
+    const window = 5;
+    let start = Math.max(1, current - Math.floor(window / 2));
+    const end = Math.min(total, start + window - 1);
+    start = Math.max(1, end - window + 1);
+    const pages: number[] = [];
+    for (let i = start; i <= end; i++) pages.push(i);
+    return pages;
+  });
+
+  /** True if every item on the current page is selected (and page is non-empty). */
   readonly isAllVisibleSelected = computed(() => {
-    const visible = this.filteredItems();
+    const visible = this.pagedItems();
     if (visible.length === 0) return false;
     const sel = this.selectedIds();
     return visible.every(i => sel.has(i.id));
@@ -346,10 +391,12 @@ export class InventoryComponent implements OnInit {
 
   onSearchChange(event: Event): void {
     this.searchQuery.set((event.target as HTMLInputElement).value);
+    this.currentPage.set(1);
   }
 
   onCategoryChange(event: Event): void {
     this.filterCategory.set((event.target as HTMLSelectElement).value);
+    this.currentPage.set(1);
   }
 
   onToggleLowStock(): void {
@@ -358,6 +405,7 @@ export class InventoryComponent implements OnInit {
       this.filterOutOfStock.set(false);
       this.filterStaleStock.set(false);
     }
+    this.currentPage.set(1);
   }
 
   onToggleOutOfStock(): void {
@@ -366,6 +414,7 @@ export class InventoryComponent implements OnInit {
       this.filterLowStock.set(false);
       this.filterStaleStock.set(false);
     }
+    this.currentPage.set(1);
   }
 
   onToggleStaleStock(): void {
@@ -374,10 +423,12 @@ export class InventoryComponent implements OnInit {
       this.filterLowStock.set(false);
       this.filterOutOfStock.set(false);
     }
+    this.currentPage.set(1);
   }
 
   onToggleShowInactive(): void {
     this.showInactive.update(v => !v);
+    this.currentPage.set(1);
   }
 
   async onRefresh(): Promise<void> {
@@ -449,7 +500,7 @@ export class InventoryComponent implements OnInit {
   }
 
   onToggleSelectAllVisible(): void {
-    const visible = this.filteredItems();
+    const visible = this.pagedItems();
     const next = new Set(this.selectedIds());
     if (this.isAllVisibleSelected()) {
       visible.forEach(i => next.delete(i.id));
@@ -561,6 +612,31 @@ export class InventoryComponent implements OnInit {
   }
 
   trackById = (_index: number, item: InventoryItem): string => item.id;
+
+  // =========================================================================
+  // Pagination controls
+  // =========================================================================
+
+  goToPage(page: number): void {
+    const clamped = Math.min(Math.max(1, page), this.totalPages());
+    this.currentPage.set(clamped);
+  }
+
+  prevPage(): void {
+    this.goToPage(this.currentPage() - 1);
+  }
+
+  nextPage(): void {
+    this.goToPage(this.currentPage() + 1);
+  }
+
+  onPageSizeChange(event: Event): void {
+    const value = Number((event.target as HTMLSelectElement).value);
+    if (Number.isFinite(value) && value > 0) {
+      this.pageSize.set(value);
+      this.currentPage.set(1);
+    }
+  }
 
   getDeleteMessage(): string {
     const item = this.itemPendingDelete();
