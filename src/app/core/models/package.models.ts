@@ -61,6 +61,15 @@ export interface MarkCollectedPayload {
   readonly witness: PodParty;
   /** ISO timestamp of when collection was confirmed (client-side) */
   readonly collected_at: string;
+  /**
+   * Optional base64-encoded PDF of the rendered POD document. When supplied,
+   * the `update-package` Edge Function attaches it to the "Package Completed"
+   * email sent to the receiver. Must be the raw base64 string WITHOUT the
+   * `data:application/pdf;base64,` prefix.
+   */
+  readonly pdf_base64?: string;
+  /** Optional filename for the attached POD PDF (defaults to POD-<reference>.pdf) */
+  readonly pdf_filename?: string;
 }
 
 /** Request payload for updating a package */

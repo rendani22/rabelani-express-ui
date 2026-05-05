@@ -40,12 +40,54 @@ const DEFAULT_TEMPLATES: EmailTemplate[] = [
   {
     id: 'package-ready',
     name: 'Ready for Collection',
-    subject: 'Package {{reference}} is ready for collection',
+    subject: 'Ready for Collection — PO: {{po_number}} — Ref: {{reference}}',
     description: 'Sent when a package arrives at the collection point.',
-    html_body: `<h2>Hello,</h2>
-<p>Your package <strong>{{reference}}</strong> is now ready for collection.</p>
-<p>Please visit the collection point with your employee ID.</p>
-<p>Thank you,<br/>Rabelani Express</p>`,
+    html_body: `<div style="font-family: Arial, sans-serif; color: #1f2937; line-height: 1.5; max-width: 640px;">
+  <h2 style="margin: 0 0 4px 0;">Ready for Collection</h2>
+  <p style="margin: 0;"><strong>Purchase Order Number:</strong> {{po_number}}</p>
+  <p style="margin: 0 0 16px 0;"><strong>Your Package Reference:</strong> {{reference}}</p>
+
+  <h3 style="margin: 16px 0 8px 0;">Package Ready for Collection</h3>
+  <p>Hello,</p>
+  <p>Great news! A package has been registered for you and is ready for collection. Please collect it at the Collection Point.</p>
+
+  <h4 style="margin: 16px 0 8px 0;">Package Contents</h4>
+  <table style="border-collapse: collapse; width: 100%; max-width: 480px;">
+    <thead>
+      <tr style="background: #f3f4f6;">
+        <th style="text-align: left; padding: 8px; border: 1px solid #e5e7eb;">Qty</th>
+        <th style="text-align: left; padding: 8px; border: 1px solid #e5e7eb;">Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{items_rows}}
+    </tbody>
+  </table>
+
+  <h4 style="margin: 16px 0 8px 0;">Delivery Point</h4>
+  <p style="margin: 0;">Exxaro Canteen, Exxaro Mine, Nelson Mandela Dr, Lephalale, 0555</p>
+  <p style="margin: 0;"><strong>Contact Number:</strong> Ext 4536 and ask for Lesedi or Thato</p>
+
+  <p style="margin: 12px 0 4px 0;"><strong>Collection Hours:</strong></p>
+  <ul style="margin: 0 0 12px 20px; padding: 0;">
+    <li>Monday to Friday, 7:00 AM - 16:00 PM</li>
+    <li>Saturdays: Closed</li>
+    <li>Sundays: Closed</li>
+    <li>Holidays: Closed</li>
+  </ul>
+
+  <p style="margin: 12px 0 4px 0;"><strong>What to bring when collecting:</strong></p>
+  <ul style="margin: 0 0 12px 20px; padding: 0;">
+    <li>Your PO reference number (shown above)</li>
+    <li>Valid Staff Employee Card for verification and a Witness to sign with</li>
+  </ul>
+
+  <p>Questions? Contact us at <a href="mailto:rabelanimm@gmail.com">rabelanimm@gmail.com</a></p>
+
+  <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 16px 0;" />
+  <p style="font-size: 12px; color: #6b7280; margin: 0;">This is an automated message from the POD System. Please do not reply directly to this email.</p>
+  <p style="margin-top: 16px; font-weight: bold;">PLEASE REVIEW OUR SERVICES</p>
+</div>`,
   },
   {
     id: 'package-collected',
@@ -179,8 +221,15 @@ export class EmailTemplatesComponent implements OnInit {
   previewHtml = computed((): SafeHtml => {
     const t = this.selectedTemplate();
     if (!t) return '';
+    const sampleItemsRows = `
+      <tr>
+        <td style="padding: 8px; border: 1px solid #e5e7eb;">1</td>
+        <td style="padding: 8px; border: 1px solid #e5e7eb;">Card Box</td>
+      </tr>`;
     const html = t.html_body
-      .replace(/\{\{reference\}\}/g, 'PKG-001234')
+      .replace(/\{\{reference\}\}/g, 'PKG-20260504-71E9')
+      .replace(/\{\{po_number\}\}/g, 'GG80666810')
+      .replace(/\{\{items_rows\}\}/g, sampleItemsRows)
       .replace(/\{\{name\}\}/g, 'John Doe');
     return this.sanitizer.bypassSecurityTrustHtml(html);
   });

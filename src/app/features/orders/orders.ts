@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { LayoutComponent } from '../../shared/components/layout/layout.component';
 import { TransactionTableComponent, Transaction } from '../../shared/components/transaction/transaction-table/transaction-table.component';
 import { OrdersActionsComponent } from './orders-actions/orders-actions.component';
-import { PackageService, Package, PACKAGE_STATUS, PackageStatus, SettingsService, MarkCollectedPayload, ReceiverService, ReceiverProfile } from '../../core';
+import { PackageService, Package, PACKAGE_STATUS, PackageStatus, SettingsService, MarkCollectedPayload, ReceiverService, ReceiverProfile, generatePodPdfBase64 } from '../../core';
 import { CreatePackageModalComponent, PackageDetailsPanelComponent, MarkCollectedModalComponent, PodDocumentComponent, AssignDriverModalComponent, AssignDriverPayload } from '../../shared/components/modals';
 import { QrCodeComponent } from '../../shared/components/qr-code';
 import { ToastService } from '../../shared/components/toast/toast.service';
@@ -429,9 +429,17 @@ export class OrdersComponent implements OnInit {
 
     this.isSubmittingCollection.set(true);
     try {
+      // Generate a base64 POD PDF so the Edge Function can attach it to
+      // the "Package Completed" email. Failure is non-fatal — we still
+      // mark the package as collected without an attachment.
+      const pdfBase64 = await generatePodPdfBase64(pkg, payload);
+      const podPayload: MarkCollectedPayload = pdfBase64
+        ? { ...payload, pdf_base64: pdfBase64, pdf_filename: `POD-${pkg.reference}.pdf` }
+        : payload;
+
       const result = await this.packageService.updatePackage(pkg.id, {
         status: PACKAGE_STATUS.COLLECTED,
-        pod: payload,
+        pod: podPayload,
       });
 
       if (result.success) {
