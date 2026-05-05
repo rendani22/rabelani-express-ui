@@ -1,6 +1,5 @@
 import {
   Component,
-  ElementRef,
   Input,
   Output,
   EventEmitter,
@@ -12,24 +11,23 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Package, PackageService, PodRecord, PACKAGE_STATUS } from '../../../../core';
+import { PodDocumentViewComponent } from './pod-document-view.component';
 
 /**
- * Printable Proof-of-Delivery document.
+ * Printable Proof-of-Delivery document modal.
  *
- * Renders a full A4-style document containing:
- * - Order / package details (reference, dates, status, items)
- * - Receiver block (name, employee #, phone, signature)
- * - Witness block (name, employee #, phone, signature)
- * - POD reference + lock status + completion timestamp
+ * Wraps the stateless `PodDocumentViewComponent` with modal chrome,
+ * loading / error states, and a "Download PDF" action. The same view
+ * component is used by `generatePodPdfBase64` so the PDF emailed to the
+ * receiver after a package is collected matches the document users can
+ * download from this modal byte-for-byte.
  *
  * Only meaningful for packages whose status is `delivered` or `collected`.
- * The on-screen view shows a modal overlay; the print view (triggered via
- * `Print` button) hides the chrome and prints just the document card.
  */
 @Component({
   selector: 'app-pod-document',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, PodDocumentViewComponent],
   templateUrl: './pod-document.component.html',
   styleUrls: ['./pod-document.component.css'],
 })
@@ -41,7 +39,7 @@ export class PodDocumentComponent implements OnChanges {
 
   @Output() closeModal = new EventEmitter<void>();
 
-  @ViewChild('documentEl') documentEl?: ElementRef<HTMLElement>;
+  @ViewChild('viewRef') viewRef?: PodDocumentViewComponent;
 
   readonly pod = signal<PodRecord | null>(null);
   readonly loading = signal(false);
@@ -97,7 +95,7 @@ export class PodDocumentComponent implements OnChanges {
   }
 
   private async downloadPdf(): Promise<void> {
-    const element = this.documentEl?.nativeElement;
+    const element = this.viewRef?.documentEl?.nativeElement;
     const pkg = this.package;
     const podRecord = this.pod();
     if (!element || !pkg || !podRecord) return;
@@ -130,47 +128,4 @@ export class PodDocumentComponent implements OnChanges {
       this.generating.set(false);
     }
   }
-
-  formatDate(dateString: string | null | undefined): string {
-    if (!dateString) return '—';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
-  }
-
-  formatDateTime(dateString: string | null | undefined): string {
-    if (!dateString) return '—';
-    const date = new Date(dateString);
-    return date.toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-    });
-  }
-
-  getStatusLabel(status: string | undefined | null): string {
-    if (!status) return '—';
-    const labels: Record<string, string> = {
-      [PACKAGE_STATUS.PENDING]: 'Pending',
-      [PACKAGE_STATUS.NOTIFIED]: 'Notified',
-      [PACKAGE_STATUS.IN_TRANSIT]: 'In Transit',
-      [PACKAGE_STATUS.READY_FOR_COLLECTION]: 'Ready for Collection',
-      [PACKAGE_STATUS.DELIVERED]: 'Delivered',
-      [PACKAGE_STATUS.COLLECTED]: 'Collected',
-    };
-    return labels[status] ?? status;
-  }
-
-  totalQuantity(): number {
-    const items = this.package?.items;
-    if (!items) return 0;
-    return items.reduce((sum, item) => sum + (item.quantity ?? 0), 0);
-  }
 }
-

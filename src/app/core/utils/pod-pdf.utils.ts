@@ -1,174 +1,173 @@
 /**
  * POD PDF generation utility.
  *
- * Builds a minimal Proof-of-Delivery HTML document from a package + the
- * receiver/witness payload captured by the mark-collected modal, then uses
- * `html2pdf.js` (already a project dependency) to render it as a base64 PDF.
+ * Dynamically renders the real `PodDocumentViewComponent` (the same view
+ * used by the on-screen "Download PDF" action in the orders view) into an
+ * off-screen container with a synthesized `PodRecord` built from the
+ * mark-collected payload, then uses `html2pdf.js` to rasterise it.
+ *
+ * Producing the PDF this way guarantees the document attached to the
+ * "Package Completed" email is byte-for-byte identical to the one users
+ * download from the POD document modal — there is no parallel template.
  *
  * The base64 string is returned WITHOUT the `data:application/pdf;base64,`
  * prefix so it can be passed directly to the `update-package` Edge Function
- * as `pod.pdf_base64` for attachment to the "Package Completed" email.
+ * as `pod.pdf_base64`.
  */
 
-import type { MarkCollectedPayload } from '../models/package.models';
-import type { Package } from '../models/package.models';
+import {
+  ApplicationRef,
+  ComponentRef,
+  EnvironmentInjector,
+  createComponent,
+} from '@angular/core';
+import type { MarkCollectedPayload, Package, PodRecord } from '../models/package.models';
+import { PodDocumentViewComponent } from '../../shared/components/modals/pod-document/pod-document-view.component';
 
-/** Render a self-contained HTML document representing the POD. */
-function buildPodHtml(pkg: Package, payload: MarkCollectedPayload): string {
-  const collectedAt = new Date(payload.collected_at).toLocaleString('en-ZA', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  });
-
-  const itemsRows =
-    pkg.items?.map(
-      (item) => `
-        <tr>
-          <td style="padding:6px 8px;border:1px solid #ddd;width:60px;">${item.quantity}</td>
-          <td style="padding:6px 8px;border:1px solid #ddd;">${escapeHtml(item.description)}</td>
-        </tr>`,
-    ).join('') ?? '';
-
-  const partyBlock = (label: string, party: MarkCollectedPayload['receiver']) => `
-    <div style="margin-top:18px;">
-      <h3 style="margin:0 0 8px 0;font-size:14px;color:#242424;">${label}</h3>
-      <table style="width:100%;border-collapse:collapse;font-size:12px;">
-        <tr>
-          <td style="padding:4px 8px;border:1px solid #ddd;width:140px;font-weight:600;">Name</td>
-          <td style="padding:4px 8px;border:1px solid #ddd;">${escapeHtml(party.name)}</td>
-        </tr>
-        <tr>
-          <td style="padding:4px 8px;border:1px solid #ddd;font-weight:600;">Employee #</td>
-          <td style="padding:4px 8px;border:1px solid #ddd;">${escapeHtml(party.employee_number)}</td>
-        </tr>
-        <tr>
-          <td style="padding:4px 8px;border:1px solid #ddd;font-weight:600;">Phone</td>
-          <td style="padding:4px 8px;border:1px solid #ddd;">${escapeHtml(party.phone)}</td>
-        </tr>
-        <tr>
-          <td style="padding:4px 8px;border:1px solid #ddd;font-weight:600;vertical-align:top;">Signature</td>
-          <td style="padding:4px 8px;border:1px solid #ddd;">
-            <img src="${party.signature_data_url}" alt="Signature" style="max-height:90px;max-width:100%;display:block;" />
-          </td>
-        </tr>
-      </table>
-    </div>`;
-
-  return `
-    <div style="font-family:Helvetica,Arial,sans-serif;color:#242424;padding:24px;max-width:800px;">
-      <div style="border-bottom:3px solid #f75757;padding-bottom:12px;margin-bottom:18px;">
-        <h1 style="margin:0;font-size:22px;">Proof of Delivery</h1>
-        <p style="margin:4px 0 0 0;font-size:12px;color:#666;">Rabelani MM Trading Enterprise</p>
-      </div>
-
-      <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:14px;">
-        <tr>
-          <td style="padding:4px 8px;border:1px solid #ddd;width:160px;font-weight:600;">Package Reference</td>
-          <td style="padding:4px 8px;border:1px solid #ddd;">${escapeHtml(pkg.reference)}</td>
-        </tr>
-        <tr>
-          <td style="padding:4px 8px;border:1px solid #ddd;font-weight:600;">Receiver Email</td>
-          <td style="padding:4px 8px;border:1px solid #ddd;">${escapeHtml(pkg.receiver_email)}</td>
-        </tr>
-        <tr>
-          <td style="padding:4px 8px;border:1px solid #ddd;font-weight:600;">Collected At</td>
-          <td style="padding:4px 8px;border:1px solid #ddd;">${escapeHtml(collectedAt)}</td>
-        </tr>
-        <tr>
-          <td style="padding:4px 8px;border:1px solid #ddd;font-weight:600;">Status</td>
-          <td style="padding:4px 8px;border:1px solid #ddd;">Collected</td>
-        </tr>
-      </table>
-
-      ${itemsRows
-        ? `<h3 style="margin:14px 0 6px 0;font-size:14px;">Package Contents</h3>
-           <table style="width:100%;border-collapse:collapse;font-size:12px;">
-             <thead>
-               <tr style="background:#fafafa;">
-                 <th style="padding:6px 8px;border:1px solid #ddd;text-align:left;width:60px;">Qty</th>
-                 <th style="padding:6px 8px;border:1px solid #ddd;text-align:left;">Description</th>
-               </tr>
-             </thead>
-             <tbody>${itemsRows}</tbody>
-           </table>`
-        : ''}
-
-      ${partyBlock('Receiver', payload.receiver)}
-      ${partyBlock('Witness', payload.witness)}
-
-      <p style="margin-top:24px;font-size:10px;color:#888;">
-        This document was generated automatically when the package was marked as collected.
-      </p>
-    </div>
-  `;
+/** Result of attempting to generate a POD PDF. */
+export interface PodPdfResult {
+  /** Raw base64 string (no `data:` prefix), or null if generation failed. */
+  readonly base64: string | null;
+  /** Human-readable error message when `base64` is null. */
+  readonly error?: string;
 }
 
-function escapeHtml(value: string): string {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
+/**
+ * Build a synthetic `PodRecord` from the mark-collected payload. The real
+ * record is created server-side by the `update-package` Edge Function — we
+ * mirror those values here so the off-screen render matches what the user
+ * will see when they re-open the POD modal later (modulo `pod_reference`
+ * and `is_locked`, which are filled in by the database).
+ */
+function synthesizePodRecord(pkg: Package, payload: MarkCollectedPayload): PodRecord {
+  return {
+    id: '',
+    package_id: pkg.id,
+    pod_reference: null,
+    is_locked: false,
+    locked_at: null,
+
+    receiver_name: payload.receiver.name,
+    receiver_employee_number: payload.receiver.employee_number,
+    receiver_phone: payload.receiver.phone,
+    receiver_signature: payload.receiver.signature_data_url,
+
+    witness_name: payload.witness.name,
+    witness_employee_number: payload.witness.employee_number,
+    witness_phone: payload.witness.phone,
+    witness_signature: payload.witness.signature_data_url,
+
+    completed_at: payload.collected_at,
+    completed_by: null,
+  };
 }
 
 /**
  * Generate a base64-encoded POD PDF for the supplied package and payload.
  *
- * Returns the raw base64 string (no `data:` prefix). Returns `null` if
- * generation fails — callers should treat absence as "no attachment" rather
- * than blocking the collection workflow.
+ * Returns `{ base64, error? }`. Callers should treat a null `base64` as
+ * "no attachment" rather than blocking the collection workflow, but should
+ * surface `error` to the user for visibility.
+ *
+ * @param pkg                 Package being marked collected (with items, if any).
+ * @param payload             Receiver/witness payload captured by the modal.
+ * @param appRef              The current `ApplicationRef` (caller injects it).
+ * @param environmentInjector The current `EnvironmentInjector`.
  */
 export async function generatePodPdfBase64(
   pkg: Package,
   payload: MarkCollectedPayload,
-): Promise<string | null> {
+  appRef: ApplicationRef,
+  environmentInjector: EnvironmentInjector,
+): Promise<PodPdfResult> {
+  let host: HTMLDivElement | null = null;
+  let componentRef: ComponentRef<PodDocumentViewComponent> | null = null;
+
   try {
-    const html = buildPodHtml(pkg, payload);
+    // Off-screen host container — must be in the live DOM for html2canvas
+    // to rasterise it. Width matches A4 (210mm ≈ 794px @ 96dpi) so the
+    // layout mirrors the on-screen card.
+    host = document.createElement('div');
+    host.style.position = 'fixed';
+    host.style.left = '-10000px';
+    host.style.top = '0';
+    host.style.width = '794px';
+    host.style.background = '#ffffff';
+    host.setAttribute('data-pod-pdf-host', '');
+    document.body.appendChild(host);
 
-    // Render into an off-screen container so html2canvas can rasterise it.
-    const container = document.createElement('div');
-    container.style.position = 'fixed';
-    container.style.left = '-10000px';
-    container.style.top = '0';
-    container.style.width = '800px';
-    container.innerHTML = html;
-    document.body.appendChild(container);
+    // Create + attach the real view component so its template (and Tailwind
+    // classes) are rendered identically to the on-screen modal.
+    componentRef = createComponent(PodDocumentViewComponent, {
+      hostElement: host,
+      environmentInjector,
+    });
+    componentRef.setInput('package', pkg);
+    componentRef.setInput('pod', synthesizePodRecord(pkg, payload));
+    appRef.attachView(componentRef.hostView);
+    componentRef.changeDetectorRef.detectChanges();
 
-    try {
-      // Dynamically import to keep the main bundle lean.
-      const mod = await import('html2pdf.js');
-      const html2pdf = (mod as { default?: unknown }).default ?? mod;
+    // Wait one frame so layout / image decode (signature data URLs) settle
+    // before html2canvas reads the DOM.
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 
-      const dataUri: string = await (
-        html2pdf as (...args: unknown[]) => {
-          set: (opts: unknown) => {
-            from: (el: HTMLElement) => {
-              outputPdf: (type: string) => Promise<string>;
+    const target =
+      (componentRef.instance.documentEl?.nativeElement as HTMLElement | null) ?? host;
+
+    // Dynamically import to keep the main bundle lean.
+    const mod = await import('html2pdf.js');
+    const html2pdf = (mod as { default?: unknown }).default ?? mod;
+
+    // Use the `.toPdf().get('pdf')` chain to obtain the jsPDF instance and
+    // call `output('datauristring')` directly — this is more reliable than
+    // `.outputPdf('datauristring')` across html2pdf.js versions and bundlers.
+    const worker = (
+      html2pdf as (...args: unknown[]) => {
+        set: (opts: unknown) => {
+          from: (el: HTMLElement) => {
+            toPdf: () => {
+              get: (key: 'pdf') => Promise<{ output: (type: string) => string }>;
             };
           };
-        }
-      )()
-        .set({
-          margin: [10, 10, 10, 10],
-          filename: `POD-${pkg.reference}.pdf`,
-          image: { type: 'jpeg', quality: 0.95 },
-          html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
-          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-          pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
-        })
-        .from(container.firstElementChild as HTMLElement)
-        .outputPdf('datauristring');
+        };
+      }
+    )()
+      .set({
+        margin: [10, 10, 10, 10],
+        filename: `POD-${pkg.reference}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
+      })
+      .from(target)
+      .toPdf();
 
-      // Strip the `data:application/pdf;base64,` prefix.
-      const idx = dataUri.indexOf('base64,');
-      return idx >= 0 ? dataUri.slice(idx + 'base64,'.length) : dataUri;
-    } finally {
-      container.remove();
+    const pdfInstance = await worker.get('pdf');
+    const dataUri = pdfInstance.output('datauristring');
+
+    if (typeof dataUri !== 'string' || dataUri.length === 0) {
+      return { base64: null, error: 'PDF generator returned an empty result' };
     }
+
+    // Strip the `data:application/pdf;...;base64,` prefix.
+    const idx = dataUri.indexOf('base64,');
+    const base64 = idx >= 0 ? dataUri.slice(idx + 'base64,'.length) : dataUri;
+    return { base64 };
   } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
     console.error('[POD PDF] Failed to generate POD PDF:', err);
-    return null;
+    return { base64: null, error: message };
+  } finally {
+    if (componentRef) {
+      try {
+        appRef.detachView(componentRef.hostView);
+      } catch {
+        /* already detached */
+      }
+      componentRef.destroy();
+    }
+    if (host) host.remove();
   }
 }
 

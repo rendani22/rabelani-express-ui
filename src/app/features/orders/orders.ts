@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, computed, signal } from '@angular/core';
+import { ApplicationRef, Component, EnvironmentInjector, OnInit, inject, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LayoutComponent } from '../../shared/components/layout/layout.component';
 import { TransactionTableComponent, Transaction } from '../../shared/components/transaction/transaction-table/transaction-table.component';
@@ -35,6 +35,8 @@ export class OrdersComponent implements OnInit {
   private readonly settingsService = inject(SettingsService);
   private readonly toastService = inject(ToastService);
   private readonly receiverService = inject(ReceiverService);
+  private readonly appRef = inject(ApplicationRef);
+  private readonly environmentInjector = inject(EnvironmentInjector);
 
   /** Map of receiver email (lowercased) → full name for quick lookup. */
   private readonly receiverNamesByEmail = signal<Map<string, string>>(new Map());
@@ -431,10 +433,25 @@ export class OrdersComponent implements OnInit {
     try {
       // Generate a base64 POD PDF so the Edge Function can attach it to
       // the "Package Completed" email. Failure is non-fatal — we still
-      // mark the package as collected without an attachment.
-      const pdfBase64 = await generatePodPdfBase64(pkg, payload);
-      const podPayload: MarkCollectedPayload = pdfBase64
-        ? { ...payload, pdf_base64: pdfBase64, pdf_filename: `POD-${pkg.reference}.pdf` }
+      // mark the package as collected without an attachment, but we
+      // surface the underlying error so the user knows the email won't
+      // include the POD document.
+      const pdfResult = await generatePodPdfBase64(
+        pkg,
+        payload,
+        this.appRef,
+        this.environmentInjector,
+      );
+      if (!pdfResult.base64) {
+        this.toastService.warning(
+          `Could not generate POD PDF for ${pkg.reference}; the confirmation email will be sent without the POD attachment${
+            pdfResult.error ? ` (${pdfResult.error})` : ''
+          }.`,
+        );
+        console.error('[Orders] POD PDF generation failed:', pdfResult.error);
+      }
+      const podPayload: MarkCollectedPayload = pdfResult.base64
+        ? { ...payload, pdf_base64: pdfResult.base64, pdf_filename: `POD-${pkg.reference}.pdf` }
         : payload;
 
       const result = await this.packageService.updatePackage(pkg.id, {

@@ -63,4 +63,5 @@ export * from './assign-driver-modal/assign-driver-modal.component';
 
 // POD Document (printable proof of delivery)
 export * from './pod-document/pod-document.component';
+export * from './pod-document/pod-document-view.component';
 
