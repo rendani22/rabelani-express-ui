@@ -40,12 +40,18 @@ export interface PodPdfResult {
  * and `is_locked`, which are filled in by the database).
  */
 function synthesizePodRecord(pkg: Package, payload: MarkCollectedPayload): PodRecord {
+  // The PDF is generated on the client BEFORE the edge function inserts
+  // and locks the POD row. To avoid the attached document looking like a
+  // "Draft" we render it as if it were already locked at the moment of
+  // collection. The package reference is used as the visible POD
+  // reference until the server-issued one is available — both refer to
+  // the same package, so it remains an unambiguous identifier.
   return {
     id: '',
     package_id: pkg.id,
-    pod_reference: null,
-    is_locked: false,
-    locked_at: null,
+    pod_reference: pkg.reference,
+    is_locked: true,
+    locked_at: payload.collected_at,
 
     receiver_name: payload.receiver.name,
     receiver_employee_number: payload.receiver.employee_number,
