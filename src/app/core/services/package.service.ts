@@ -141,9 +141,39 @@ export class PackageService {
       }
 
       if (filters?.search) {
-        query = query.or(
-          `reference.ilike.%${filters.search}%,receiver_email.ilike.%${filters.search}%`
-        );
+        const term = filters.search.replace(/[,()]/g, ' ').trim();
+        if (term) {
+          // The packages table has no receiver_name column — receiver names
+          // live on `receiver_profiles` keyed by email. Look up matching
+          // receiver emails first, then OR them into the package filter
+          // alongside po_number / receiver_email matches on the package row.
+          const escaped = term.replace(/%/g, '\\%').replace(/_/g, '\\_');
+          const { data: receiverMatches } = await this.supabaseService.client
+            .from('receiver_profiles')
+            .select('email')
+            .or(`name.ilike.%${escaped}%,surname.ilike.%${escaped}%`)
+            .limit(200);
+
+          const emails = Array.from(
+            new Set(
+              (receiverMatches ?? [])
+                .map(r => (r as { email: string | null }).email)
+                .filter((e): e is string => !!e)
+            )
+          );
+
+          const orParts = [
+            `po_number.ilike.%${escaped}%`,
+            `receiver_email.ilike.%${escaped}%`,
+          ];
+          if (emails.length > 0) {
+            // Quote emails to be safe inside PostgREST `in` list
+            const list = emails.map(e => `"${e.replace(/"/g, '\\"')}"`).join(',');
+            orParts.push(`receiver_email.in.(${list})`);
+          }
+
+          query = query.or(orParts.join(','));
+        }
       }
 
       if (filters?.dateFrom) {
