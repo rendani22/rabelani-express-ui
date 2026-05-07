@@ -22,6 +22,7 @@ import { ThemeService } from '../../core';
 import { SettingsService, AppSettings, DefaultOrdersFilter, DefaultDriversView } from '../../core';
 import { AuthService } from '../../core';
 import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
+import { APP_VERSION } from '../../../environments/version';
 
 /**
  * SettingsComponent - Application settings and preferences page.
@@ -77,6 +78,15 @@ export class SettingsComponent {
 
   // Save confirmation
   readonly saved = signal(false);
+
+  // App version (semver derived at build time from Conventional Commits)
+  readonly appVersion = APP_VERSION;
+  readonly commitDateFormatted = computed(() => {
+    const iso = this.appVersion.commitDate;
+    if (!iso) return '';
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime()) ? iso : d.toLocaleString();
+  });
 
   // Confirm reset dialog
   readonly confirmResetOpen = signal(false);

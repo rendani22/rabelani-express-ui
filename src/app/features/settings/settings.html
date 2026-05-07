@@ -278,7 +278,15 @@
             <span class="about-grid__value">Rabelani Express</span>
 
             <span class="about-grid__label">Version</span>
-            <span class="about-grid__value">1.0.0</span>
+            <span class="about-grid__value">
+              {{ appVersion.version }}
+              <code class="ml-2 font-mono text-xs text-gray-400 dark:text-gray-500">({{ appVersion.hash }})</code>
+            </span>
+
+            @if (commitDateFormatted()) {
+              <span class="about-grid__label">Released</span>
+              <span class="about-grid__value">{{ commitDateFormatted() }}</span>
+            }
 
             <span class="about-grid__label">Platform</span>
             <span class="about-grid__value">Angular 21 · Supabase</span>
