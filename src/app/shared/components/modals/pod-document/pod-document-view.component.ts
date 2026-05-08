@@ -57,6 +57,7 @@ export class PodDocumentViewComponent {
       [PACKAGE_STATUS.READY_FOR_COLLECTION]: 'Ready for Collection',
       [PACKAGE_STATUS.DELIVERED]: 'Delivered',
       [PACKAGE_STATUS.COLLECTED]: 'Collected',
+      [PACKAGE_STATUS.RETURNED]: 'Returned',
     };
     return labels[status] ?? status;
   }

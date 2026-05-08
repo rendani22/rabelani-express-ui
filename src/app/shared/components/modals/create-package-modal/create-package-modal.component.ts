@@ -532,10 +532,14 @@ export class CreatePackageModalComponent {
         const qty = item['quantity'] as number | undefined;
         return desc?.trim() && qty && qty > 0;
       })
-      .map((item: Record<string, unknown>) => ({
-        quantity: item['quantity'] as number,
-        description: (item['description'] as string).trim(),
-      }));
+      .map((item: Record<string, unknown>) => {
+        const invId = (item['inventoryItemId'] as string | undefined)?.trim();
+        return {
+          quantity: item['quantity'] as number,
+          description: (item['description'] as string).trim(),
+          ...(invId ? { inventory_item_id: invId } : {}),
+        };
+      });
 
     // Build request object with all required and optional fields
     return {

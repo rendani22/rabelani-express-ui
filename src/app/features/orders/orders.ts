@@ -221,6 +221,8 @@ export class OrdersComponent implements OnInit {
       case PACKAGE_STATUS.COLLECTED:
       case PACKAGE_STATUS.DELIVERED:
         return 'Completed';
+      case PACKAGE_STATUS.RETURNED:
+        return 'Canceled';
       case PACKAGE_STATUS.IN_TRANSIT:
         return 'In Transit';
       case PACKAGE_STATUS.READY_FOR_COLLECTION:
@@ -404,6 +406,7 @@ export class OrdersComponent implements OnInit {
       [PACKAGE_STATUS.READY_FOR_COLLECTION]: 'Ready for Collection',
       [PACKAGE_STATUS.DELIVERED]: 'Delivered',
       [PACKAGE_STATUS.COLLECTED]: 'Collected',
+      [PACKAGE_STATUS.RETURNED]: 'Returned',
     };
     return labels[status] ?? status;
   }

@@ -387,6 +387,8 @@ export class DashboardService {
         case PACKAGE_STATUS.COLLECTED:
           stats.completed++;
           break;
+        case PACKAGE_STATUS.RETURNED:
+          break;
       }
 
       // Count by time period
@@ -436,6 +438,12 @@ export class DashboardService {
         value: (statusCounts.get(PACKAGE_STATUS.DELIVERED) || 0) + (statusCounts.get(PACKAGE_STATUS.COLLECTED) || 0),
         color: '#10B981', // Green
         status: PACKAGE_STATUS.COLLECTED,
+      },
+      {
+        label: 'Returned',
+        value: statusCounts.get(PACKAGE_STATUS.RETURNED) || 0,
+        color: '#EF4444', // Red
+        status: PACKAGE_STATUS.RETURNED,
       },
     ].filter(item => item.value > 0);
 
@@ -554,6 +562,7 @@ export class DashboardService {
       case PACKAGE_STATUS.READY_FOR_COLLECTION: return 'Ready';
       case PACKAGE_STATUS.DELIVERED: return 'Delivered';
       case PACKAGE_STATUS.COLLECTED: return 'Collected';
+      case PACKAGE_STATUS.RETURNED: return 'Returned';
       default: return 'Unknown';
     }
   }

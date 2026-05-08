@@ -234,6 +234,7 @@ export class CustomerManagementComponent implements OnInit {
       [PACKAGE_STATUS.READY_FOR_COLLECTION]: 'Ready',
       [PACKAGE_STATUS.DELIVERED]: 'Delivered',
       [PACKAGE_STATUS.COLLECTED]: 'Collected',
+      [PACKAGE_STATUS.RETURNED]: 'Returned',
     };
     return labels[status] ?? status;
   }
@@ -249,6 +250,7 @@ export class CustomerManagementComponent implements OnInit {
       [PACKAGE_STATUS.READY_FOR_COLLECTION]: 'bg-purple-100 text-purple-800 dark:bg-purple-500/20 dark:text-purple-400',
       [PACKAGE_STATUS.DELIVERED]: 'bg-green-100 text-green-800 dark:bg-green-500/20 dark:text-green-400',
       [PACKAGE_STATUS.COLLECTED]: 'bg-green-100 text-green-800 dark:bg-green-500/20 dark:text-green-400',
+      [PACKAGE_STATUS.RETURNED]: 'bg-red-100 text-red-800 dark:bg-red-500/20 dark:text-red-400',
     };
     return classes[status] ?? 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300';
   }

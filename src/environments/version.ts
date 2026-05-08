@@ -26,15 +26,15 @@ export interface AppVersion {
 }
 
 export const APP_VERSION: AppVersion = {
-  "version": "0.38.0-dev",
-  "semver": "0.38.0",
+  "version": "0.39.0-dev",
+  "semver": "0.39.0",
   "baseTag": null,
-  "commitsSinceBase": 40,
+  "commitsSinceBase": 41,
   "isDirty": true,
-  "hash": "bcff3bb",
-  "fullHash": "bcff3bbf019d77868c1676553b1fd9e6c57a8ae4",
+  "hash": "f293900",
+  "fullHash": "f293900664956b2153d071bf855c482637e45832",
   "branch": "main",
-  "message": "feat: enhance package search functionality to include receiver name lookup",
-  "commitDate": "2026-05-07T14:24:02+02:00",
-  "buildDate": "2026-05-07T12:46:03.422Z"
+  "message": "feat!: Version 1",
+  "commitDate": "2026-05-07T14:54:43+02:00",
+  "buildDate": "2026-05-08T18:10:25.993Z"
 };

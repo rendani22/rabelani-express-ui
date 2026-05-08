@@ -46,7 +46,8 @@ export class OrdersActionsComponent implements OnDestroy {
     { value: PACKAGE_STATUS.IN_TRANSIT, label: 'In Transit' },
     { value: PACKAGE_STATUS.READY_FOR_COLLECTION, label: 'Ready for Collection' },
     { value: PACKAGE_STATUS.DELIVERED, label: 'Delivered' },
-    { value: PACKAGE_STATUS.COLLECTED, label: 'Collected' }
+    { value: PACKAGE_STATUS.COLLECTED, label: 'Collected' },
+    { value: PACKAGE_STATUS.RETURNED, label: 'Returned' }
   ];
 
   /** Search debounce subject */

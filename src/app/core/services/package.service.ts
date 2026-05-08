@@ -133,7 +133,7 @@ export class PackageService {
     try {
       let query = this.supabaseService.client
         .from('packages')
-        .select('*, items:package_items(id, quantity, description)')
+        .select('*, items:package_items(id, quantity, description, inventory_item_id)')
         .order('created_at', { ascending: false });
 
       if (filters?.status) {
@@ -214,7 +214,7 @@ export class PackageService {
     try {
       const { data, error } = await this.supabaseService.client
         .from('packages')
-        .select('*, items:package_items(id, quantity, description)')
+        .select('*, items:package_items(id, quantity, description, inventory_item_id)')
         .eq('id', id)
         .single();
 
@@ -237,7 +237,7 @@ export class PackageService {
     try {
       const { data, error } = await this.supabaseService.client
         .from('packages')
-        .select('*, items:package_items(id, quantity, description)')
+        .select('*, items:package_items(id, quantity, description, inventory_item_id)')
         .eq('reference', reference.toUpperCase())
         .single();
 
@@ -266,7 +266,7 @@ export class PackageService {
 
       const { data, error } = await this.supabaseService.client
         .from('packages')
-        .select('*, items:package_items(id, quantity, description)')
+        .select('*, items:package_items(id, quantity, description, inventory_item_id)')
         .eq('po_number', trimmed)
         .order('created_at', { ascending: false })
         .limit(1)

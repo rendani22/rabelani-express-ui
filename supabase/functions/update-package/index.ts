@@ -28,6 +28,16 @@ interface MarkCollectedPayload {
   pdf_filename?: string
 }
 
+interface PackageItemUpdatePayload {
+  id: string
+  quantity: number
+}
+
+interface PackageItemsDiff {
+  updates?: PackageItemUpdatePayload[]
+  deletes?: string[]
+}
+
 interface UpdatePackageRequest {
   package_id: string
   status?: 'pending' | 'notified' | 'in_transit' | 'ready_for_collection' | 'collected' | 'returned'
@@ -46,6 +56,12 @@ interface UpdatePackageRequest {
    * fields and signature storage is finalised.
    */
   pod?: MarkCollectedPayload
+  /**
+   * Optional items diff for editing pending/notified packages. Linked inventory
+   * stock is reconciled (returned on decrease/delete, decremented on
+   * increase) and a movement row is logged per affected inventory item.
+   */
+  items?: PackageItemsDiff
 }
 
 function buildCorsHeaders(origin: string | null) {
@@ -135,7 +151,7 @@ serve(async (req) => {
 
     // Parse request body
     const body: UpdatePackageRequest = await req.json()
-    const { package_id, status, notes, receiver_email, driver_user_id, pod } = body
+    const { package_id, status, notes, receiver_email, driver_user_id, pod, items } = body
 
     if (!package_id) {
       return new Response(
@@ -205,16 +221,294 @@ serve(async (req) => {
       )
     }
 
+    // ------------------------------------------------------------------
+    // Items diff (pending/notified packages only).
+    //
+    // When the UI sends an `items` payload, reconcile linked inventory stock
+    // and mutate package_items rows BEFORE applying the package-level update.
+    // Failures here abort the whole request — no package row update happens.
+    //
+    // Rules:
+    //   * package must still be in `pending` or `notified` status (server-side gate).
+    //   * `quantity` decrease or delete → return diff to inventory_items.quantity.
+    //   * `quantity` increase           → decrement inventory; reject on insufficient stock.
+    //   * items with no inventory_item_id are mutated without touching inventory.
+    //   * a movement row is inserted per affected inventory item with source='manual_edit'.
+    // ------------------------------------------------------------------
+    let itemChangesSummary: Record<string, unknown> | null = null
+    let forcedStatusAfterItemEdits: UpdatePackageRequest['status'] | null = null
+    let remainingItemCountAfterEdits: number | null = null
+    // Snapshots used to render the "Package Contents Updated" email.
+    let previousItemsSnapshot: { quantity: number; description: string }[] | null = null
+    let updatedItemsSnapshot:  { quantity: number; description: string }[] | null = null
+    if (items && (items.updates?.length || items.deletes?.length)) {
+      const canEditItems = ['pending', 'notified'].includes(existingPackage.status)
+      if (!canEditItems) {
+        return new Response(
+          JSON.stringify({
+            error: 'Package items are not editable',
+            details: `Only pending or notified packages can have their items modified (current status: ${existingPackage.status}).`
+          }),
+          { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      const deleteIds = Array.from(new Set((items.deletes ?? []).filter((id): id is string => !!id)))
+      const deleteIdSet = new Set(deleteIds)
+      // If a malformed client sends the same item in updates and deletes,
+      // delete wins. This avoids updating a row immediately before deleting
+      // it and, more importantly, avoids double-counting inventory returns.
+      const updatePayloads = (items.updates ?? []).filter(u => !!u && !!u.id && !deleteIdSet.has(u.id))
+      const updateIds = updatePayloads.map(u => u.id)
+
+      // Validate quantities up-front
+      for (const u of updatePayloads) {
+        if (!Number.isInteger(u.quantity) || u.quantity < 1) {
+          return new Response(
+            JSON.stringify({
+              error: 'Invalid item quantity',
+              details: `Quantity must be a positive integer (item ${u.id})`
+            }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+      }
+
+      // Snapshot the FULL set of package_items BEFORE any mutation so the
+      // notification email can render an accurate "previous contents" table.
+      {
+        const { data: allPrevItems, error: prevErr } = await adminClient
+          .from('package_items')
+          .select('quantity, description')
+          .eq('package_id', package_id)
+          .order('created_at', { ascending: true })
+        if (!prevErr) {
+          previousItemsSnapshot = (allPrevItems ?? []).map((r: any) => ({
+            quantity: r.quantity,
+            description: r.description
+          }))
+        }
+      }
+
+      // Load existing package_items belonging to this package and only the
+      // ones we're being asked to mutate (defends against cross-package ids).
+      const allTargetIds = Array.from(new Set([...updateIds, ...deleteIds]))
+      if (allTargetIds.length === 0) {
+        // Nothing to do — fall through to the normal update path.
+      } else {
+        const { data: targetRows, error: targetErr } = await adminClient
+          .from('package_items')
+          .select('id, quantity, inventory_item_id, description, package_id')
+          .in('id', allTargetIds)
+
+        if (targetErr) {
+          return new Response(
+            JSON.stringify({ error: 'Failed to load package items', details: targetErr.message }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        const targetMap = new Map<string, { id: string; quantity: number; inventory_item_id: string | null; description: string; package_id: string }>(
+          (targetRows ?? []).map((r: any) => [r.id, r])
+        )
+        for (const id of allTargetIds) {
+          const row = targetMap.get(id)
+          if (!row || row.package_id !== package_id) {
+            return new Response(
+              JSON.stringify({
+                error: 'Invalid package item',
+                details: `Item ${id} does not belong to package ${package_id}`
+              }),
+              { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+          }
+        }
+
+        // Aggregate inventory deltas per inventory_item_id.
+        // Positive = return to stock, negative = consume more stock.
+        const inventoryDeltas = new Map<string, number>()
+        const accDelta = (invId: string, d: number) => {
+          inventoryDeltas.set(invId, (inventoryDeltas.get(invId) ?? 0) + d)
+        }
+
+        for (const u of updatePayloads) {
+          const row = targetMap.get(u.id)!
+          const diff = row.quantity - u.quantity // old - new (positive => return)
+          if (diff !== 0 && row.inventory_item_id) {
+            accDelta(row.inventory_item_id, diff)
+          }
+        }
+        for (const delId of deleteIds) {
+          const row = targetMap.get(delId)!
+          if (row.inventory_item_id) {
+            accDelta(row.inventory_item_id, row.quantity) // full return
+          }
+        }
+
+        // Apply inventory adjustments BEFORE mutating package_items so a
+        // stock failure leaves the package items unchanged.
+        const movementInserts: Array<Record<string, unknown>> = []
+        if (inventoryDeltas.size > 0) {
+          const invIds = Array.from(inventoryDeltas.keys())
+          const { data: invRows, error: invErr } = await adminClient
+            .from('inventory_items')
+            .select('id, name, quantity')
+            .in('id', invIds)
+
+          if (invErr) {
+            return new Response(
+              JSON.stringify({ error: 'Failed to load inventory', details: invErr.message }),
+              { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+          }
+
+          const invMap = new Map<string, { id: string; name: string; quantity: number }>(
+            (invRows ?? []).map((r: any) => [r.id, r])
+          )
+
+          // Pre-flight: any aggregate that would drop quantity below 0 is rejected.
+          for (const [invId, delta] of inventoryDeltas) {
+            const inv = invMap.get(invId)
+            if (!inv) continue // FK was set null on inventory delete — skip
+            if (inv.quantity + delta < 0) {
+              return new Response(
+                JSON.stringify({
+                  error: 'Insufficient inventory',
+                  details: `${inv.name} has ${inv.quantity} available; the requested change needs ${-delta}.`
+                }),
+                { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+              )
+            }
+          }
+
+          // Apply each adjustment + queue movement rows.
+          for (const [invId, delta] of inventoryDeltas) {
+            const inv = invMap.get(invId)
+            if (!inv || delta === 0) continue
+            const newQty = inv.quantity + delta
+            const { error: updErr } = await adminClient
+              .from('inventory_items')
+              .update({ quantity: newQty })
+              .eq('id', invId)
+            if (updErr) {
+              return new Response(
+                JSON.stringify({ error: 'Failed to update inventory', details: updErr.message }),
+                { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+              )
+            }
+            movementInserts.push({
+              item_id: invId,
+              user_id: callingUser.id,
+              delta,
+              quantity_before: inv.quantity,
+              quantity_after: newQty,
+              source: 'manual_edit',
+              reference: existingPackage.reference,
+              note: delta > 0
+                ? `Returned to stock from package edit (${existingPackage.reference})`
+                : `Additional deduction from package edit (${existingPackage.reference})`
+            })
+          }
+        }
+
+        // Mutate package_items: updates first, then deletes.
+        for (const u of updatePayloads) {
+          const row = targetMap.get(u.id)!
+          if (row.quantity === u.quantity) continue
+          const { error: updItemErr } = await adminClient
+            .from('package_items')
+            .update({ quantity: u.quantity })
+            .eq('id', u.id)
+          if (updItemErr) {
+            return new Response(
+              JSON.stringify({ error: 'Failed to update package item', details: updItemErr.message }),
+              { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+          }
+        }
+        if (deleteIds.length > 0) {
+          const { error: delErr } = await adminClient
+            .from('package_items')
+            .delete()
+            .in('id', deleteIds)
+          if (delErr) {
+            return new Response(
+              JSON.stringify({ error: 'Failed to delete package items', details: delErr.message }),
+              { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+          }
+        }
+
+        // Best-effort movement logging (non-fatal).
+        if (movementInserts.length > 0) {
+          const { error: movErr } = await adminClient
+            .from('inventory_movements')
+            .insert(movementInserts)
+          if (movErr) {
+            console.warn('inventory_movements insert failed (non-fatal):', movErr.message)
+          }
+        }
+
+        // If every item was removed, the package no longer represents an
+        // active order. Move it to the existing terminal `returned` status.
+        const { count: remainingCount, error: remainingCountErr } = await adminClient
+          .from('package_items')
+          .select('id', { count: 'exact', head: true })
+          .eq('package_id', package_id)
+
+        if (remainingCountErr) {
+          return new Response(
+            JSON.stringify({ error: 'Failed to count remaining package items', details: remainingCountErr.message }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        remainingItemCountAfterEdits = remainingCount ?? 0
+        if (remainingItemCountAfterEdits === 0) {
+          forcedStatusAfterItemEdits = 'returned'
+        }
+
+        // Snapshot the FULL set of package_items AFTER mutation for the email.
+        {
+          const { data: allNewItems } = await adminClient
+            .from('package_items')
+            .select('quantity, description')
+            .eq('package_id', package_id)
+            .order('created_at', { ascending: true })
+          updatedItemsSnapshot = (allNewItems ?? []).map((r: any) => ({
+            quantity: r.quantity,
+            description: r.description
+          }))
+        }
+
+        itemChangesSummary = {
+          updates: updatePayloads.map(u => {
+            const row = targetMap.get(u.id)!
+            return { id: u.id, old_quantity: row.quantity, new_quantity: u.quantity, inventory_item_id: row.inventory_item_id }
+          }),
+          deletes: deleteIds.map(id => {
+            const row = targetMap.get(id)!
+            return { id, quantity: row.quantity, inventory_item_id: row.inventory_item_id, description: row.description }
+          }),
+          inventory_deltas: Object.fromEntries(inventoryDeltas),
+          remaining_item_count: remainingItemCountAfterEdits,
+          forced_status: forcedStatusAfterItemEdits
+        }
+      }
+    }
+
+    const effectiveStatus = forcedStatusAfterItemEdits ?? status
+
     // Build update object
     const updateData: Record<string, any> = {
       updated_at: new Date().toISOString()
     }
 
-    if (status !== undefined) {
-      updateData.status = status
+    if (effectiveStatus !== undefined) {
+      updateData.status = effectiveStatus
 
       // If marking as collected, set collected_at and collected_by
-      if (status === 'collected') {
+      if (effectiveStatus === 'collected') {
         updateData.collected_at = pod?.collected_at ?? new Date().toISOString()
         updateData.collected_by = callingUser.id
       }
@@ -279,7 +573,7 @@ serve(async (req) => {
       .from('packages')
       .update(updateData)
       .eq('id', package_id)
-      .select()
+      .select('*, items:package_items(id, quantity, description, inventory_item_id)')
       .single()
 
     if (updateError) {
@@ -309,7 +603,7 @@ serve(async (req) => {
     // `witness_signature` columns hold the per-party data URLs the UI
     // renders.
     let podPersistError: string | null = null
-    if (status === 'collected' && pod) {
+    if (effectiveStatus === 'collected' && pod) {
       // Resolve a staff email — prefer the staff_profiles row, fall back
       // to the auth user's email so the NOT NULL constraint is satisfied.
       const staffEmail =
@@ -379,7 +673,7 @@ serve(async (req) => {
     let readyEmailSent = false
     let readyEmailError: string | null = null
     const transitionedToReady =
-      status === 'ready_for_collection' &&
+      effectiveStatus === 'ready_for_collection' &&
       existingPackage.status !== 'ready_for_collection'
 
     if (transitionedToReady) {
@@ -580,7 +874,7 @@ serve(async (req) => {
     let completedEmailSent = false
     let completedEmailError: string | null = null
     const transitionedToCollected =
-      status === 'collected' &&
+      effectiveStatus === 'collected' &&
       existingPackage.status !== 'collected'
 
     if (transitionedToCollected) {
@@ -651,6 +945,10 @@ serve(async (req) => {
             body: JSON.stringify({
               from: Deno.env.get('EMAIL_FROM') || 'POD System <noreply@example.com>',
               to: [updatedPackage.receiver_email],
+              // CC the business mailbox so a copy of the POD is archived alongside
+              // the receiver's notification. Falls back to SUPPORT_EMAIL / the
+              // hard-coded business address when not explicitly overridden.
+              cc: [Deno.env.get('PACKAGE_COMPLETED_CC') || supportEmail || 'rabelanimm@gmail.com'],
               subject: `Package Completed${poNumber ? ` - ${poNumber}` : ''} - ${updatedPackage.reference}`,
               ...(attachments.length > 0 ? { attachments } : {}),
               html: `
@@ -746,6 +1044,7 @@ serve(async (req) => {
                 notification_type: 'email',
                 notification_status: 'sent',
                 email_subject: 'Package Completed',
+                cc: [Deno.env.get('PACKAGE_COMPLETED_CC') || supportEmail || 'rabelanimm@gmail.com'],
                 pod_attached: attachments.length > 0,
                 pod_attachment_filename: attachments[0]?.filename ?? null
               }
@@ -760,6 +1059,159 @@ serve(async (req) => {
         const errorMessage = e instanceof Error ? e.message : String(e)
         completedEmailError = `Email exception: ${errorMessage}`
         console.error('Package-completed email exception:', e)
+      }
+    }
+
+    // ------------------------------------------------------------------
+    // Send "Package Contents Updated" email when items were edited.
+    //
+    // Fires whenever the items diff actually mutated the package. Renders
+    // the new contents alongside the previous contents so the receiver can
+    // see exactly what changed. Email failures are non-fatal.
+    // ------------------------------------------------------------------
+    let itemsUpdatedEmailSent = false
+    let itemsUpdatedEmailError: string | null = null
+    if (itemChangesSummary) {
+      try {
+        const resendApiKey = Deno.env.get('RESEND_API_KEY')
+        const supportEmail   = Deno.env.get('SUPPORT_EMAIL')   || 'rabelanimm@gmail.com'
+        const reviewFormUrl  = Deno.env.get('REVIEW_FORM_URL') || 'https://docs.google.com/forms/d/e/1FAIpQLSdiySN-ONYROMnjfqAo4fkHyihRWdhD0sUmIu4L8k6UXcGsNg/viewform?usp=preview'
+        const reviewQrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=10&data=${encodeURIComponent(reviewFormUrl)}`
+        const poNumber: string | null = existingPackage.po_number ?? null
+
+        const previousItems = previousItemsSnapshot ?? []
+        const updatedItems  = updatedItemsSnapshot  ?? []
+
+        const renderItemsTable = (rows: { quantity: number; description: string }[]) => rows.length > 0 ? `
+          <table style="width: 100%; border-collapse: collapse; border: 1px solid #ededed; border-radius: 6px; overflow: hidden;">
+            <thead>
+              <tr style="background: #fafafa;">
+                <th style="padding: 12px; text-align: left; border-bottom: 1px solid #ededed; font-size: 12px; color: #919194; text-transform: uppercase; letter-spacing: 0.05em; width: 60px;">Qty</th>
+                <th style="padding: 12px; text-align: left; border-bottom: 1px solid #ededed; font-size: 12px; color: #919194; text-transform: uppercase; letter-spacing: 0.05em;">Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.map(item => `
+              <tr>
+                <td style="padding: 12px; border-bottom: 1px solid #ededed; font-size: 14px; color: #242424; font-weight: 600;">${item.quantity}</td>
+                <td style="padding: 12px; border-bottom: 1px solid #ededed; font-size: 14px; color: #4e595f;">${item.description}</td>
+              </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        ` : `<p style="margin: 0; color: #919194; font-size: 14px; font-style: italic;">No items.</p>`
+
+        if (!resendApiKey) {
+          itemsUpdatedEmailError = 'Email service not configured (RESEND_API_KEY not set)'
+          console.log('Items-updated email skipped:', itemsUpdatedEmailError)
+        } else if (!updatedPackage.receiver_email) {
+          itemsUpdatedEmailError = 'Package has no receiver_email; cannot send notification'
+          console.warn(itemsUpdatedEmailError)
+        } else {
+          const emailResponse = await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${resendApiKey}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              from: Deno.env.get('EMAIL_FROM') || 'POD System <noreply@example.com>',
+              to: [updatedPackage.receiver_email],
+              subject: `Package Contents Updated${poNumber ? ` - ${poNumber}` : ''} - ${updatedPackage.reference}`,
+              html: `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                  <meta charset="utf-8">
+                  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                </head>
+                <body style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #242424; background: #ffffff;">
+                  <!-- Brand bar -->
+                  <div style="background: #ffffff; padding: 24px 24px 16px 24px; border: 1px solid #ededed; border-bottom: 4px solid #f75757; border-radius: 8px 8px 0 0; text-align: center;">
+                    <a href="https://www.rabelanimm.co.za/" style="text-decoration: none; display: inline-block;">
+                      <img src="https://www.rabelanimm.co.za/images/logo.png" alt="Rabelani MM Trading Enterprise" style="max-height: 70px; height: auto; width: auto; display: block; margin: 0 auto;" />
+                    </a>
+                    <p style="margin: 12px 0 0 0; font-size: 12px; color: #919194; letter-spacing: 0.08em; text-transform: uppercase;">Rabelani MM Trading Enterprise</p>
+                  </div>
+
+                  <!-- Title block -->
+                  <div style="background: #f75757; padding: 28px 24px; text-align: center;">
+                    <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 700; letter-spacing: 0.01em;">Package Contents Updated</h1>
+                    ${poNumber ? `<p style="color: #ffe7e7; margin: 14px 0 0 0; font-size: 15px;">Purchase Order Number: <strong style="font-family: 'Courier New', monospace; color: #ffffff;">${poNumber}</strong></p>` : ''}
+                    <p style="color: #ffe7e7; margin: 6px 0 0 0; font-size: 15px;">Your Package Reference: <strong style="font-family: 'Courier New', monospace; color: #ffffff;">${updatedPackage.reference}</strong></p>
+                  </div>
+
+                  <div style="background: #ffffff; padding: 30px 28px; border: 1px solid #ededed; border-top: none;">
+                    <h2 style="color: #242424; font-size: 20px; margin: 0 0 15px 0; font-weight: 700;">✏️ Your Package has been edited</h2>
+                    <p style="margin: 0 0 20px 0; color: #4e595f; line-height: 1.6;">The contents of your package have been updated. Please review the changes below.</p>
+
+                    <div style="margin: 24px 0;">
+                      <h3 style="color: #242424; font-size: 16px; margin: 0 0 12px 0; font-weight: 700;">📋 Package Contents – Updated Contents</h3>
+                      ${renderItemsTable(updatedItems)}
+                    </div>
+
+                    <div style="margin: 24px 0;">
+                      <h3 style="color: #919194; font-size: 16px; margin: 0 0 12px 0; font-weight: 700;">📦 Package Contents – Previous</h3>
+                      ${renderItemsTable(previousItems)}
+                    </div>
+
+                    <p style="margin: 24px 0 0 0; color: #4e595f; line-height: 1.6; font-size: 15px;">Thank you for your Order.</p>
+                  </div>
+
+                  <!-- Footer -->
+                  <div style="background: #242424; padding: 28px 24px; border-radius: 0 0 8px 8px; text-align: center;">
+                    <p style="margin: 0 0 12px 0; font-size: 14px; color: #c9c9c9;">
+                      Questions? Contact us at <a href="mailto:${supportEmail}" style="color: #f75757; text-decoration: none; font-weight: 600;">${supportEmail}</a>
+                    </p>
+                    <p style="margin: 0 0 18px 0; font-size: 11px; color: #919194; line-height: 1.5;">
+                      This is an automated message from the POD System. Please do not reply directly to this email.
+                    </p>
+                    <div style="background: #ffffff; display: inline-block; padding: 14px; border-radius: 8px; margin: 0 0 14px 0;">
+                      <img src="${reviewQrCodeUrl}" alt="Scan to review our services" width="160" height="160" style="display: block; width: 160px; height: 160px;" />
+                    </div>
+                    <p style="margin: 0 0 14px 0; font-size: 12px; color: #c9c9c9; letter-spacing: 0.04em;">
+                      Scan the QR code to review our services
+                    </p>
+                    <a href="${reviewFormUrl}" style="display: inline-block; padding: 12px 28px; background: #f75757; color: #ffffff; text-decoration: none; font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; border-radius: 50px;">
+                      Please Review Our Services
+                    </a>
+                    <p style="margin: 18px 0 0 0; font-size: 11px; color: #666666;">
+                      &copy; ${new Date().getFullYear()} Rabelani MM Trading Enterprise &middot; <a href="https://www.rabelanimm.co.za/" style="color: #919194; text-decoration: none;">www.rabelanimm.co.za</a>
+                    </p>
+                  </div>
+                </body>
+                </html>
+              `
+            })
+          })
+
+          if (emailResponse.ok) {
+            itemsUpdatedEmailSent = true
+            await adminClient.from('audit_logs').insert({
+              action: 'PACKAGE_ITEMS_UPDATED_NOTIFICATION',
+              entity_type: 'package',
+              entity_id: package_id,
+              performed_by: callingUser.id,
+              metadata: {
+                reference: updatedPackage.reference,
+                receiver_email: updatedPackage.receiver_email,
+                notification_type: 'email',
+                notification_status: 'sent',
+                email_subject: 'Package Contents Updated',
+                previous_item_count: previousItems.length,
+                updated_item_count: updatedItems.length
+              }
+            })
+          } else {
+            const errorBody = await emailResponse.text()
+            itemsUpdatedEmailError = `Email API error: ${errorBody}`
+            console.error('Items-updated email send failed:', itemsUpdatedEmailError)
+          }
+        }
+      } catch (e: unknown) {
+        const errorMessage = e instanceof Error ? e.message : String(e)
+        itemsUpdatedEmailError = `Email exception: ${errorMessage}`
+        console.error('Items-updated email exception:', e)
       }
     }
 
@@ -781,6 +1233,9 @@ serve(async (req) => {
         ready_email_error: transitionedToReady ? readyEmailError : undefined,
         completed_email_sent: transitionedToCollected ? completedEmailSent : undefined,
         completed_email_error: transitionedToCollected ? completedEmailError : undefined,
+        items_updated_email_sent: itemChangesSummary ? itemsUpdatedEmailSent : undefined,
+        items_updated_email_error: itemChangesSummary ? itemsUpdatedEmailError : undefined,
+        item_changes: itemChangesSummary,
         performed_by_name: callerProfile.full_name,
         performed_by_role: callerProfile.role
       }
@@ -796,7 +1251,10 @@ serve(async (req) => {
           ? { email_sent: readyEmailSent, email_error: readyEmailError }
           : transitionedToCollected
             ? { email_sent: completedEmailSent, email_error: completedEmailError }
-            : {})
+            : {}),
+        ...(itemChangesSummary
+          ? { items_email_sent: itemsUpdatedEmailSent, items_email_error: itemsUpdatedEmailError }
+          : {})
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )

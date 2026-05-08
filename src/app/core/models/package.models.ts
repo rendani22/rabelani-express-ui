@@ -15,6 +15,7 @@ export const PACKAGE_STATUS = {
   READY_FOR_COLLECTION: 'ready_for_collection',
   DELIVERED: 'delivered',
   COLLECTED: 'collected',
+  RETURNED: 'returned',
 } as const;
 
 export type PackageStatus = (typeof PACKAGE_STATUS)[keyof typeof PACKAGE_STATUS];
@@ -35,6 +36,13 @@ export const EDGE_FUNCTIONS = {
 export interface PackageItemRequest {
   readonly quantity: number;
   readonly description: string;
+  /**
+   * Optional inventory item id this package item is sourced from. When
+   * provided, the create-package edge function persists it on
+   * `package_items.inventory_item_id` so the link is preserved for later
+   * stock reconciliation (edits, deletions).
+   */
+  readonly inventory_item_id?: string | null;
 }
 
 /** Request payload for creating a new package */
@@ -72,6 +80,23 @@ export interface MarkCollectedPayload {
   readonly pdf_filename?: string;
 }
 
+/** Quantity change for an existing package_items row (pending/notified packages only) */
+export interface PackageItemUpdate {
+  readonly id: string;
+  readonly quantity: number;
+}
+
+/**
+ * Items diff sent to update-package when editing the contents of a pending or
+ * notified package. Linked inventory rows are reconciled server-side: returned to
+ * stock when quantities decrease or items are deleted, decremented when
+ * quantities increase. Insufficient stock causes the request to fail.
+ */
+export interface UpdatePackageItemsPayload {
+  readonly updates?: readonly PackageItemUpdate[];
+  readonly deletes?: readonly string[];
+}
+
 /** Request payload for updating a package */
 export interface UpdatePackageRequest {
   readonly package_id: string;
@@ -86,6 +111,12 @@ export interface UpdatePackageRequest {
   readonly driver_user_id?: string;
   /** Optional proof-of-delivery payload (sent when transitioning to `collected`) */
   readonly pod?: MarkCollectedPayload;
+  /**
+   * Optional items diff for editing pending/notified packages. Server validates
+   * the package is still editable and reconciles linked inventory
+   * stock atomically with the package_items mutations.
+   */
+  readonly items?: UpdatePackageItemsPayload;
 }
 
 /** Filters for loading packages */
@@ -106,6 +137,12 @@ export interface PackageItem {
   readonly id: string;
   readonly quantity: number;
   readonly description: string;
+  /**
+   * The inventory item this row was sourced from, if any. `null` for
+   * free-text items that were never linked to inventory. Required for
+   * the edit-pending flow to know whether to reconcile stock.
+   */
+  readonly inventory_item_id?: string | null;
 }
 
 /** Package entity returned from the API */
@@ -336,7 +373,7 @@ export const PACKAGE_STATUS_FLOW: readonly PackageStatus[] = [
  * - …with one exception: `ready_for_collection` may be moved back to
  *   `notified` (e.g. to re-notify the receiver).
  * - `collected` is excluded — it requires the proof-of-delivery modal flow.
- * - Final states (`collected`, `delivered`) return an empty list.
+ * - Final states (`collected`, `delivered`, `returned`) return an empty list.
  */
 export function getAllowedManualStatusTransitions(
   currentStatus: PackageStatus
@@ -344,7 +381,8 @@ export function getAllowedManualStatusTransitions(
   // Final states cannot be changed.
   if (
     currentStatus === PACKAGE_STATUS.COLLECTED ||
-    currentStatus === PACKAGE_STATUS.DELIVERED
+    currentStatus === PACKAGE_STATUS.DELIVERED ||
+    currentStatus === PACKAGE_STATUS.RETURNED
   ) {
     return [];
   }
@@ -363,5 +401,14 @@ export function getAllowedManualStatusTransitions(
   return PACKAGE_STATUS_FLOW
     .slice(currentIndex + 1)
     .filter((s) => s !== PACKAGE_STATUS.COLLECTED);
+}
+
+/**
+ * Returns true when a package is still in a state where its contents
+ * (item quantities / removals) may be edited from the UI. Currently
+ * limited to the `pending` and `notified` statuses.
+ */
+export function isPackageEditable(pkg: Pick<Package, 'status'>): boolean {
+  return pkg.status === PACKAGE_STATUS.PENDING || pkg.status === PACKAGE_STATUS.NOTIFIED;
 }
 

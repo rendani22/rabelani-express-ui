@@ -88,6 +88,8 @@ export class RecentPackagesCardComponent {
       case PACKAGE_STATUS.DELIVERED:
       case PACKAGE_STATUS.COLLECTED:
         return 'bg-green-100 dark:bg-green-500/20';
+      case PACKAGE_STATUS.RETURNED:
+        return 'bg-red-100 dark:bg-red-500/20';
       default:
         return 'bg-gray-100 dark:bg-gray-500/20';
     }
@@ -105,6 +107,8 @@ export class RecentPackagesCardComponent {
       case PACKAGE_STATUS.DELIVERED:
       case PACKAGE_STATUS.COLLECTED:
         return 'text-green-500';
+      case PACKAGE_STATUS.RETURNED:
+        return 'text-red-500';
       default:
         return 'text-gray-500';
     }
@@ -122,6 +126,8 @@ export class RecentPackagesCardComponent {
       case PACKAGE_STATUS.DELIVERED:
       case PACKAGE_STATUS.COLLECTED:
         return 'bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400';
+      case PACKAGE_STATUS.RETURNED:
+        return 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400';
       default:
         return 'bg-gray-100 text-gray-700 dark:bg-gray-500/20 dark:text-gray-400';
     }

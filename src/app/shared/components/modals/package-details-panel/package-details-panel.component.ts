@@ -1,5 +1,6 @@
-import { Component, Input, Output, EventEmitter, OnChanges, SimpleChanges, inject, signal } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnChanges, SimpleChanges, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import {
   Package,
   PackageItem,
@@ -9,9 +10,12 @@ import {
   PodRecord,
   PackageService,
   StaffService,
+  InventoryService,
+  isPackageEditable,
   getAllowedManualStatusTransitions,
 } from '../../../../core';
 import { SupabaseService } from '../../../services/supabase.service';
+import { ToastService } from '../../toast/toast.service';
 
 /** A single entry in the package status audit log */
 interface StatusHistoryEntry {
@@ -32,7 +36,7 @@ interface TimelineEntry {
 @Component({
   selector: 'app-package-details-panel',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   template: `
     <!-- Backdrop -->
     @if (isOpen) {
@@ -92,6 +96,9 @@ interface TimelineEntry {
                         }
                         @case ('delivered') {
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                        }
+                        @case ('returned') {
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                         }
                         @case ('in_transit') {
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"></path>
@@ -172,43 +179,158 @@ interface TimelineEntry {
             </div>
 
             <!-- Package Items -->
-            @if (pkg.items && pkg.items.length > 0) {
+            @if ((pkg.items && pkg.items.length > 0) || canEditItems()) {
               <div class="px-6 py-5 border-b border-gray-200 dark:border-gray-700">
                 <div class="flex items-center justify-between mb-3">
                   <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                    Items ({{ pkg.items.length }})
+                    Items ({{ editMode() ? draftItems().length : (pkg.items?.length ?? 0) }})
                   </h3>
-                  <button
-                    type="button"
-                    class="inline-flex items-center gap-1 text-xs text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300"
-                    (click)="printAllItemQrCodes()"
-                  >
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
-                    </svg>
-                    Print All QR
-                  </button>
-                </div>
-                <ul class="space-y-2">
-                  @for (item of pkg.items; track item.id) {
-                    <li class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                      <div class="flex-1">
-                        <span class="text-sm text-gray-900 dark:text-white">{{ item.description }}</span>
-                        <span class="text-sm font-medium text-gray-500 dark:text-gray-400 ml-2">× {{ item.quantity }}</span>
-                      </div>
+                  <div class="flex items-center gap-2">
+                    @if (canEditItems() && !editMode()) {
                       <button
                         type="button"
-                        class="p-1.5 text-violet-500 hover:text-violet-600 dark:text-violet-400 dark:hover:text-violet-300 transition-colors rounded"
-                        (click)="printItemQrCode(item)"
-                        title="Print QR Code"
+                        class="inline-flex items-center gap-1 text-xs text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300"
+                        (click)="enterEditMode()"
+                        title="Edit items"
                       >
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                        </svg>
+                        Edit
+                      </button>
+                    }
+                    @if (!editMode() && pkg.items && pkg.items.length > 0) {
+                      <button
+                        type="button"
+                        class="inline-flex items-center gap-1 text-xs text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300"
+                        (click)="printAllItemQrCodes()"
+                      >
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
                         </svg>
+                        Print All QR
                       </button>
-                    </li>
+                    }
+                  </div>
+                </div>
+
+                @if (!editMode()) {
+                  <ul class="space-y-2">
+                    @for (item of pkg.items; track item.id) {
+                      <li class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                        <div class="flex-1">
+                          <span class="text-sm text-gray-900 dark:text-white">{{ item.description }}</span>
+                          <span class="text-sm font-medium text-gray-500 dark:text-gray-400 ml-2">× {{ item.quantity }}</span>
+                        </div>
+                        <button
+                          type="button"
+                          class="p-1.5 text-violet-500 hover:text-violet-600 dark:text-violet-400 dark:hover:text-violet-300 transition-colors rounded"
+                          (click)="printItemQrCode(item)"
+                          title="Print QR Code"
+                        >
+                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+                          </svg>
+                        </button>
+                      </li>
+                    }
+                  </ul>
+                } @else {
+                  <!-- Edit mode -->
+                  <ul class="space-y-2">
+                    @for (draft of draftItems(); track draft.id) {
+                      <li
+                        class="flex items-center gap-2 p-3 rounded-lg transition-colors"
+                        [class.bg-gray-50]="!draft.deleted"
+                        [class.dark:bg-gray-700/50]="!draft.deleted"
+                        [class.bg-red-50]="draft.deleted"
+                        [class.dark:bg-red-900/20]="draft.deleted"
+                      >
+                        <div class="flex-1 min-w-0">
+                          <p
+                            class="text-sm text-gray-900 dark:text-white truncate"
+                            [class.line-through]="draft.deleted"
+                            [class.text-gray-400]="draft.deleted"
+                            [title]="draft.description"
+                          >
+                            {{ draft.description }}
+                          </p>
+                          @if (draft.inventory_item_id && stockHintFor(draft.inventory_item_id) !== null) {
+                            <p class="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
+                              Stock: {{ stockHintFor(draft.inventory_item_id) }}
+                              @if (draft.quantity > (originalQuantityFor(draft.id) ?? 0) + (stockHintFor(draft.inventory_item_id) ?? 0)) {
+                                <span class="text-red-600 dark:text-red-400 ml-1">(insufficient)</span>
+                              }
+                            </p>
+                          }
+                        </div>
+
+                        @if (!draft.deleted) {
+                          <div class="flex items-center gap-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md">
+                            <button
+                              type="button"
+                              class="px-2 py-1 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white disabled:text-gray-300 dark:disabled:text-gray-600"
+                              [disabled]="draft.quantity <= 1"
+                              (click)="decrementDraft(draft.id)"
+                              aria-label="Decrease quantity"
+                            >−</button>
+                            <input
+                              type="number"
+                              class="w-12 text-center text-sm bg-transparent border-0 focus:outline-none focus:ring-0 text-gray-900 dark:text-white"
+                              min="1"
+                              [ngModel]="draft.quantity"
+                              (ngModelChange)="setDraftQty(draft.id, $event)"
+                            />
+                            <button
+                              type="button"
+                              class="px-2 py-1 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+                              (click)="incrementDraft(draft.id)"
+                              aria-label="Increase quantity"
+                            >+</button>
+                          </div>
+                          <button
+                            type="button"
+                            class="p-1.5 text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 transition-colors rounded"
+                            (click)="markDraftDeleted(draft.id)"
+                            title="Remove item"
+                            aria-label="Remove item"
+                          >
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3"></path>
+                            </svg>
+                          </button>
+                        } @else {
+                          <button
+                            type="button"
+                            class="text-xs text-violet-600 dark:text-violet-400 hover:text-violet-700 font-medium"
+                            (click)="undoDraftDelete(draft.id)"
+                          >Undo</button>
+                        }
+                      </li>
+                    }
+                  </ul>
+
+                  @if (itemEditError()) {
+                    <p class="mt-2 text-xs text-red-600 dark:text-red-400">{{ itemEditError() }}</p>
                   }
-                </ul>
+
+                  <div class="flex items-center justify-end gap-2 mt-3">
+                    <button
+                      type="button"
+                      class="px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+                      [disabled]="savingItems()"
+                      (click)="cancelEdit()"
+                    >Cancel</button>
+                    <button
+                      type="button"
+                      class="px-3 py-1.5 text-xs font-medium text-white bg-violet-600 hover:bg-violet-700 rounded-md transition-colors disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:cursor-not-allowed"
+                      [disabled]="savingItems() || !hasDraftChanges() || !areDraftsValid()"
+                      (click)="saveItemEdits()"
+                    >
+                      @if (savingItems()) { Saving… } @else { Save changes }
+                    </button>
+                  </div>
+                }
               </div>
             }
 
@@ -453,6 +575,8 @@ export class PackageDetailsPanelComponent implements OnChanges {
   private readonly supabaseService = inject(SupabaseService);
   private readonly packageService = inject(PackageService);
   private readonly staffService = inject(StaffService);
+  private readonly inventoryService = inject(InventoryService);
+  private readonly toastService = inject(ToastService);
 
   @Input() isOpen = false;
   @Input() package: Package | null = null;
@@ -467,6 +591,11 @@ export class PackageDetailsPanelComponent implements OnChanges {
    * (any forward status except `collected`, which uses the POD modal flow).
    */
   @Output() setStatus = new EventEmitter<{ pkg: Package; status: PackageStatus }>();
+  /**
+   * Emitted with the fresh package after a successful items edit so the
+   * parent (e.g. orders page) can refresh its local list / selection.
+   */
+  @Output() packageUpdated = new EventEmitter<Package>();
 
   /** Status history loaded from Supabase */
   readonly statusHistory = signal<StatusHistoryEntry[]>([]);
@@ -502,6 +631,201 @@ export class PackageDetailsPanelComponent implements OnChanges {
   /** Currently selected status in the manual override dropdown */
   readonly selectedManualStatus = signal<PackageStatus | ''>('');
 
+  // --------------------------------------------------------------------------
+  // Items edit mode (pending/notified packages only)
+  // --------------------------------------------------------------------------
+
+  /** Whether the Items section is in edit mode. */
+  readonly editMode = signal(false);
+  /** Local draft of items being edited. `deleted=true` flags rows for removal. */
+  readonly draftItems = signal<Array<{
+    id: string;
+    description: string;
+    quantity: number;
+    inventory_item_id: string | null;
+    deleted: boolean;
+  }>>([]);
+  /** True while the save call is in flight. */
+  readonly savingItems = signal(false);
+  /** Inline error from the last save attempt (e.g. insufficient inventory). */
+  readonly itemEditError = signal<string | null>(null);
+  /** Snapshot of original quantities keyed by item id, used for stock-cap math. */
+  private readonly originalQuantities = signal<Record<string, number>>({});
+
+  /** True when the package is in a state where item edits are allowed. */
+  canEditItems(): boolean {
+    return !!this.package && isPackageEditable(this.package);
+  }
+
+  /** Look up the cached inventory stock for an item, if available. */
+  stockHintFor(inventoryItemId: string): number | null {
+    const item = this.inventoryService.items().find(i => i.id === inventoryItemId);
+    return item ? item.quantity : null;
+  }
+
+  /** Original (pre-edit) quantity for a draft item id. */
+  originalQuantityFor(id: string): number | null {
+    return this.originalQuantities()[id] ?? null;
+  }
+
+  /** Returns true if the user has any pending changes vs the original items. */
+  hasDraftChanges(): boolean {
+    const drafts = this.draftItems();
+    const originals = this.originalQuantities();
+    return drafts.some(d => d.deleted || d.quantity !== (originals[d.id] ?? d.quantity));
+  }
+
+  /**
+   * Validate drafts before save. Quantities must be positive integers; for
+   * inventory-linked items, the additional consumption must not exceed the
+   * cached stock (defensive — the server is the source of truth).
+   */
+  areDraftsValid(): boolean {
+    const drafts = this.draftItems();
+    const originals = this.originalQuantities();
+    for (const d of drafts) {
+      if (d.deleted) continue;
+      if (!Number.isInteger(d.quantity) || d.quantity < 1) return false;
+      if (d.inventory_item_id) {
+        const stock = this.stockHintFor(d.inventory_item_id);
+        const original = originals[d.id] ?? 0;
+        if (stock !== null && d.quantity - original > stock) return false;
+      }
+    }
+    return true;
+  }
+
+  /** Enter edit mode and seed the draft from the current package items. */
+  enterEditMode(): void {
+    const pkg = this.package;
+    if (!pkg || !this.canEditItems()) return;
+    const items = pkg.items ?? [];
+    this.draftItems.set(
+      items.map(i => ({
+        id: i.id,
+        description: i.description,
+        quantity: i.quantity,
+        inventory_item_id: i.inventory_item_id ?? null,
+        deleted: false,
+      }))
+    );
+    this.originalQuantities.set(
+      Object.fromEntries(items.map(i => [i.id, i.quantity]))
+    );
+    this.itemEditError.set(null);
+    this.editMode.set(true);
+    // Refresh inventory cache so stock hints are accurate.
+    void this.inventoryService.loadItems();
+  }
+
+  /** Discard drafts and exit edit mode. */
+  cancelEdit(): void {
+    if (this.savingItems()) return;
+    this.editMode.set(false);
+    this.draftItems.set([]);
+    this.originalQuantities.set({});
+    this.itemEditError.set(null);
+  }
+
+  /** Mutate a draft row's quantity, clamped to >= 1. */
+  setDraftQty(id: string, value: number | string): void {
+    const next = Math.max(1, Math.floor(Number(value) || 1));
+    this.draftItems.update(rows =>
+      rows.map(r => (r.id === id ? { ...r, quantity: next } : r))
+    );
+  }
+
+  incrementDraft(id: string): void {
+    const row = this.draftItems().find(r => r.id === id);
+    if (row) this.setDraftQty(id, row.quantity + 1);
+  }
+
+  decrementDraft(id: string): void {
+    const row = this.draftItems().find(r => r.id === id);
+    if (row) this.setDraftQty(id, row.quantity - 1);
+  }
+
+  /** Flag a draft row for removal (with a quick confirm). */
+  markDraftDeleted(id: string): void {
+    const row = this.draftItems().find(r => r.id === id);
+    if (!row) return;
+    if (typeof window !== 'undefined' && !window.confirm(`Remove "${row.description}" from this package?`)) {
+      return;
+    }
+    this.draftItems.update(rows =>
+      rows.map(r => (r.id === id ? { ...r, deleted: true } : r))
+    );
+  }
+
+  /** Undo a pending deletion. */
+  undoDraftDelete(id: string): void {
+    this.draftItems.update(rows =>
+      rows.map(r => (r.id === id ? { ...r, deleted: false } : r))
+    );
+  }
+
+  /** Persist the items diff via the update-package edge function. */
+  async saveItemEdits(): Promise<void> {
+    const pkg = this.package;
+    if (!pkg || !this.canEditItems() || this.savingItems()) return;
+    if (!this.hasDraftChanges() || !this.areDraftsValid()) return;
+
+    const drafts = this.draftItems();
+    const originals = this.originalQuantities();
+    const updates = drafts
+      .filter(d => !d.deleted && d.quantity !== (originals[d.id] ?? d.quantity))
+      .map(d => ({ id: d.id, quantity: d.quantity }));
+    const deletes = drafts.filter(d => d.deleted).map(d => d.id);
+
+    if (updates.length === 0 && deletes.length === 0) return;
+
+    this.savingItems.set(true);
+    this.itemEditError.set(null);
+
+    try {
+      const result = await this.packageService.updatePackage(pkg.id, {
+        items: { updates, deletes },
+      });
+
+      if (!result.success) {
+        const message = result.error || 'Failed to save changes.';
+        this.itemEditError.set(message);
+        this.toastService.error(message);
+        return;
+      }
+
+      // The edge function already returns the package with embedded items,
+      // but be defensive in case an older deployment doesn't — fall back to
+      // a fresh fetch.
+      let fresh = result.data.package as Package;
+      if (!fresh.items) {
+        const refetch = await this.packageService.getPackage(pkg.id);
+        if (refetch.success) fresh = refetch.data;
+      }
+
+      this.package = fresh;
+      this.packageUpdated.emit(fresh);
+
+      // Refresh inventory so stock counts elsewhere in the app stay in sync.
+      void this.inventoryService.loadItems();
+
+      this.toastService.success(
+        fresh.status === PACKAGE_STATUS.RETURNED
+          ? 'All items removed. Order marked as returned.'
+          : 'Package items updated.'
+      );
+      this.editMode.set(false);
+      this.draftItems.set([]);
+      this.originalQuantities.set({});
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unexpected error.';
+      this.itemEditError.set(message);
+      this.toastService.error(message);
+    } finally {
+      this.savingItems.set(false);
+    }
+  }
+
   /**
    * List of statuses an admin/collection user is allowed to set on the
    * current package (forward-only, excludes `collected`).
@@ -535,6 +859,11 @@ export class PackageDetailsPanelComponent implements OnChanges {
     if (pkgChange) {
       this.selectedManualStatus.set('');
       this.createdByName.set(null);
+      // Exit any in-progress item edit when a different package is loaded.
+      this.editMode.set(false);
+      this.draftItems.set([]);
+      this.originalQuantities.set({});
+      this.itemEditError.set(null);
     }
   }
 
@@ -628,13 +957,15 @@ export class PackageDetailsPanelComponent implements OnChanges {
     const pkg = this.package;
     if (!pkg) return [];
 
-    const statusOrder: PackageStatus[] = [
-      PACKAGE_STATUS.PENDING,
-      PACKAGE_STATUS.NOTIFIED,
-      PACKAGE_STATUS.IN_TRANSIT,
-      PACKAGE_STATUS.READY_FOR_COLLECTION,
-      PACKAGE_STATUS.COLLECTED,
-    ];
+    const statusOrder: PackageStatus[] = pkg.status === PACKAGE_STATUS.RETURNED
+      ? [PACKAGE_STATUS.PENDING, PACKAGE_STATUS.RETURNED]
+      : [
+          PACKAGE_STATUS.PENDING,
+          PACKAGE_STATUS.NOTIFIED,
+          PACKAGE_STATUS.IN_TRANSIT,
+          PACKAGE_STATUS.READY_FOR_COLLECTION,
+          PACKAGE_STATUS.COLLECTED,
+        ];
 
     const currentIndex = statusOrder.indexOf(pkg.status as PackageStatus);
 
@@ -644,6 +975,7 @@ export class PackageDetailsPanelComponent implements OnChanges {
       [PACKAGE_STATUS.IN_TRANSIT]: 'Driver picked up',
       [PACKAGE_STATUS.READY_FOR_COLLECTION]: 'Arrived at collection point',
       [PACKAGE_STATUS.COLLECTED]: 'Package collected',
+      [PACKAGE_STATUS.RETURNED]: 'Order returned',
     };
 
     const colors: Record<string, string> = {
@@ -652,6 +984,7 @@ export class PackageDetailsPanelComponent implements OnChanges {
       [PACKAGE_STATUS.IN_TRANSIT]: 'bg-indigo-500',
       [PACKAGE_STATUS.READY_FOR_COLLECTION]: 'bg-purple-500',
       [PACKAGE_STATUS.COLLECTED]: 'bg-green-500',
+      [PACKAGE_STATUS.RETURNED]: 'bg-red-500',
     };
 
     return statusOrder.map((status, index) => ({
@@ -677,6 +1010,7 @@ export class PackageDetailsPanelComponent implements OnChanges {
       [PACKAGE_STATUS.READY_FOR_COLLECTION]: 'bg-purple-500',
       [PACKAGE_STATUS.DELIVERED]: 'bg-green-500',
       [PACKAGE_STATUS.COLLECTED]: 'bg-green-600',
+      [PACKAGE_STATUS.RETURNED]: 'bg-red-500',
     };
     return colors[status] ?? 'bg-gray-400';
   }
@@ -697,7 +1031,11 @@ export class PackageDetailsPanelComponent implements OnChanges {
    */
   canManuallySetStatus(status: PackageStatus): boolean {
     // Final states cannot be changed.
-    if (status === PACKAGE_STATUS.COLLECTED || status === PACKAGE_STATUS.DELIVERED) {
+    if (
+      status === PACKAGE_STATUS.COLLECTED ||
+      status === PACKAGE_STATUS.DELIVERED ||
+      status === PACKAGE_STATUS.RETURNED
+    ) {
       return false;
     }
     return this.staffService.isAdmin() || this.staffService.hasRole('collection');
@@ -750,6 +1088,7 @@ export class PackageDetailsPanelComponent implements OnChanges {
       [PACKAGE_STATUS.READY_FOR_COLLECTION]: 'Ready for Collection',
       [PACKAGE_STATUS.DELIVERED]: 'Delivered',
       [PACKAGE_STATUS.COLLECTED]: 'Collected',
+      [PACKAGE_STATUS.RETURNED]: 'Returned',
     };
     return labels[status] || status;
   }
@@ -762,6 +1101,7 @@ export class PackageDetailsPanelComponent implements OnChanges {
       [PACKAGE_STATUS.READY_FOR_COLLECTION]: 'bg-purple-100 text-purple-800 dark:bg-purple-500/20 dark:text-purple-400',
       [PACKAGE_STATUS.DELIVERED]: 'bg-green-100 text-green-800 dark:bg-green-500/20 dark:text-green-400',
       [PACKAGE_STATUS.COLLECTED]: 'bg-green-100 text-green-800 dark:bg-green-500/20 dark:text-green-400',
+      [PACKAGE_STATUS.RETURNED]: 'bg-red-100 text-red-800 dark:bg-red-500/20 dark:text-red-400',
     };
     return classes[status] || 'bg-gray-100 text-gray-800 dark:bg-gray-500/20 dark:text-gray-400';
   }
@@ -774,6 +1114,7 @@ export class PackageDetailsPanelComponent implements OnChanges {
       [PACKAGE_STATUS.READY_FOR_COLLECTION]: 'bg-purple-100 dark:bg-purple-500/20',
       [PACKAGE_STATUS.DELIVERED]: 'bg-green-100 dark:bg-green-500/20',
       [PACKAGE_STATUS.COLLECTED]: 'bg-green-100 dark:bg-green-500/20',
+      [PACKAGE_STATUS.RETURNED]: 'bg-red-100 dark:bg-red-500/20',
     };
     return classes[status] || 'bg-gray-100 dark:bg-gray-500/20';
   }
@@ -786,13 +1127,18 @@ export class PackageDetailsPanelComponent implements OnChanges {
       [PACKAGE_STATUS.READY_FOR_COLLECTION]: 'text-purple-600 dark:text-purple-400',
       [PACKAGE_STATUS.DELIVERED]: 'text-green-600 dark:text-green-400',
       [PACKAGE_STATUS.COLLECTED]: 'text-green-600 dark:text-green-400',
+      [PACKAGE_STATUS.RETURNED]: 'text-red-600 dark:text-red-400',
     };
     return classes[status] || 'text-gray-600 dark:text-gray-400';
   }
 
   canUpdateStatus(status: PackageStatus): boolean {
     // Final states cannot be updated.
-    if (status === PACKAGE_STATUS.COLLECTED || status === PACKAGE_STATUS.DELIVERED) {
+    if (
+      status === PACKAGE_STATUS.COLLECTED ||
+      status === PACKAGE_STATUS.DELIVERED ||
+      status === PACKAGE_STATUS.RETURNED
+    ) {
       return false;
     }
     // Marking as collected requires admin or collection role.

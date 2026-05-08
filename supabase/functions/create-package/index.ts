@@ -8,6 +8,12 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
 interface PackageItemRequest {
   quantity: number
   description: string
+  /**
+   * Optional inventory_items.id this package item is sourced from. When
+   * present, the link is persisted on package_items so later edits can
+   * reconcile inventory stock.
+   */
+  inventory_item_id?: string | null
 }
 
 interface CreatePackageRequest {
@@ -22,6 +28,7 @@ interface PackageItemResponse {
   id: string
   quantity: number
   description: string
+  inventory_item_id: string | null
 }
 
 interface PackageResponse {
@@ -167,14 +174,15 @@ serve(async (req) => {
         .map(item => ({
           package_id: newPackage.id,
           quantity: item.quantity,
-          description: item.description.trim()
+          description: item.description.trim(),
+          inventory_item_id: item.inventory_item_id ?? null
         }))
 
       if (itemsToInsert.length > 0) {
         const { data: insertedItems, error: itemsError } = await adminClient
           .from('package_items')
           .insert(itemsToInsert)
-          .select('id, quantity, description')
+          .select('id, quantity, description, inventory_item_id')
 
         if (itemsError) {
           console.error('Items insertion error:', itemsError)
