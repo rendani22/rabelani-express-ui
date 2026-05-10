@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { tablerCode, tablerDeviceFloppy, tablerEdit, tablerEye, tablerMail, tablerRefresh } from '@ng-icons/tabler-icons';
-import { renderTemplate } from '../../core';
+import { renderTemplate, AuthService } from '../../core';
 import { LayoutComponent } from '../../shared/components/layout/layout.component';
 import { ToastService } from '../../shared/components/toast';
 import { SupabaseService } from '../../shared/services/supabase.service';
@@ -77,6 +77,17 @@ export class EmailTemplatesComponent implements OnInit {
   private readonly supabaseService = inject(SupabaseService);
   private readonly toastService = inject(ToastService);
   private readonly sanitizer = inject(DomSanitizer);
+  private readonly authService = inject(AuthService);
+
+  /** Email of the only user allowed to edit email templates. */
+  private static readonly EDITOR_EMAIL = 'rendani@email.com';
+
+  /** Whether the current user is permitted to edit templates. */
+  readonly canEdit = computed(() => {
+    const email = this.authService.currentUser()?.email?.toLowerCase().trim();
+    return email === EmailTemplatesComponent.EDITOR_EMAIL;
+  });
+
   readonly templates = signal<EmailTemplate[]>([]);
   readonly loading = signal(false);
   readonly selectedTemplate = signal<EmailTemplate | null>(null);
@@ -116,6 +127,10 @@ export class EmailTemplatesComponent implements OnInit {
     this.editHtmlBody = template.body_html;
   }
   startEdit(): void {
+    if (!this.canEdit()) {
+      this.toastService.error('You do not have permission to edit email templates.');
+      return;
+    }
     this.mode.set('edit');
   }
   cancelEdit(): void {
@@ -128,6 +143,10 @@ export class EmailTemplatesComponent implements OnInit {
   async saveTemplate(): Promise<void> {
     const template = this.selectedTemplate();
     if (!template) return;
+    if (!this.canEdit()) {
+      this.toastService.error('You do not have permission to edit email templates.');
+      return;
+    }
     this.isSaving.set(true);
     try {
       const { data, error } = await this.supabaseService.client

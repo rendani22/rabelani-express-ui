@@ -41,16 +41,27 @@
             </div>
 
             <div class="flex items-center gap-2">
-              <button *ngIf="mode() === 'preview'; else editActions" type="button" class="px-3 py-1.5 text-sm rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white flex items-center gap-1.5" (click)="startEdit()">
-                <ng-icon name="tablerEdit" size="14"></ng-icon>
-                Edit
-              </button>
-              <ng-template #editActions>
-                <button type="button" class="px-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50" (click)="cancelEdit()">Cancel</button>
-                <button type="button" class="px-3 py-1.5 text-sm rounded-lg bg-green-500 hover:bg-green-600 text-white flex items-center gap-1.5" (click)="saveTemplate()" [disabled]="isSaving()">
-                  <ng-icon name="tablerDeviceFloppy" size="14"></ng-icon>
-                  {{ isSaving() ? 'Saving…' : 'Save' }}
+              <ng-container *ngIf="canEdit(); else readOnlyBadge">
+                <button *ngIf="mode() === 'preview'; else editActions" type="button" class="px-3 py-1.5 text-sm rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white flex items-center gap-1.5" (click)="startEdit()">
+                  <ng-icon name="tablerEdit" size="14"></ng-icon>
+                  Edit
                 </button>
+                <ng-template #editActions>
+                  <button type="button" class="px-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50" (click)="cancelEdit()">Cancel</button>
+                  <button type="button" class="px-3 py-1.5 text-sm rounded-lg bg-green-500 hover:bg-green-600 text-white flex items-center gap-1.5" (click)="saveTemplate()" [disabled]="isSaving()">
+                    <ng-icon name="tablerDeviceFloppy" size="14"></ng-icon>
+                    {{ isSaving() ? 'Saving…' : 'Save' }}
+                  </button>
+                </ng-template>
+              </ng-container>
+              <ng-template #readOnlyBadge>
+                <span
+                  class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-full bg-gray-100 dark:bg-gray-700/60 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700"
+                  title="Only the authorized administrator can edit email templates."
+                >
+                  <ng-icon name="tablerEye" size="12"></ng-icon>
+                  Read only
+                </span>
               </ng-template>
             </div>
           </div>
