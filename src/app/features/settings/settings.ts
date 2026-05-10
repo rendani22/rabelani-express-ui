@@ -16,11 +16,14 @@ import {
   tablerCheck,
   tablerLogout,
   tablerDeviceFloppy,
+  tablerHelp,
+  tablerRoute,
 } from '@ng-icons/tabler-icons';
 import { LayoutComponent } from '../../shared/components/layout/layout.component';
 import { ThemeService } from '../../core';
 import { SettingsService, AppSettings, DefaultOrdersFilter, DefaultDriversView } from '../../core';
 import { AuthService } from '../../core';
+import { OnboardingTourService } from '../../core';
 import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
 import { APP_VERSION } from '../../../environments/version';
 
@@ -54,6 +57,8 @@ import { APP_VERSION } from '../../../environments/version';
       tablerCheck,
       tablerLogout,
       tablerDeviceFloppy,
+      tablerHelp,
+      tablerRoute,
     }),
   ],
   templateUrl: './settings.html',
@@ -64,6 +69,7 @@ export class SettingsComponent {
   private readonly settingsService = inject(SettingsService);
   private readonly authService = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly onboardingTour = inject(OnboardingTourService);
 
   // Theme
   readonly isDarkMode = this.themeService.isDarkMode;
@@ -153,5 +159,14 @@ export class SettingsComponent {
   async onSignOut(): Promise<void> {
     await this.authService.signOut();
     await this.router.navigate(['/login']);
+  }
+
+  /** Re-launch the first-time-user onboarding tour from step 0. */
+  onRestartTour(): void {
+    // Navigate to the dashboard first so all tour anchors exist in the DOM.
+    this.router.navigate(['/dashboard']).then(() => {
+      // Give the dashboard a moment to mount before starting the tour.
+      setTimeout(() => this.onboardingTour.restart(), 400);
+    });
   }
 }

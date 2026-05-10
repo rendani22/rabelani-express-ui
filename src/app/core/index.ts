@@ -15,6 +15,7 @@ export * from './services/package.service';
 export * from './services/staff.service';
 export * from './services/driver.service';
 export * from './services/settings.service';
+export * from './services/onboarding-tour.service';
 export * from './services/receiver.service';
 export * from './services/delivery-location.service';
 export * from './services/inventory.service';

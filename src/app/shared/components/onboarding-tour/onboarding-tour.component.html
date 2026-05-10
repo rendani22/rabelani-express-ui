@@ -1,0 +1,79 @@
+@if (isActive()) {
+  <div class="tour-root" role="dialog" aria-modal="true" aria-labelledby="tour-title">
+    <!-- Spotlight: when no target, the entire screen is dimmed -->
+    @if (spotlight(); as s) {
+      <div
+        class="tour-spotlight"
+        [style.top.px]="s.top"
+        [style.left.px]="s.left"
+        [style.width.px]="s.width"
+        [style.height.px]="s.height">
+      </div>
+    } @else {
+      <div class="tour-backdrop"></div>
+    }
+
+    @if (currentStep(); as step) {
+      @if (tooltip(); as t) {
+        <div
+          class="tour-tooltip"
+          [class]="'tour-tooltip--' + t.placement"
+          [style.top.px]="t.top"
+          [style.left.px]="t.left"
+          [style.--arrow-offset.px]="t.arrowOffset">
+
+          <div class="tour-tooltip__header">
+            <span class="tour-tooltip__step">
+              Step {{ stepIndex() + 1 }} of {{ totalSteps() }}
+            </span>
+            <button
+              type="button"
+              class="tour-tooltip__close"
+              aria-label="Close tour"
+              (click)="skip()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          </div>
+
+          <h3 id="tour-title" class="tour-tooltip__title">{{ step.title }}</h3>
+          <p class="tour-tooltip__body">{{ step.body }}</p>
+
+          <!-- Step indicator dots -->
+          <div class="tour-tooltip__dots" aria-hidden="true">
+            @for (_ of [].constructor(totalSteps()); let i = $index; track i) {
+              <span class="tour-dot" [class.tour-dot--active]="i === stepIndex()"></span>
+            }
+          </div>
+
+          <div class="tour-tooltip__actions">
+            <button type="button" class="tour-btn tour-btn--ghost" (click)="skip()">
+              Skip tour
+            </button>
+            <div class="tour-tooltip__nav">
+              @if (!isFirstStep()) {
+                <button type="button" class="tour-btn tour-btn--secondary" (click)="previous()">
+                  Back
+                </button>
+              }
+              @if (!isLastStep()) {
+                <button type="button" class="tour-btn tour-btn--primary" (click)="next()">
+                  Next
+                </button>
+              } @else {
+                <button type="button" class="tour-btn tour-btn--primary" (click)="finish()">
+                  Get started
+                </button>
+              }
+            </div>
+          </div>
+        </div>
+      }
+    }
+  </div>
+}
+

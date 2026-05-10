@@ -6,7 +6,7 @@
     (click)="closeSidebar()">
   </div>
 
-  <div class="sidebar-container" [class.open]="sidebarOpen">
+  <div class="sidebar-container" [class.open]="sidebarOpen" data-tour="sidebar">
     <app-sidebar
       navLabel="Admin tools"
       [navItems]="navItems()"

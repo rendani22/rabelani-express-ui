@@ -260,6 +260,32 @@
         </div>
       </section>
 
+      <!-- ── Help & Onboarding ─────────────────────────────── -->
+      <section class="settings-card">
+        <div class="settings-card__header">
+          <span class="settings-card__icon settings-card__icon--violet">
+            <ng-icon name="tablerHelp" size="18"></ng-icon>
+          </span>
+          <div>
+            <h2 class="settings-card__title">Help &amp; Onboarding</h2>
+            <p class="settings-card__desc">Replay the product tour at any time</p>
+          </div>
+        </div>
+
+        <div class="settings-card__body">
+          <div class="setting-row">
+            <div class="setting-row__label">
+              <span class="setting-row__name">Product tour</span>
+              <span class="setting-row__hint">A short walkthrough of the main features</span>
+            </div>
+            <button class="btn btn--ghost" type="button" (click)="onRestartTour()">
+              <ng-icon name="tablerRoute" size="16"></ng-icon>
+              Restart tour
+            </button>
+          </div>
+        </div>
+      </section>
+
       <!-- ── About ──────────────────────────────────────────── -->
       <section class="settings-card">
         <div class="settings-card__header">

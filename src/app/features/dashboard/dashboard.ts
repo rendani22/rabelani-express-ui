@@ -6,6 +6,7 @@ import { FilterOption } from '../../core/models/models';
 import { DashboardActionsComponent } from './dashboard-actions/dashboard-actions.component';
 import { CreatePackageModalComponent } from '../../shared/components/modals';
 import { Package } from '../../core';
+import { OnboardingTourService } from '../../core';
 import { DashboardService, PackageActivity } from './services/dashboard.service';
 import { StuckPackage } from './services/dashboard.service';
 import { PackageStatsCardComponent, StatItem } from './cards/package-stats-card/package-stats-card.component';
@@ -56,6 +57,7 @@ import { HourlyHeatmapCardComponent } from './cards/hourly-heatmap-card/hourly-h
 export class Dashboard implements OnInit {
   private readonly dashboardService = inject(DashboardService);
   private readonly router = inject(Router);
+  private readonly onboardingTour = inject(OnboardingTourService);
 
   // Modal state
   createPackageModalOpen = false;
@@ -97,6 +99,9 @@ export class Dashboard implements OnInit {
 
   async ngOnInit(): Promise<void> {
     await this.dashboardService.loadDashboardData();
+    // Auto-launch the onboarding tour for first-time users. The service is a
+    // no-op if the user has already completed (or skipped) the tour.
+    setTimeout(() => this.onboardingTour.start(), 600);
   }
 
   onDateChange(dateRange: { start: Date; end?: Date }): void {
