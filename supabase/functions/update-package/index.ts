@@ -5,6 +5,7 @@
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
+import { resolveTemplate, renderEmail, buildCommonVars } from '../_shared/email-templates.ts'
 
 interface PodPartyPayload {
   name: string
@@ -701,15 +702,6 @@ serve(async (req) => {
         }
 
         const resendApiKey = Deno.env.get('RESEND_API_KEY')
-        const collectionHoursWeekday  = Deno.env.get('COLLECTION_HOURS')           || 'Monday to Friday, 7:00 AM - 16:00 PM'
-        const collectionHoursSaturday = Deno.env.get('COLLECTION_HOURS_SATURDAY')  || 'Saturdays: Closed'
-        const collectionHoursSunday   = Deno.env.get('COLLECTION_HOURS_SUNDAY')    || 'Sundays: Closed'
-        const collectionHoursHolidays = Deno.env.get('COLLECTION_HOURS_HOLIDAYS')  || 'Holidays: Closed'
-        const supportEmail            = Deno.env.get('SUPPORT_EMAIL')              || 'rabelanimm@gmail.com'
-        const collectionContact       = Deno.env.get('COLLECTION_CONTACT')         || 'Ext 4536 and ask for Lesedi or Thato'
-        const reviewFormUrl           = Deno.env.get('REVIEW_FORM_URL')            || 'https://docs.google.com/forms/d/e/1FAIpQLSdiySN-ONYROMnjfqAo4fkHyihRWdhD0sUmIu4L8k6UXcGsNg/viewform?usp=preview'
-        const reviewQrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=10&data=${encodeURIComponent(reviewFormUrl)}`
-
         const locationName    = deliveryLocation?.name    || Deno.env.get('COLLECTION_LOCATION') || 'the designated collection point'
         const locationAddress = deliveryLocation?.address || ''
         const locationMapsLink = deliveryLocation?.google_maps_link || null
@@ -722,6 +714,18 @@ serve(async (req) => {
           readyEmailError = 'Package has no receiver_email; cannot send notification'
           console.warn(readyEmailError)
         } else {
+          // Resolve template from DB (with in-code fallback) and render.
+          const tpl = await resolveTemplate(adminClient, 'package_ready_for_collection')
+          const rendered = renderEmail(tpl, {
+            ...buildCommonVars((k) => Deno.env.get(k) ?? undefined),
+            reference: updatedPackage.reference,
+            po_number: poNumber || '',
+            items: packageItems.map(i => ({ quantity: i.quantity, description: i.description })),
+            has_items: packageItems.length > 0,
+            location_name: locationName,
+            location_address: locationAddress,
+            location_maps_link: locationMapsLink || ''
+          })
           const emailResponse = await fetch('https://api.resend.com/emails', {
             method: 'POST',
             headers: {
@@ -731,108 +735,8 @@ serve(async (req) => {
             body: JSON.stringify({
               from: Deno.env.get('EMAIL_FROM') || 'POD System <noreply@example.com>',
               to: [updatedPackage.receiver_email],
-              subject: `Ready for Collection${poNumber ? ` - ${poNumber}` : ''} - ${updatedPackage.reference}`,
-              html: `
-                <!DOCTYPE html>
-                <html>
-                <head>
-                  <meta charset="utf-8">
-                  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                </head>
-                <body style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #242424; background: #ffffff;">
-                  <!-- Brand bar -->
-                  <div style="background: #ffffff; padding: 24px 24px 16px 24px; border: 1px solid #ededed; border-bottom: 4px solid #f75757; border-radius: 8px 8px 0 0; text-align: center;">
-                    <a href="https://www.rabelanimm.co.za/" style="text-decoration: none; display: inline-block;">
-                      <img src="https://www.rabelanimm.co.za/images/logo.png" alt="Rabelani MM Trading Enterprise" style="max-height: 70px; height: auto; width: auto; display: block; margin: 0 auto;" />
-                    </a>
-                    <p style="margin: 12px 0 0 0; font-size: 12px; color: #919194; letter-spacing: 0.08em; text-transform: uppercase;">Rabelani MM Trading Enterprise</p>
-                  </div>
-
-                  <!-- Title block -->
-                  <div style="background: #f75757; padding: 28px 24px; text-align: center;">
-                    <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 700; letter-spacing: 0.01em;">Ready for Collection</h1>
-                    ${poNumber ? `<p style="color: #ffe7e7; margin: 14px 0 0 0; font-size: 15px;">Purchase Order Number: <strong style="font-family: 'Courier New', monospace; color: #ffffff;">${poNumber}</strong></p>` : ''}
-                    <p style="color: #ffe7e7; margin: 6px 0 0 0; font-size: 15px;">Your Package Reference: <strong style="font-family: 'Courier New', monospace; color: #ffffff;">${updatedPackage.reference}</strong></p>
-                  </div>
-
-                  <div style="background: #ffffff; padding: 30px 28px; border: 1px solid #ededed; border-top: none;">
-                    <h2 style="color: #242424; font-size: 20px; margin: 0 0 15px 0; font-weight: 700;">📦 Package Ready for Collection</h2>
-                    <p style="margin: 0 0 12px 0; color: #4e595f;">Hello,</p>
-                    <p style="margin: 0 0 20px 0; color: #4e595f; line-height: 1.6;">Great news! A package has been registered for you and is ready for collection. Please collect it at the Collection Point.</p>
-
-                    ${packageItems.length > 0 ? `
-                    <div style="margin: 24px 0;">
-                      <h3 style="color: #242424; font-size: 16px; margin: 0 0 12px 0; font-weight: 700;">📋 Package Contents</h3>
-                      <table style="width: 100%; border-collapse: collapse; border: 1px solid #ededed; border-radius: 6px; overflow: hidden;">
-                        <thead>
-                          <tr style="background: #fafafa;">
-                            <th style="padding: 12px; text-align: left; border-bottom: 1px solid #ededed; font-size: 12px; color: #919194; text-transform: uppercase; letter-spacing: 0.05em; width: 60px;">Qty</th>
-                            <th style="padding: 12px; text-align: left; border-bottom: 1px solid #ededed; font-size: 12px; color: #919194; text-transform: uppercase; letter-spacing: 0.05em;">Description</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          ${packageItems.map(item => `
-                          <tr>
-                            <td style="padding: 12px; border-bottom: 1px solid #ededed; font-size: 14px; color: #242424; font-weight: 600;">${item.quantity}</td>
-                            <td style="padding: 12px; border-bottom: 1px solid #ededed; font-size: 14px; color: #4e595f;">${item.description}</td>
-                          </tr>
-                          `).join('')}
-                        </tbody>
-                      </table>
-                    </div>
-                    ` : ''}
-
-                    <h3 style="color: #242424; font-size: 16px; margin: 30px 0 10px 0; font-weight: 700;">📍 Delivery Point</h3>
-                    <div style="background: #fafafa; padding: 20px; border-radius: 6px; margin: 10px 0 20px 0; border-left: 4px solid #f75757;">
-                      <p style="font-size: 16px; font-weight: 700; color: #242424; margin: 0;">${locationName}</p>
-                      ${locationAddress ? `<p style="font-size: 14px; color: #4e595f; margin: 8px 0 0 0; line-height: 1.5;">${locationAddress}</p>` : ''}
-                      <p style="font-size: 14px; color: #4e595f; margin: 10px 0 0 0;"><strong style="color: #242424;">Contact Number:</strong> ${collectionContact}</p>
-                      ${locationMapsLink ? `<p style="margin: 12px 0 0 0;"><a href="${locationMapsLink}" style="color: #f75757; font-size: 14px; text-decoration: none; font-weight: 600;">📍 View on Google Maps</a></p>` : ''}
-                    </div>
-
-                    <div style="margin: 24px 0;">
-                      <p style="margin: 0 0 8px 0; font-size: 14px; color: #242424;"><strong>Collection Hours:</strong></p>
-                      <ul style="margin: 0; padding-left: 20px; font-size: 14px; color: #4e595f; line-height: 1.7;">
-                        <li>${collectionHoursWeekday}</li>
-                        <li>${collectionHoursSaturday}</li>
-                        <li>${collectionHoursSunday}</li>
-                        <li>${collectionHoursHolidays}</li>
-                      </ul>
-                    </div>
-
-                    <div style="background: #fafafa; padding: 18px; border-radius: 6px; margin: 24px 0;">
-                      <p style="margin: 0 0 8px 0; font-size: 14px; color: #242424;"><strong>What to bring when collecting:</strong></p>
-                      <ul style="margin: 0; padding-left: 20px; font-size: 14px; color: #4e595f; line-height: 1.7;">
-                        <li>Your PO reference number (shown above)</li>
-                        <li>Valid Staff Employee Card for verification and a Witness to Sign with</li>
-                      </ul>
-                    </div>
-                  </div>
-
-                  <!-- Footer -->
-                  <div style="background: #242424; padding: 28px 24px; border-radius: 0 0 8px 8px; text-align: center;">
-                    <p style="margin: 0 0 12px 0; font-size: 14px; color: #c9c9c9;">
-                      Questions? Contact us at <a href="mailto:${supportEmail}" style="color: #f75757; text-decoration: none; font-weight: 600;">${supportEmail}</a>
-                    </p>
-                    <p style="margin: 0 0 18px 0; font-size: 11px; color: #919194; line-height: 1.5;">
-                      This is an automated message from the POD System. Please do not reply directly to this email.
-                    </p>
-                    <div style="background: #ffffff; display: inline-block; padding: 14px; border-radius: 8px; margin: 0 0 14px 0;">
-                      <img src="${reviewQrCodeUrl}" alt="Scan to review our services" width="160" height="160" style="display: block; width: 160px; height: 160px;" />
-                    </div>
-                    <p style="margin: 0 0 14px 0; font-size: 12px; color: #c9c9c9; letter-spacing: 0.04em;">
-                      Scan the QR code to review our services
-                    </p>
-                    <a href="${reviewFormUrl}" style="display: inline-block; padding: 12px 28px; background: #f75757; color: #ffffff; text-decoration: none; font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; border-radius: 50px;">
-                      Please Review Our Services
-                    </a>
-                    <p style="margin: 18px 0 0 0; font-size: 11px; color: #666666;">
-                      &copy; ${new Date().getFullYear()} Rabelani MM Trading Enterprise &middot; <a href="https://www.rabelanimm.co.za/" style="color: #919194; text-decoration: none;">www.rabelanimm.co.za</a>
-                    </p>
-                  </div>
-                </body>
-                </html>
-              `
+              subject: rendered.subject,
+              html: rendered.html
             })
           })
 
@@ -889,9 +793,7 @@ serve(async (req) => {
           itemsData ?? []
 
         const resendApiKey = Deno.env.get('RESEND_API_KEY')
-        const supportEmail   = Deno.env.get('SUPPORT_EMAIL')   || 'rabelanimm@gmail.com'
-        const reviewFormUrl  = Deno.env.get('REVIEW_FORM_URL') || 'https://docs.google.com/forms/d/e/1FAIpQLSdiySN-ONYROMnjfqAo4fkHyihRWdhD0sUmIu4L8k6UXcGsNg/viewform?usp=preview'
-        const reviewQrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=10&data=${encodeURIComponent(reviewFormUrl)}`
+        const supportEmail = Deno.env.get('SUPPORT_EMAIL') || 'rabelanimm@gmail.com'
         const poNumber: string | null = existingPackage.po_number ?? null
 
         if (!resendApiKey) {
@@ -901,40 +803,34 @@ serve(async (req) => {
           completedEmailError = 'Package has no receiver_email; cannot send notification'
           console.warn(completedEmailError)
         } else {
-          // ----------------------------------------------------------
-          // Build POD attachment (if available).
-          //
-          // Priority:
-          //   1. `pod.pdf_base64` from the request payload (UI-generated PDF
-          //      — strip any `data:application/pdf;base64,` prefix).
-          //   2. `pods.pdf_url` if populated (Resend can fetch via `path`).
-          // Falls back to no attachment if neither is available.
-          // ----------------------------------------------------------
+          // Build POD attachment (priority: pod.pdf_base64 > pods.pdf_url).
           const attachments: Array<Record<string, string>> = []
-          const podFilename =
-            pod?.pdf_filename ||
-            `POD-${updatedPackage.reference}.pdf`
-
+          const podFilename = pod?.pdf_filename || `POD-${updatedPackage.reference}.pdf`
           if (pod?.pdf_base64) {
             const cleanBase64 = pod.pdf_base64.replace(/^data:application\/pdf;base64,/, '')
-            attachments.push({
-              filename: podFilename,
-              content: cleanBase64
-            })
+            attachments.push({ filename: podFilename, content: cleanBase64 })
           } else {
-            // Try to look up an existing pods.pdf_url and attach via path.
             const { data: podRow } = await adminClient
               .from('pods')
               .select('pdf_url')
               .eq('package_id', package_id)
               .maybeSingle()
             if (podRow?.pdf_url) {
-              attachments.push({
-                filename: podFilename,
-                path: podRow.pdf_url
-              })
+              attachments.push({ filename: podFilename, path: podRow.pdf_url })
             }
           }
+
+          // Resolve template from DB (with in-code fallback) and render.
+          const tpl = await resolveTemplate(adminClient, 'package_completed')
+          const rendered = renderEmail(tpl, {
+            ...buildCommonVars((k) => Deno.env.get(k) ?? undefined),
+            reference: updatedPackage.reference,
+            po_number: poNumber || '',
+            items: packageItems.map(i => ({ quantity: i.quantity, description: i.description })),
+            has_items: packageItems.length > 0
+          })
+
+          const ccAddress = Deno.env.get('PACKAGE_COMPLETED_CC') || supportEmail || 'rabelanimm@gmail.com'
 
           const emailResponse = await fetch('https://api.resend.com/emails', {
             method: 'POST',
@@ -945,89 +841,10 @@ serve(async (req) => {
             body: JSON.stringify({
               from: Deno.env.get('EMAIL_FROM') || 'POD System <noreply@example.com>',
               to: [updatedPackage.receiver_email],
-              // CC the business mailbox so a copy of the POD is archived alongside
-              // the receiver's notification. Falls back to SUPPORT_EMAIL / the
-              // hard-coded business address when not explicitly overridden.
-              cc: [Deno.env.get('PACKAGE_COMPLETED_CC') || supportEmail || 'rabelanimm@gmail.com'],
-              subject: `Package Completed${poNumber ? ` - ${poNumber}` : ''} - ${updatedPackage.reference}`,
+              cc: [ccAddress],
+              subject: rendered.subject,
               ...(attachments.length > 0 ? { attachments } : {}),
-              html: `
-                <!DOCTYPE html>
-                <html>
-                <head>
-                  <meta charset="utf-8">
-                  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                </head>
-                <body style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #242424; background: #ffffff;">
-                  <!-- Brand bar -->
-                  <div style="background: #ffffff; padding: 24px 24px 16px 24px; border: 1px solid #ededed; border-bottom: 4px solid #f75757; border-radius: 8px 8px 0 0; text-align: center;">
-                    <a href="https://www.rabelanimm.co.za/" style="text-decoration: none; display: inline-block;">
-                      <img src="https://www.rabelanimm.co.za/images/logo.png" alt="Rabelani MM Trading Enterprise" style="max-height: 70px; height: auto; width: auto; display: block; margin: 0 auto;" />
-                    </a>
-                    <p style="margin: 12px 0 0 0; font-size: 12px; color: #919194; letter-spacing: 0.08em; text-transform: uppercase;">Rabelani MM Trading Enterprise</p>
-                  </div>
-
-                  <!-- Title block -->
-                  <div style="background: #f75757; padding: 28px 24px; text-align: center;">
-                    <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 700; letter-spacing: 0.01em;">Package Completed</h1>
-                    ${poNumber ? `<p style="color: #ffe7e7; margin: 14px 0 0 0; font-size: 15px;">Purchase Order Number: <strong style="font-family: 'Courier New', monospace; color: #ffffff;">${poNumber}</strong></p>` : ''}
-                    <p style="color: #ffe7e7; margin: 6px 0 0 0; font-size: 15px;">Your Package Reference: <strong style="font-family: 'Courier New', monospace; color: #ffffff;">${updatedPackage.reference}</strong></p>
-                  </div>
-
-                  <div style="background: #ffffff; padding: 30px 28px; border: 1px solid #ededed; border-top: none;">
-                    <h2 style="color: #242424; font-size: 20px; margin: 0 0 15px 0; font-weight: 700;">✅ Package Completed</h2>
-                    <p style="margin: 0 0 12px 0; color: #4e595f;">Hello,</p>
-                    <p style="margin: 0 0 20px 0; color: #4e595f; line-height: 1.6;">Your Package Collection/Delivery has been completed and thank you for your Order.</p>
-
-                    ${packageItems.length > 0 ? `
-                    <div style="margin: 24px 0;">
-                      <h3 style="color: #242424; font-size: 16px; margin: 0 0 12px 0; font-weight: 700;">📋 Package Contents</h3>
-                      <table style="width: 100%; border-collapse: collapse; border: 1px solid #ededed; border-radius: 6px; overflow: hidden;">
-                        <thead>
-                          <tr style="background: #fafafa;">
-                            <th style="padding: 12px; text-align: left; border-bottom: 1px solid #ededed; font-size: 12px; color: #919194; text-transform: uppercase; letter-spacing: 0.05em; width: 60px;">Qty</th>
-                            <th style="padding: 12px; text-align: left; border-bottom: 1px solid #ededed; font-size: 12px; color: #919194; text-transform: uppercase; letter-spacing: 0.05em;">Description</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          ${packageItems.map(item => `
-                          <tr>
-                            <td style="padding: 12px; border-bottom: 1px solid #ededed; font-size: 14px; color: #242424; font-weight: 600;">${item.quantity}</td>
-                            <td style="padding: 12px; border-bottom: 1px solid #ededed; font-size: 14px; color: #4e595f;">${item.description}</td>
-                          </tr>
-                          `).join('')}
-                        </tbody>
-                      </table>
-                    </div>
-                    ` : ''}
-
-                    <p style="margin: 24px 0 0 0; color: #4e595f; line-height: 1.6; font-size: 15px;">Thank you for your Order.</p>
-                  </div>
-
-                  <!-- Footer -->
-                  <div style="background: #242424; padding: 28px 24px; border-radius: 0 0 8px 8px; text-align: center;">
-                    <p style="margin: 0 0 12px 0; font-size: 14px; color: #c9c9c9;">
-                      Questions? Contact us at <a href="mailto:${supportEmail}" style="color: #f75757; text-decoration: none; font-weight: 600;">${supportEmail}</a>
-                    </p>
-                    <p style="margin: 0 0 18px 0; font-size: 11px; color: #919194; line-height: 1.5;">
-                      This is an automated message from the POD System. Please do not reply directly to this email.
-                    </p>
-                    <div style="background: #ffffff; display: inline-block; padding: 14px; border-radius: 8px; margin: 0 0 14px 0;">
-                      <img src="${reviewQrCodeUrl}" alt="Scan to review our services" width="160" height="160" style="display: block; width: 160px; height: 160px;" />
-                    </div>
-                    <p style="margin: 0 0 14px 0; font-size: 12px; color: #c9c9c9; letter-spacing: 0.04em;">
-                      Scan the QR code to review our services
-                    </p>
-                    <a href="${reviewFormUrl}" style="display: inline-block; padding: 12px 28px; background: #f75757; color: #ffffff; text-decoration: none; font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; border-radius: 50px;">
-                      Please Review Our Services
-                    </a>
-                    <p style="margin: 18px 0 0 0; font-size: 11px; color: #666666;">
-                      &copy; ${new Date().getFullYear()} Rabelani MM Trading Enterprise &middot; <a href="https://www.rabelanimm.co.za/" style="color: #919194; text-decoration: none;">www.rabelanimm.co.za</a>
-                    </p>
-                  </div>
-                </body>
-                </html>
-              `
+              html: rendered.html
             })
           })
 
@@ -1044,7 +861,7 @@ serve(async (req) => {
                 notification_type: 'email',
                 notification_status: 'sent',
                 email_subject: 'Package Completed',
-                cc: [Deno.env.get('PACKAGE_COMPLETED_CC') || supportEmail || 'rabelanimm@gmail.com'],
+                cc: [ccAddress],
                 pod_attached: attachments.length > 0,
                 pod_attachment_filename: attachments[0]?.filename ?? null
               }
@@ -1074,32 +891,10 @@ serve(async (req) => {
     if (itemChangesSummary) {
       try {
         const resendApiKey = Deno.env.get('RESEND_API_KEY')
-        const supportEmail   = Deno.env.get('SUPPORT_EMAIL')   || 'rabelanimm@gmail.com'
-        const reviewFormUrl  = Deno.env.get('REVIEW_FORM_URL') || 'https://docs.google.com/forms/d/e/1FAIpQLSdiySN-ONYROMnjfqAo4fkHyihRWdhD0sUmIu4L8k6UXcGsNg/viewform?usp=preview'
-        const reviewQrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=10&data=${encodeURIComponent(reviewFormUrl)}`
         const poNumber: string | null = existingPackage.po_number ?? null
 
         const previousItems = previousItemsSnapshot ?? []
         const updatedItems  = updatedItemsSnapshot  ?? []
-
-        const renderItemsTable = (rows: { quantity: number; description: string }[]) => rows.length > 0 ? `
-          <table style="width: 100%; border-collapse: collapse; border: 1px solid #ededed; border-radius: 6px; overflow: hidden;">
-            <thead>
-              <tr style="background: #fafafa;">
-                <th style="padding: 12px; text-align: left; border-bottom: 1px solid #ededed; font-size: 12px; color: #919194; text-transform: uppercase; letter-spacing: 0.05em; width: 60px;">Qty</th>
-                <th style="padding: 12px; text-align: left; border-bottom: 1px solid #ededed; font-size: 12px; color: #919194; text-transform: uppercase; letter-spacing: 0.05em;">Description</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${rows.map(item => `
-              <tr>
-                <td style="padding: 12px; border-bottom: 1px solid #ededed; font-size: 14px; color: #242424; font-weight: 600;">${item.quantity}</td>
-                <td style="padding: 12px; border-bottom: 1px solid #ededed; font-size: 14px; color: #4e595f;">${item.description}</td>
-              </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        ` : `<p style="margin: 0; color: #919194; font-size: 14px; font-style: italic;">No items.</p>`
 
         if (!resendApiKey) {
           itemsUpdatedEmailError = 'Email service not configured (RESEND_API_KEY not set)'
@@ -1108,6 +903,18 @@ serve(async (req) => {
           itemsUpdatedEmailError = 'Package has no receiver_email; cannot send notification'
           console.warn(itemsUpdatedEmailError)
         } else {
+          // Resolve template from DB (with in-code fallback) and render.
+          const tpl = await resolveTemplate(adminClient, 'package_contents_updated')
+          const rendered = renderEmail(tpl, {
+            ...buildCommonVars((k) => Deno.env.get(k) ?? undefined),
+            reference: updatedPackage.reference,
+            po_number: poNumber || '',
+            updated_items: updatedItems,
+            has_updated_items: updatedItems.length > 0,
+            previous_items: previousItems,
+            has_previous_items: previousItems.length > 0
+          })
+
           const emailResponse = await fetch('https://api.resend.com/emails', {
             method: 'POST',
             headers: {
@@ -1117,71 +924,8 @@ serve(async (req) => {
             body: JSON.stringify({
               from: Deno.env.get('EMAIL_FROM') || 'POD System <noreply@example.com>',
               to: [updatedPackage.receiver_email],
-              subject: `Package Contents Updated${poNumber ? ` - ${poNumber}` : ''} - ${updatedPackage.reference}`,
-              html: `
-                <!DOCTYPE html>
-                <html>
-                <head>
-                  <meta charset="utf-8">
-                  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                </head>
-                <body style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #242424; background: #ffffff;">
-                  <!-- Brand bar -->
-                  <div style="background: #ffffff; padding: 24px 24px 16px 24px; border: 1px solid #ededed; border-bottom: 4px solid #f75757; border-radius: 8px 8px 0 0; text-align: center;">
-                    <a href="https://www.rabelanimm.co.za/" style="text-decoration: none; display: inline-block;">
-                      <img src="https://www.rabelanimm.co.za/images/logo.png" alt="Rabelani MM Trading Enterprise" style="max-height: 70px; height: auto; width: auto; display: block; margin: 0 auto;" />
-                    </a>
-                    <p style="margin: 12px 0 0 0; font-size: 12px; color: #919194; letter-spacing: 0.08em; text-transform: uppercase;">Rabelani MM Trading Enterprise</p>
-                  </div>
-
-                  <!-- Title block -->
-                  <div style="background: #f75757; padding: 28px 24px; text-align: center;">
-                    <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 700; letter-spacing: 0.01em;">Package Contents Updated</h1>
-                    ${poNumber ? `<p style="color: #ffe7e7; margin: 14px 0 0 0; font-size: 15px;">Purchase Order Number: <strong style="font-family: 'Courier New', monospace; color: #ffffff;">${poNumber}</strong></p>` : ''}
-                    <p style="color: #ffe7e7; margin: 6px 0 0 0; font-size: 15px;">Your Package Reference: <strong style="font-family: 'Courier New', monospace; color: #ffffff;">${updatedPackage.reference}</strong></p>
-                  </div>
-
-                  <div style="background: #ffffff; padding: 30px 28px; border: 1px solid #ededed; border-top: none;">
-                    <h2 style="color: #242424; font-size: 20px; margin: 0 0 15px 0; font-weight: 700;">✏️ Your Package has been edited</h2>
-                    <p style="margin: 0 0 20px 0; color: #4e595f; line-height: 1.6;">The contents of your package have been updated. Please review the changes below.</p>
-
-                    <div style="margin: 24px 0;">
-                      <h3 style="color: #242424; font-size: 16px; margin: 0 0 12px 0; font-weight: 700;">📋 Package Contents – Updated Contents</h3>
-                      ${renderItemsTable(updatedItems)}
-                    </div>
-
-                    <div style="margin: 24px 0;">
-                      <h3 style="color: #919194; font-size: 16px; margin: 0 0 12px 0; font-weight: 700;">📦 Package Contents – Previous</h3>
-                      ${renderItemsTable(previousItems)}
-                    </div>
-
-                    <p style="margin: 24px 0 0 0; color: #4e595f; line-height: 1.6; font-size: 15px;">Thank you for your Order.</p>
-                  </div>
-
-                  <!-- Footer -->
-                  <div style="background: #242424; padding: 28px 24px; border-radius: 0 0 8px 8px; text-align: center;">
-                    <p style="margin: 0 0 12px 0; font-size: 14px; color: #c9c9c9;">
-                      Questions? Contact us at <a href="mailto:${supportEmail}" style="color: #f75757; text-decoration: none; font-weight: 600;">${supportEmail}</a>
-                    </p>
-                    <p style="margin: 0 0 18px 0; font-size: 11px; color: #919194; line-height: 1.5;">
-                      This is an automated message from the POD System. Please do not reply directly to this email.
-                    </p>
-                    <div style="background: #ffffff; display: inline-block; padding: 14px; border-radius: 8px; margin: 0 0 14px 0;">
-                      <img src="${reviewQrCodeUrl}" alt="Scan to review our services" width="160" height="160" style="display: block; width: 160px; height: 160px;" />
-                    </div>
-                    <p style="margin: 0 0 14px 0; font-size: 12px; color: #c9c9c9; letter-spacing: 0.04em;">
-                      Scan the QR code to review our services
-                    </p>
-                    <a href="${reviewFormUrl}" style="display: inline-block; padding: 12px 28px; background: #f75757; color: #ffffff; text-decoration: none; font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; border-radius: 50px;">
-                      Please Review Our Services
-                    </a>
-                    <p style="margin: 18px 0 0 0; font-size: 11px; color: #666666;">
-                      &copy; ${new Date().getFullYear()} Rabelani MM Trading Enterprise &middot; <a href="https://www.rabelanimm.co.za/" style="color: #919194; text-decoration: none;">www.rabelanimm.co.za</a>
-                    </p>
-                  </div>
-                </body>
-                </html>
-              `
+              subject: rendered.subject,
+              html: rendered.html
             })
           })
 

@@ -26,15 +26,15 @@ export interface AppVersion {
 }
 
 export const APP_VERSION: AppVersion = {
-  "version": "0.39.0-dev",
-  "semver": "0.39.0",
+  "version": "0.40.0-dev",
+  "semver": "0.40.0",
   "baseTag": null,
-  "commitsSinceBase": 41,
+  "commitsSinceBase": 42,
   "isDirty": true,
-  "hash": "f293900",
-  "fullHash": "f293900664956b2153d071bf855c482637e45832",
+  "hash": "d0fa453",
+  "fullHash": "d0fa45301392162d48a64dee8f26d2f9019122de",
   "branch": "main",
   "message": "feat!: Version 1",
-  "commitDate": "2026-05-07T14:54:43+02:00",
-  "buildDate": "2026-05-08T18:10:25.993Z"
+  "commitDate": "2026-05-08T20:32:11+02:00",
+  "buildDate": "2026-05-10T14:08:38.215Z"
 };

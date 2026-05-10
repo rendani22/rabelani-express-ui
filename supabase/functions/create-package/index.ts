@@ -4,6 +4,7 @@
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
+import { resolveTemplate, renderEmail, buildCommonVars } from '../_shared/email-templates.ts'
 
 interface PackageItemRequest {
   quantity: number
@@ -214,14 +215,6 @@ serve(async (req) => {
     try {
       // Use Resend API if configured, otherwise log for manual follow-up
       const resendApiKey = Deno.env.get('RESEND_API_KEY')
-      const collectionHoursWeekday = Deno.env.get('COLLECTION_HOURS') || 'Monday to Friday, 7:00 AM - 16:00 PM'
-      const collectionHoursSaturday = Deno.env.get('COLLECTION_HOURS_SATURDAY') || 'Saturdays: Closed'
-      const collectionHoursSunday = Deno.env.get('COLLECTION_HOURS_SUNDAY') || 'Sundays: Closed'
-      const collectionHoursHolidays = Deno.env.get('COLLECTION_HOURS_HOLIDAYS') || 'Holidays: Closed'
-      const supportEmail = Deno.env.get('SUPPORT_EMAIL') || 'rabelanimm@gmail.com'
-      const collectionContact = Deno.env.get('COLLECTION_CONTACT') || 'Ext 4536 and ask for Lesedi or Thato'
-      const reviewFormUrl = Deno.env.get('REVIEW_FORM_URL') || 'https://docs.google.com/forms/d/e/1FAIpQLSdiySN-ONYROMnjfqAo4fkHyihRWdhD0sUmIu4L8k6UXcGsNg/viewform?usp=preview'
-      const reviewQrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=10&data=${encodeURIComponent(reviewFormUrl)}`
 
       // Use delivery location if available, otherwise fall back to environment variable
       const locationName = deliveryLocation?.name || Deno.env.get('COLLECTION_LOCATION') || 'the designated collection point'
@@ -229,6 +222,23 @@ serve(async (req) => {
       const locationMapsLink = deliveryLocation?.google_maps_link || null
 
       if (resendApiKey) {
+        // Resolve template from DB (with in-code fallback) and render with the
+        // package-specific variables. The template HTML / subject is owned by
+        // the email_templates row and editable from the admin UI.
+        const tpl = await resolveTemplate(adminClient, 'package_registered')
+        const vars = {
+          ...buildCommonVars((k) => Deno.env.get(k) ?? undefined),
+          reference: newPackage.reference,
+          po_number: po_number?.trim() || '',
+          notes: notes?.trim() || '',
+          items: packageItems.map(i => ({ quantity: i.quantity, description: i.description })),
+          has_items: packageItems.length > 0,
+          location_name: locationName,
+          location_address: locationAddress,
+          location_maps_link: locationMapsLink || ''
+        }
+        const rendered = renderEmail(tpl, vars)
+
         const emailResponse = await fetch('https://api.resend.com/emails', {
           method: 'POST',
           headers: {
@@ -238,123 +248,8 @@ serve(async (req) => {
           body: JSON.stringify({
             from: Deno.env.get('EMAIL_FROM') || 'POD System <noreply@example.com>',
             to: [receiver_email],
-            subject: `Purchase Order Confirmation${po_number ? ` - ${po_number}` : ''} - ${newPackage.reference}`,
-            html: `
-              <!DOCTYPE html>
-              <html>
-              <head>
-                <meta charset="utf-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-              </head>
-              <body style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #242424; background: #ffffff;">
-                <!-- Brand bar -->
-                <div style="background: #ffffff; padding: 24px 24px 16px 24px; border: 1px solid #ededed; border-bottom: 4px solid #f75757; border-radius: 8px 8px 0 0; text-align: center;">
-                  <a href="https://www.rabelanimm.co.za/" style="text-decoration: none; display: inline-block;">
-                    <img src="https://www.rabelanimm.co.za/images/logo.png" alt="Rabelani MM Trading Enterprise" style="max-height: 70px; height: auto; width: auto; display: block; margin: 0 auto;" />
-                  </a>
-                  <p style="margin: 12px 0 0 0; font-size: 12px; color: #919194; letter-spacing: 0.08em; text-transform: uppercase;">Rabelani MM Trading Enterprise</p>
-                </div>
-
-                <!-- Title block -->
-                <div style="background: #f75757; padding: 28px 24px; text-align: center;">
-                  <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 700; letter-spacing: 0.01em;">Purchase Order Confirmation</h1>
-                  ${po_number ? `<p style="color: #ffe7e7; margin: 14px 0 0 0; font-size: 15px;">Purchase Order Number: <strong style="font-family: 'Courier New', monospace; color: #ffffff;">${po_number}</strong></p>` : ''}
-                  <p style="color: #ffe7e7; margin: 6px 0 0 0; font-size: 15px;">Your Package Reference: <strong style="font-family: 'Courier New', monospace; color: #ffffff;">${newPackage.reference}</strong></p>
-                </div>
-
-                <div style="background: #ffffff; padding: 30px 28px; border: 1px solid #ededed; border-top: none;">
-                  <h2 style="color: #242424; font-size: 20px; margin: 0 0 15px 0; font-weight: 700;">📦 Package Being Prepared</h2>
-                  <p style="margin: 0 0 12px 0; color: #4e595f;">Hello,</p>
-                  <p style="margin: 0 0 20px 0; color: #4e595f; line-height: 1.6;">Great news! A package has been registered for you and is currently being prepared for delivery.</p>
-
-                  ${notes ? `
-                  <div style="background: #fff8f8; padding: 15px; border-radius: 6px; margin: 20px 0; border-left: 4px solid #b99769;">
-                    <p style="margin: 0; font-size: 14px; color: #242424;"><strong>📝 Notes:</strong> ${notes}</p>
-                  </div>
-                  ` : ''}
-
-                  ${packageItems.length > 0 ? `
-                  <div style="margin: 24px 0;">
-                    <h3 style="color: #242424; font-size: 16px; margin: 0 0 12px 0; font-weight: 700;">📋 Package Contents</h3>
-                    <table style="width: 100%; border-collapse: collapse; border: 1px solid #ededed; border-radius: 6px; overflow: hidden;">
-                      <thead>
-                        <tr style="background: #fafafa;">
-                          <th style="padding: 12px; text-align: left; border-bottom: 1px solid #ededed; font-size: 12px; color: #919194; text-transform: uppercase; letter-spacing: 0.05em; width: 60px;">Qty</th>
-                          <th style="padding: 12px; text-align: left; border-bottom: 1px solid #ededed; font-size: 12px; color: #919194; text-transform: uppercase; letter-spacing: 0.05em;">Description</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        ${packageItems.map(item => `
-                        <tr>
-                          <td style="padding: 12px; border-bottom: 1px solid #ededed; font-size: 14px; color: #242424; font-weight: 600;">${item.quantity}</td>
-                          <td style="padding: 12px; border-bottom: 1px solid #ededed; font-size: 14px; color: #4e595f;">${item.description}</td>
-                        </tr>
-                        `).join('')}
-                      </tbody>
-                    </table>
-                  </div>
-                  ` : ''}
-
-                  <h3 style="color: #242424; font-size: 16px; margin: 30px 0 10px 0; font-weight: 700;">📍 Delivery Point</h3>
-                  <div style="background: #fafafa; padding: 20px; border-radius: 6px; margin: 10px 0 20px 0; border-left: 4px solid #f75757;">
-                    <p style="font-size: 16px; font-weight: 700; color: #242424; margin: 0;">${locationName}</p>
-                    ${locationAddress ? `<p style="font-size: 14px; color: #4e595f; margin: 8px 0 0 0; line-height: 1.5;">${locationAddress}</p>` : ''}
-                    <p style="font-size: 14px; color: #4e595f; margin: 10px 0 0 0;"><strong style="color: #242424;">Contact Number:</strong> ${collectionContact}</p>
-                    ${locationMapsLink ? `<p style="margin: 12px 0 0 0;"><a href="${locationMapsLink}" style="color: #f75757; font-size: 14px; text-decoration: none; font-weight: 600;">📍 View on Google Maps</a></p>` : ''}
-                  </div>
-
-                  <div style="margin: 24px 0;">
-                    <p style="margin: 0 0 8px 0; font-size: 14px; color: #242424;"><strong>Collection Hours:</strong></p>
-                    <ul style="margin: 0; padding-left: 20px; font-size: 14px; color: #4e595f; line-height: 1.7;">
-                      <li>${collectionHoursWeekday}</li>
-                      <li>${collectionHoursSaturday}</li>
-                      <li>${collectionHoursSunday}</li>
-                      <li>${collectionHoursHolidays}</li>
-                    </ul>
-                  </div>
-
-                  <div style="background: #fff8f8; padding: 20px; border-radius: 6px; margin: 24px 0; border-left: 4px solid #c54041;">
-                    <h3 style="color: #c54041; font-size: 16px; margin: 0 0 10px 0; font-weight: 700;">⏳ What happens next?</h3>
-                    <ul style="margin: 0; padding-left: 20px; font-size: 14px; color: #4e595f; line-height: 1.7;">
-                      <li style="margin-bottom: 6px;">Your package is being prepared at our warehouse</li>
-                      <li style="margin-bottom: 6px;">You'll receive an email when your package is on its way</li>
-                      <li>Once it arrives at the collection point, you'll get a final notification that it's ready for pickup</li>
-                    </ul>
-                  </div>
-
-                  <div style="background: #fafafa; padding: 18px; border-radius: 6px; margin: 24px 0;">
-                    <p style="margin: 0 0 8px 0; font-size: 14px; color: #242424;"><strong>What to bring when collecting:</strong></p>
-                    <ul style="margin: 0; padding-left: 20px; font-size: 14px; color: #4e595f; line-height: 1.7;">
-                      <li>Your PO reference number (shown above)</li>
-                      <li>Valid Staff Employee Card for verification and a Witness to Sign with</li>
-                    </ul>
-                  </div>
-                </div>
-
-                <!-- Footer -->
-                <div style="background: #242424; padding: 28px 24px; border-radius: 0 0 8px 8px; text-align: center;">
-                  <p style="margin: 0 0 12px 0; font-size: 14px; color: #c9c9c9;">
-                    Questions? Contact us at <a href="mailto:${supportEmail}" style="color: #f75757; text-decoration: none; font-weight: 600;">${supportEmail}</a>
-                  </p>
-                  <p style="margin: 0 0 18px 0; font-size: 11px; color: #919194; line-height: 1.5;">
-                    This is an automated message from the POD System. Please do not reply directly to this email.
-                  </p>
-                  <div style="background: #ffffff; display: inline-block; padding: 14px; border-radius: 8px; margin: 0 0 14px 0;">
-                    <img src="${reviewQrCodeUrl}" alt="Scan to review our services" width="160" height="160" style="display: block; width: 160px; height: 160px;" />
-                  </div>
-                  <p style="margin: 0 0 14px 0; font-size: 12px; color: #c9c9c9; letter-spacing: 0.04em;">
-                    Scan the QR code to review our services
-                  </p>
-                  <a href="${reviewFormUrl}" style="display: inline-block; padding: 12px 28px; background: #f75757; color: #ffffff; text-decoration: none; font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; border-radius: 50px;">
-                    Please Review Our Services
-                  </a>
-                  <p style="margin: 18px 0 0 0; font-size: 11px; color: #666666;">
-                    &copy; ${new Date().getFullYear()} Rabelani MM Trading Enterprise &middot; <a href="https://www.rabelanimm.co.za/" style="color: #919194; text-decoration: none;">www.rabelanimm.co.za</a>
-                  </p>
-                </div>
-              </body>
-              </html>
-            `
+            subject: rendered.subject,
+            html: rendered.html
           })
         })
 

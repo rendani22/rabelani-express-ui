@@ -29,7 +29,7 @@ export class LayoutComponent {
     { icon: 'users', label: 'Customers', routerLink: '/customers' },
     { icon: 'users', label: 'Users', routerLink: '/user-management' },
     { icon: 'map-pin', label: 'Locations', routerLink: '/delivery-locations' },
-    { icon: 'mail', label: 'Templates', routerLink: '/email-templates', comingSoon: true },
+    { icon: 'mail', label: 'Templates', routerLink: '/email-templates' },
     { icon: 'settings', label: 'Settings', routerLink: '/settings' },
   ];
 

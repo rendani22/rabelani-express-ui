@@ -25,3 +25,4 @@ export * from './guards/auth.guard';
 // Utils
 export * from './utils/form-validation.utils';
 export * from './utils/pod-pdf.utils';
+export * from './utils/template-render.utils';
