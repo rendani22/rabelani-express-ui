@@ -9,7 +9,7 @@ import { PACKAGE_STATUS } from '../../../../core';
   imports: [CommonModule],
   host: { 'class': 'col-span-12 lg:col-span-8 block' },
   template: `
-    <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl">
+    <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl h-full flex flex-col">
       <header class="px-4 sm:px-5 py-4 border-b border-gray-100 dark:border-gray-700/60 flex items-center justify-between">
         <h2 class="font-semibold text-gray-800 dark:text-gray-100">{{ title }}</h2>
         <button
@@ -18,7 +18,7 @@ import { PACKAGE_STATUS } from '../../../../core';
           View All →
         </button>
       </header>
-      <div class="p-2 sm:p-3">
+      <div class="p-2 sm:p-3 flex-1">
         @if (packages.length > 0) {
           <div class="space-y-1">
             @for (pkg of packages; track pkg.id) {

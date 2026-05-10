@@ -11,7 +11,7 @@ Chart.register(...registerables);
   imports: [CommonModule],
   host: { 'class': 'col-span-12 lg:col-span-8 block' },
   template: `
-    <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl">
+    <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl h-full flex flex-col">
       <header class="px-4 sm:px-5 py-4 border-b border-gray-100 dark:border-gray-700/60 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <h2 class="font-semibold text-gray-800 dark:text-gray-100">{{ title }}</h2>
         <div class="flex items-center gap-3">
@@ -27,7 +27,7 @@ Chart.register(...registerables);
           }
         </div>
       </header>
-      <div class="px-4 sm:px-5 py-3">
+      <div class="px-4 sm:px-5 py-3 flex-1 flex flex-col justify-center">
         <div [style.height.px]="chartHeight">
           @if (data.length > 0) {
             <canvas #chartCanvas></canvas>

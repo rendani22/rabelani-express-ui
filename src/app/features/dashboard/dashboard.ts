@@ -7,6 +7,7 @@ import { DashboardActionsComponent } from './dashboard-actions/dashboard-actions
 import { CreatePackageModalComponent } from '../../shared/components/modals';
 import { Package } from '../../core';
 import { DashboardService, PackageActivity } from './services/dashboard.service';
+import { StuckPackage } from './services/dashboard.service';
 import { PackageStatsCardComponent, StatItem } from './cards/package-stats-card/package-stats-card.component';
 import { PackageStatusChartComponent } from './cards/package-status-chart/package-status-chart.component';
 import { PackagesTrendCardComponent } from './cards/packages-trend-card/packages-trend-card.component';
@@ -17,6 +18,12 @@ import { DriverStatusCardComponent } from './cards/driver-status-card/driver-sta
 import { LocationDistributionCardComponent } from './cards/location-distribution-card/location-distribution-card.component';
 import { PodStatsCardComponent } from './cards/pod-stats-card/pod-stats-card.component';
 import { TopReceiversCardComponent } from './cards/top-receivers-card/top-receivers-card.component';
+import { DriverPerformanceCardComponent } from './cards/driver-performance-card/driver-performance-card.component';
+import { LifecycleMetricsCardComponent } from './cards/lifecycle-metrics-card/lifecycle-metrics-card.component';
+import { StuckPackagesCardComponent } from './cards/stuck-packages-card/stuck-packages-card.component';
+import { InventoryHealthCardComponent } from './cards/inventory-health-card/inventory-health-card.component';
+import { TopItemsCardComponent } from './cards/top-items-card/top-items-card.component';
+import { HourlyHeatmapCardComponent } from './cards/hourly-heatmap-card/hourly-heatmap-card.component';
 
 @Component({
   selector: 'app-dashboard',
@@ -36,6 +43,12 @@ import { TopReceiversCardComponent } from './cards/top-receivers-card/top-receiv
     LocationDistributionCardComponent,
     PodStatsCardComponent,
     TopReceiversCardComponent,
+    DriverPerformanceCardComponent,
+    LifecycleMetricsCardComponent,
+    StuckPackagesCardComponent,
+    InventoryHealthCardComponent,
+    TopItemsCardComponent,
+    HourlyHeatmapCardComponent,
   ],
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.css',
@@ -58,6 +71,12 @@ export class Dashboard implements OnInit {
   readonly podStats = this.dashboardService.podStats;
   readonly locationDistribution = this.dashboardService.locationDistribution;
   readonly topReceivers = this.dashboardService.topReceivers;
+  readonly driverPerformance = this.dashboardService.driverPerformance;
+  readonly lifecycleMetrics = this.dashboardService.lifecycleMetrics;
+  readonly stuckPackages = this.dashboardService.stuckPackages;
+  readonly inventoryHealth = this.dashboardService.inventoryHealth;
+  readonly topShippedItems = this.dashboardService.topShippedItems;
+  readonly hourlyHeatmap = this.dashboardService.hourlyHeatmap;
 
   // Computed stat items for the stats card (8 items)
   get statItems(): StatItem[] {
@@ -113,5 +132,13 @@ export class Dashboard implements OnInit {
 
   onViewAllPackages(): void {
     this.router.navigate(['/orders']);
+  }
+
+  onStuckPackageClick(stuck: StuckPackage): void {
+    this.router.navigate(['/orders'], { queryParams: { id: stuck.id } });
+  }
+
+  onViewInventory(): void {
+    this.router.navigate(['/inventory']);
   }
 }

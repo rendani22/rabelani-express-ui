@@ -83,7 +83,43 @@
           [pendingCount]="stats().pending">
         </app-delivery-performance-card>
 
-        <!-- ── Row 6: Top Receivers (full width) ── -->
+        <!-- ── Row 6: Cycle-Time KPIs (6) + SLA Alerts (6) ── -->
+        <app-lifecycle-metrics-card
+          title="Cycle-Time Insights"
+          [metrics]="lifecycleMetrics()">
+        </app-lifecycle-metrics-card>
+
+        <app-stuck-packages-card
+          title="SLA Alerts"
+          [packages]="stuckPackages()"
+          (packageClick)="onStuckPackageClick($event)">
+        </app-stuck-packages-card>
+
+        <!-- ── Row 7: Driver Performance (6) + Top Items Shipped (6) ── -->
+        <app-driver-performance-card
+          title="Driver Performance"
+          [drivers]="driverPerformance()">
+        </app-driver-performance-card>
+
+        <app-top-items-card
+          title="Top Items Shipped"
+          [items]="topShippedItems()">
+        </app-top-items-card>
+
+        <!-- ── Row 8: Inventory Health (6) + (placeholder uses other 6 of receivers row below) ── -->
+        <app-inventory-health-card
+          title="Inventory Health"
+          [data]="inventoryHealth()"
+          (viewInventoryClick)="onViewInventory()">
+        </app-inventory-health-card>
+
+        <!-- ── Row 9: Hourly Heatmap (full width) ── -->
+        <app-hourly-heatmap-card
+          title="Activity Heatmap (Day × Hour)"
+          [data]="hourlyHeatmap()">
+        </app-hourly-heatmap-card>
+
+        <!-- ── Row 10: Top Receivers (full width) ── -->
         <div class="col-span-12 block">
           <div class="grid grid-cols-12 gap-4 lg:gap-6">
             <app-top-receivers-card
@@ -153,6 +189,17 @@
                       <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 mt-1">
                         <div class="bg-blue-500 h-1.5 rounded-full"
                              [style.width.%]="stats().total > 0 ? (driverStats().packagesInTransit / stats().total * 100) : 0"></div>
+                      </div>
+                    </div>
+                    <!-- Returns -->
+                    <div class="flex flex-col gap-1">
+                      <span class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Return Rate</span>
+                      <span class="text-3xl font-bold text-rose-600 dark:text-rose-400">
+                        {{ stats().total > 0 ? ((stats().returned / stats().total) * 100 | number: '1.0-1') : 0 }}%
+                      </span>
+                      <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 mt-1">
+                        <div class="bg-rose-500 h-1.5 rounded-full"
+                             [style.width.%]="stats().total > 0 ? (stats().returned / stats().total * 100) : 0"></div>
                       </div>
                     </div>
                   </div>
