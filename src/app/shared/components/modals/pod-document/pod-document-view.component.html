@@ -57,9 +57,30 @@
         <dd>{{ package.receiver_email }}</dd>
       </div>
       @if (package.notes) {
+        @let parsedNotes = parseNotes(package.notes);
         <div class="col-span-2 pt-2">
           <dt class="text-gray-500 mb-1">Notes</dt>
-          <dd class="text-sm whitespace-pre-wrap text-gray-800">{{ package.notes }}</dd>
+          @if (parsedNotes.text) {
+            <dd class="text-sm whitespace-pre-wrap text-gray-800">{{ parsedNotes.text }}</dd>
+          } @else if (!parsedNotes.photoUrls.length) {
+            <dd class="text-sm whitespace-pre-wrap text-gray-800">{{ package.notes }}</dd>
+          }
+          @if (parsedNotes.photoUrls.length) {
+            <dd class="mt-2">
+              <div class="text-xs text-gray-500 mb-1">
+                Delivery Photo{{ parsedNotes.photoUrls.length > 1 ? 's' : '' }}
+              </div>
+              <div class="flex flex-wrap gap-2">
+                @for (url of parsedNotes.photoUrls; track url) {
+                  <img
+                    [src]="url"
+                    alt="Delivery photo"
+                    class="max-w-[200px] max-h-[200px] object-cover border border-gray-300 rounded"
+                  />
+                }
+              </div>
+            </dd>
+          }
         </div>
       }
     </dl>

@@ -67,5 +67,28 @@ export class PodDocumentViewComponent {
     if (!items) return 0;
     return items.reduce((sum, item) => sum + (item.quantity ?? 0), 0);
   }
+
+  /**
+   * Extracts driver-uploaded "Delivery photo" URLs from the notes field so
+   * they can be rendered inline as image previews on the POD document.
+   */
+  parseNotes(notes: string | null | undefined): { photoUrls: string[]; text: string } {
+    if (!notes) return { photoUrls: [], text: '' };
+    const photoUrls: string[] = [];
+    const photoPattern = /delivery photo:\s*(https?:\/\/\S+\.(?:jpg|jpeg|png|webp|gif|heic)(?:\?\S*)?)/gi;
+    let cleaned = notes.replace(photoPattern, (_m, url: string) => {
+      photoUrls.push(url);
+      return '';
+    });
+    if (photoUrls.length === 0) {
+      const bareImagePattern = /(https?:\/\/\S*delivery-photos\/\S+|https?:\/\/\S+\.(?:jpg|jpeg|png|webp|gif|heic)(?:\?\S*)?)/gi;
+      cleaned = cleaned.replace(bareImagePattern, (url: string) => {
+        photoUrls.push(url);
+        return '';
+      });
+    }
+    const text = cleaned.replace(/^[\s,;:-]+|[\s,;:-]+$/g, '').trim();
+    return { photoUrls, text };
+  }
 }
 

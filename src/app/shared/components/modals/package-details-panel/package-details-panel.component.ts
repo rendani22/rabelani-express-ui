@@ -336,11 +336,54 @@ interface TimelineEntry {
 
             <!-- Notes -->
             @if (pkg.notes) {
+              @let parsedNotes = parseNotes(pkg.notes);
               <div class="px-6 py-5 border-b border-gray-200 dark:border-gray-700">
                 <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
                   Notes
                 </h3>
-                <p class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{{ pkg.notes }}</p>
+
+                @if (parsedNotes.photoUrls.length) {
+                  <div class="mb-3">
+                    <div class="flex items-center gap-2 mb-2">
+                      <svg class="w-4 h-4 text-violet-600 dark:text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                      </svg>
+                      <span class="text-xs font-medium text-gray-700 dark:text-gray-300">
+                        Delivery Photo{{ parsedNotes.photoUrls.length > 1 ? 's' : '' }}
+                      </span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                      @for (url of parsedNotes.photoUrls; track url) {
+                        <a
+                          [href]="url"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          class="group relative block rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 hover:border-violet-500 dark:hover:border-violet-400 transition-colors bg-gray-100 dark:bg-gray-900"
+                          title="Open delivery photo in a new tab"
+                        >
+                          <img
+                            [src]="url"
+                            alt="Delivery photo"
+                            class="w-full h-32 object-cover"
+                            loading="lazy"
+                          />
+                          <span class="absolute inset-0 flex items-center justify-center bg-gray-900/0 group-hover:bg-gray-900/40 transition-colors">
+                            <svg class="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
+                            </svg>
+                          </span>
+                        </a>
+                      }
+                    </div>
+                  </div>
+                }
+
+                @if (parsedNotes.text) {
+                  <p class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{{ parsedNotes.text }}</p>
+                } @else if (!parsedNotes.photoUrls.length) {
+                  <p class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{{ pkg.notes }}</p>
+                }
               </div>
             }
 
@@ -1186,6 +1229,40 @@ export class PackageDetailsPanelComponent implements OnChanges {
       minute: '2-digit',
       hour12: true
     });
+  }
+
+  /**
+   * Parses a notes string and extracts any "Delivery photo: <url>" entries
+   * (added automatically by the driver app when completing a delivery) so
+   * they can be rendered as image previews instead of raw URLs.
+   */
+  parseNotes(notes: string | null | undefined): { photoUrls: string[]; text: string } {
+    if (!notes) return { photoUrls: [], text: '' };
+
+    const photoUrls: string[] = [];
+    // Match patterns like "Delivery photo: https://..." (case-insensitive)
+    const photoPattern = /delivery photo:\s*(https?:\/\/\S+\.(?:jpg|jpeg|png|webp|gif|heic)(?:\?\S*)?)/gi;
+    let cleaned = notes.replace(photoPattern, (_match, url: string) => {
+      photoUrls.push(url);
+      return '';
+    });
+
+    // Fallback: capture bare image URLs (e.g. supabase storage delivery-photos paths)
+    if (photoUrls.length === 0) {
+      const bareImagePattern = /(https?:\/\/\S*delivery-photos\/\S+|https?:\/\/\S+\.(?:jpg|jpeg|png|webp|gif|heic)(?:\?\S*)?)/gi;
+      cleaned = cleaned.replace(bareImagePattern, (url: string) => {
+        photoUrls.push(url);
+        return '';
+      });
+    }
+
+    // Tidy up leftover separators / whitespace
+    const text = cleaned
+      .replace(/^[\s,;:-]+|[\s,;:-]+$/g, '')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+
+    return { photoUrls, text };
   }
 
   /** Returns a filename for the POD PDF download. */

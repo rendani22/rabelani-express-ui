@@ -65,6 +65,40 @@ interface UpdatePackageRequest {
   items?: PackageItemsDiff
 }
 
+/**
+ * `fetch` wrapper that aborts after `timeoutMs`. Resolves to a tagged
+ * `{ aborted: true, error }` object instead of throwing so callers can treat
+ * Resend slowness identically to any other transport failure without the
+ * function ever stalling longer than the timeout.
+ *
+ * Deno's global `fetch` has NO default timeout — without this, a slow or
+ * unreachable api.resend.com would hang the function past the mobile
+ * client's AbortController and surface as "loads forever then cancels".
+ */
+async function fetchWithTimeout(
+  input: string,
+  init: RequestInit,
+  timeoutMs: number
+): Promise<Response | { aborted: true; error: string }> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    return await fetch(input, { ...init, signal: controller.signal })
+  } catch (e) {
+    const aborted = (e as { name?: string })?.name === 'AbortError'
+    return {
+      aborted: true,
+      error: aborted
+        ? `Request to ${input} aborted after ${timeoutMs}ms`
+        : e instanceof Error ? e.message : String(e)
+    }
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+const RESEND_TIMEOUT_MS = 8_000
+
 function buildCorsHeaders(origin: string | null) {
   return {
     'Access-Control-Allow-Origin': origin ?? '*',
@@ -140,7 +174,10 @@ serve(async (req) => {
       )
     }
 
-    if (!['warehouse', 'admin', 'collection'].includes(callerProfile.role)) {
+    // Drivers complete deliveries from the mobile app, so they must be able
+    // to call this function (e.g. to mark a package as `collected`). The
+    // remaining roles continue to manage other transitions.
+    if (!['warehouse', 'admin', 'collection', 'driver'].includes(callerProfile.role)) {
       return new Response(
         JSON.stringify({
           error: 'Insufficient permissions to update packages',
@@ -726,7 +763,7 @@ serve(async (req) => {
             location_address: locationAddress,
             location_maps_link: locationMapsLink || ''
           })
-          const emailResponse = await fetch('https://api.resend.com/emails', {
+          const emailResponse = await fetchWithTimeout('https://api.resend.com/emails', {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${resendApiKey}`,
@@ -738,9 +775,9 @@ serve(async (req) => {
               subject: rendered.subject,
               html: rendered.html
             })
-          })
+          }, RESEND_TIMEOUT_MS)
 
-          if (emailResponse.ok) {
+          if (emailResponse instanceof Response && emailResponse.ok) {
             readyEmailSent = true
             await adminClient.from('audit_logs').insert({
               action: 'PACKAGE_READY_NOTIFICATION',
@@ -756,8 +793,9 @@ serve(async (req) => {
               }
             })
           } else {
-            const errorBody = await emailResponse.text()
-            readyEmailError = `Email API error: ${errorBody}`
+            readyEmailError = emailResponse instanceof Response
+              ? `Email API error: ${await emailResponse.text()}`
+              : `Email transport error: ${emailResponse.error}`
             console.error('Ready-for-collection email send failed:', readyEmailError)
           }
         }
@@ -832,7 +870,7 @@ serve(async (req) => {
 
           const ccAddress = Deno.env.get('PACKAGE_COMPLETED_CC') || supportEmail || 'rabelanimm@gmail.com'
 
-          const emailResponse = await fetch('https://api.resend.com/emails', {
+          const emailResponse = await fetchWithTimeout('https://api.resend.com/emails', {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${resendApiKey}`,
@@ -846,9 +884,9 @@ serve(async (req) => {
               ...(attachments.length > 0 ? { attachments } : {}),
               html: rendered.html
             })
-          })
+          }, RESEND_TIMEOUT_MS)
 
-          if (emailResponse.ok) {
+          if (emailResponse instanceof Response && emailResponse.ok) {
             completedEmailSent = true
             await adminClient.from('audit_logs').insert({
               action: 'PACKAGE_COMPLETED_NOTIFICATION',
@@ -867,8 +905,9 @@ serve(async (req) => {
               }
             })
           } else {
-            const errorBody = await emailResponse.text()
-            completedEmailError = `Email API error: ${errorBody}`
+            completedEmailError = emailResponse instanceof Response
+              ? `Email API error: ${await emailResponse.text()}`
+              : `Email transport error: ${emailResponse.error}`
             console.error('Package-completed email send failed:', completedEmailError)
           }
         }
@@ -915,7 +954,7 @@ serve(async (req) => {
             has_previous_items: previousItems.length > 0
           })
 
-          const emailResponse = await fetch('https://api.resend.com/emails', {
+          const emailResponse = await fetchWithTimeout('https://api.resend.com/emails', {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${resendApiKey}`,
@@ -927,9 +966,9 @@ serve(async (req) => {
               subject: rendered.subject,
               html: rendered.html
             })
-          })
+          }, RESEND_TIMEOUT_MS)
 
-          if (emailResponse.ok) {
+          if (emailResponse instanceof Response && emailResponse.ok) {
             itemsUpdatedEmailSent = true
             await adminClient.from('audit_logs').insert({
               action: 'PACKAGE_ITEMS_UPDATED_NOTIFICATION',
@@ -947,8 +986,9 @@ serve(async (req) => {
               }
             })
           } else {
-            const errorBody = await emailResponse.text()
-            itemsUpdatedEmailError = `Email API error: ${errorBody}`
+            itemsUpdatedEmailError = emailResponse instanceof Response
+              ? `Email API error: ${await emailResponse.text()}`
+              : `Email transport error: ${emailResponse.error}`
             console.error('Items-updated email send failed:', itemsUpdatedEmailError)
           }
         }
