@@ -14,12 +14,13 @@
  *   - Only commits *after* that tag are considered.
  */
 import { execFileSync } from 'node:child_process';
-import { writeFileSync, mkdirSync } from 'node:fs';
+import { writeFileSync, mkdirSync, readFileSync, existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const outFile = resolve(__dirname, '..', 'src', 'environments', 'version.ts');
+const pkgFile = resolve(__dirname, '..', 'package.json');
 
 function git(args, fallback = '') {
   try {
@@ -29,6 +30,39 @@ function git(args, fallback = '') {
   } catch {
     return fallback;
   }
+}
+
+// Detect availability of a real git repo with history. CI builds (Cloudflare
+// Pages, GitHub Actions, etc.) often run against a shallow clone with no tags,
+// which would cause the version to collapse to the 0.0.0 -> 0.1.0 fallback.
+const hasGit = git(['rev-parse', '--is-inside-work-tree'], '') === 'true';
+const isShallow = hasGit && git(['rev-parse', '--is-shallow-repository'], 'false') === 'true';
+if (isShallow) {
+  // Best-effort: try to fetch full history + tags so semver derivation works.
+  // Failures are fine (no network, detached, etc.) — we'll fall back below.
+  try {
+    execFileSync('git', ['fetch', '--unshallow', '--tags'], {
+      stdio: ['ignore', 'ignore', 'ignore'],
+    });
+  } catch {
+    try {
+      execFileSync('git', ['fetch', '--tags'], { stdio: ['ignore', 'ignore', 'ignore'] });
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+// Read package.json version as a deployment-time fallback when git history
+// isn't available (shallow CI clones, source tarballs, etc.).
+let pkgVersion = '';
+try {
+  const pkg = JSON.parse(readFileSync(pkgFile, 'utf8'));
+  if (typeof pkg.version === 'string' && /^\d+\.\d+\.\d+/.test(pkg.version)) {
+    pkgVersion = pkg.version;
+  }
+} catch {
+  /* ignore */
 }
 
 const SEMVER_TAG = /^v?(\d+)\.(\d+)\.(\d+)$/;
@@ -115,19 +149,38 @@ for (const c of commits) {
 }
 
 if (major === 0 && minor === 0 && patch === 0) {
-  minor = 1;
+  // No git tags AND no bump-worthy commits found. This happens on shallow CI
+  // clones. Prefer the version pinned in package.json so deploys reflect the
+  // actual release. Only fall back to 0.1.0 if package.json has no version.
+  if (pkgVersion) {
+    const m = /^(\d+)\.(\d+)\.(\d+)/.exec(pkgVersion);
+    if (m) {
+      major = +m[1];
+      minor = +m[2];
+      patch = +m[3];
+    }
+  }
+  if (major === 0 && minor === 0 && patch === 0) {
+    minor = 1;
+  }
 }
 
 const semver = major + '.' + minor + '.' + patch;
 
-const hash = git(['rev-parse', '--short', 'HEAD'], 'unknown');
-const fullHash = git(['rev-parse', 'HEAD'], 'unknown');
+const ciSha = process.env.CF_PAGES_COMMIT_SHA || process.env.GITHUB_SHA || '';
+const ciBranch =
+  process.env.CF_PAGES_BRANCH || process.env.GITHUB_REF_NAME || process.env.BRANCH || '';
+
+const hash = git(['rev-parse', '--short', 'HEAD'], ciSha ? ciSha.slice(0, 7) : 'unknown');
+const fullHash = git(['rev-parse', 'HEAD'], ciSha || 'unknown');
 const subject = git(['log', '-1', '--pretty=%s'], '');
 const commitDate = git(['log', '-1', '--pretty=%cI'], new Date().toISOString());
-const branch = git(['rev-parse', '--abbrev-ref', 'HEAD'], 'unknown');
+const branch = git(['rev-parse', '--abbrev-ref', 'HEAD'], ciBranch || 'unknown');
 const buildDate = new Date().toISOString();
 
-const isDirty = git(['status', '--porcelain'], '').length > 0;
+// Treat a working tree as dirty only when we actually have a git repo to
+// inspect; CI clones with no `.git` should not be reported as "-dev".
+const isDirty = hasGit && git(['status', '--porcelain'], '').length > 0;
 const display = isDirty ? semver + '-dev' : semver;
 
 const version = {

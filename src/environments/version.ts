@@ -26,15 +26,15 @@ export interface AppVersion {
 }
 
 export const APP_VERSION: AppVersion = {
-  "version": "0.40.0-dev",
-  "semver": "0.40.0",
+  "version": "0.43.0-dev",
+  "semver": "0.43.0",
   "baseTag": null,
-  "commitsSinceBase": 42,
+  "commitsSinceBase": 45,
   "isDirty": true,
-  "hash": "d0fa453",
-  "fullHash": "d0fa45301392162d48a64dee8f26d2f9019122de",
+  "hash": "37c551b",
+  "fullHash": "37c551b9ad6d44a8c5d85e230e6d3ff7359dcb84",
   "branch": "main",
-  "message": "feat!: Version 1",
-  "commitDate": "2026-05-08T20:32:11+02:00",
-  "buildDate": "2026-05-10T14:08:38.215Z"
+  "message": "feat: add edit permission check for email templates and display read-only badge",
+  "commitDate": "2026-05-10T18:12:09+02:00",
+  "buildDate": "2026-05-10T16:13:50.328Z"
 };
