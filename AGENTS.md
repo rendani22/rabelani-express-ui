@@ -11,7 +11,8 @@
 src/app/
 ├── core/           # Shared models, services, guards, utils (barrel exported via index.ts)
 ├── features/       # Feature modules: dashboard, orders, drivers, login, user-management,
-│                   #   customer-management, delivery-locations, email-templates, settings
+│                   #   customer-management, delivery-locations, email-templates, inventory,
+│                   #   inventory/recent-movements, settings
 └── shared/         # Reusable UI components, directives, services (Supabase client)
 ```
 
@@ -44,7 +45,11 @@ readonly isLoading = signal(false);
 - Package **reads** (`loadPackages`, `getPackage`) query Supabase directly via `supabaseService.client.from('packages')`
 - `DeliveryLocationService` uses direct Supabase CRUD (no Edge Functions) against `delivery_locations` table
 - `DriverService` uses direct Supabase queries for driver profiles and locations
+- `InventoryService` uses direct Supabase CRUD against `inventory_items` / `inventory_movements`; package items may reference `inventory_item_id` so the `create-package` edge function records the link for later stock reconciliation
+- `ReceiverService` / `StaffService` use direct Supabase queries against `receiver_profiles`+`receiver_contacts` and `staff_profiles` respectively
 - `SettingsService` persists preferences to `localStorage` only — no Supabase calls
+- `ThemeService` toggles dark mode and persists the choice (no Supabase)
+- `OnboardingTourService` drives `OnboardingTourComponent` via a `TOUR_REGISTRY` keyed by `TourId` (`'dashboard' | 'orders'`); steps target CSS selectors and auto-skip if missing
 - Lock-status checks call Supabase RPC functions: `is_pod_locked`, `get_pod_lock_status`
 
 ### API Pattern (PackageService example)
@@ -79,6 +84,11 @@ const response = await this.callEdgeFunction<CreatePackageApiResponse>(
 - `map/` – `DriverMapComponent`: Leaflet-based interactive driver location map
 - `global-search/` – `GlobalSearchComponent` controlled by `GlobalSearchService` (open/close overlay)
 - `qr-code/` – `QrCodeComponent` wrapping `angularx-qrcode`
+- `onboarding-tour/` – `OnboardingTourComponent` rendered globally; driven by `OnboardingTourService` step registry
+- `confirm-dialog/` – imperative confirmation dialog; pair with `ToastService` for feedback
+- `signature-pad/` – canvas-based signature capture (used in POD flow)
+- Form input primitives (`text-input/`, `textarea/`, `select/`, `checkbox/` + `checkbox-group/`, `radio/` + `radio-group/`, `toggle-switch/`, `search-input/`, `tooltip-input/`, `button/`) – prefer these over raw HTML inputs for consistent styling and a11y
+- `banner/`, `notification/`, `user-card/`, `transaction/`, `nav-item/`, `navbar/` – presentational building blocks
 - `shared/alert.types.ts` – shared `AlertSeverity` / `AlertVariant` types used by toast, banner, notification
 
 **Directives**: `shared/directives/outside-click.directive.ts` – emits when a click occurs outside the host element.
@@ -98,17 +108,19 @@ readonly form = this.fb.nonNullable.group({
 | `angularx-qrcode` | QR code label generation |
 | `chart.js` | Dashboard analytics charts (bar, doughnut, line) |
 | `flatpickr` | Date-picker in order filters |
+| `html2pdf.js` | POD PDF generation (lazy-imported in `core/utils/pod-pdf.utils.ts`) |
 | `@ng-icons/core` + `@ng-icons/tabler-icons` | Icon system |
 
 ## Commands
 
 ```bash
-npm start              # Dev server at localhost:4200
-npm run build          # Production build to dist/cloudflare
+npm start              # Dev server at localhost:4200 (runs version:generate first)
+npm run build          # Production build to dist/cloudflare (runs version:generate first)
 npm run watch          # Build in watch mode (development)
-npm test               # Vitest unit tests
+npm test               # Unit tests via `ng test` (Angular `@angular/build:unit-test` → Vitest)
 npm run storybook      # Component docs at localhost:6006
 npm run build-storybook  # Static Storybook build
+npm run version:generate # Regenerates `src/environments/version.ts` from git/package.json
 ```
 
 ## Testing
@@ -130,19 +142,32 @@ import { tablerIconName } from '@ng-icons/tabler-icons';
 | File | Purpose |
 |------|---------|
 | `src/app/core/index.ts` | Barrel exports for core module |
-| `src/app/core/models/package.models.ts` | Package types, status constants, type guards |
+| `src/app/core/models/package.models.ts` | Package types, status constants, type guards, `EDGE_FUNCTIONS` map |
+| `src/app/core/models/inventory.models.ts` | `InventoryItem`, `InventoryMovement`, DTOs, `InventoryStats` |
+| `src/app/core/models/receiver-profile.model.ts` + `receiver-contact.model.ts` | Receiver profile & contact types |
 | `src/app/core/models/delivery-location.models.ts` | `DeliveryLocation`, create/update DTOs |
 | `src/app/core/models/driver.models.ts` | `DriverProfile`, `DriverLocation`, `DriverMapMarker`, `DriverStatus` |
 | `src/app/core/models/staff-profile.model.ts` | `StaffProfile`, `CreateStaffProfileDto` |
 | `src/app/core/services/package.service.ts` | Package CRUD via Edge Functions + direct reads |
+| `src/app/core/services/inventory.service.ts` | Inventory CRUD + computed `stats` signal |
+| `src/app/core/services/receiver.service.ts` | Receiver profile/contact management |
+| `src/app/core/services/staff.service.ts` | Staff profile management |
+| `src/app/core/services/theme.service.ts` | Dark-mode toggle, persists to localStorage |
+| `src/app/core/services/onboarding-tour.service.ts` | Tour state machine + `TOUR_REGISTRY` |
 | `src/app/core/services/delivery-location.service.ts` | Delivery location CRUD via direct Supabase |
 | `src/app/core/services/driver.service.ts` | Driver management + `mapMarkers` computed signal |
 | `src/app/core/services/settings.service.ts` | App preferences persisted to localStorage |
+| `src/app/core/utils/pod-pdf.utils.ts` | POD PDF rendering (lazy-loads `html2pdf.js`) |
+| `src/app/core/utils/template-render.utils.ts` | Email template variable interpolation |
+| `src/app/core/utils/form-validation.utils.ts` | Shared regex/validators (e.g. `EMAIL_PATTERN`) |
 | `src/app/shared/services/supabase.service.ts` | Supabase client wrapper |
 | `src/app/shared/services/global-search.service.ts` | Controls global search overlay open/close |
 | `src/app/shared/components/modals/index.ts` | Modal component exports |
 | `src/app/shared/components/toast/toast.service.ts` | Imperative toast notifications |
 | `src/app/shared/components/map/driver-map.component.ts` | Leaflet driver map (runs outside NgZone) |
 | `src/app/features/dashboard/services/dashboard.service.ts` | Dashboard stats aggregation (feature-local) |
+| `src/app/features/inventory/` | Inventory feature (`inventory.ts` list + `recent-movements/`) |
+| `scripts/generate-version.mjs` | Pre-build hook that writes `src/environments/version.ts` |
+| `supabase/functions/` | Source for deployed edge functions (`create-package`, `update-package`; `driver-pickup` & `receive-at-collection` are deployed but not vendored here) |
 | `tailwind.config.js` | Tailwind with safelisted grid classes |
 

@@ -458,7 +458,11 @@ export class OrdersComponent implements OnInit {
         console.error('[Orders] POD PDF generation failed:', pdfResult.error);
       }
       const podPayload: MarkCollectedPayload = pdfResult.base64
-        ? { ...payload, pdf_base64: pdfResult.base64, pdf_filename: `POD-${pkg.reference}.pdf` }
+        ? {
+            ...payload,
+            pdf_base64: pdfResult.base64,
+            pdf_filename: `POD-${pkg.reference}${pkg.po_number ? `-${pkg.po_number}` : ''}.pdf`,
+          }
         : payload;
 
       const result = await this.packageService.updatePackage(pkg.id, {

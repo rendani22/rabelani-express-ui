@@ -18,7 +18,7 @@ export type { Transaction } from '../transaction.model';
         </div>
         <div class="actions">
           <button class="btn-action" (click)="exportSelected()">Export</button>
-          <button class="btn-action btn-danger" (click)="deleteSelected()">Delete</button>
+          <button class="btn-action btn-danger" (click)="deleteSelected()" [disabled]="true" title="Delete is currently disabled">Delete</button>
         </div>
       </div>
 
@@ -157,6 +157,13 @@ export type { Transaction } from '../transaction.model';
     .btn-action:hover {
       background: #f9fafb;
       border-color: #9ca3af;
+    }
+
+    .btn-action:disabled,
+    .btn-action[disabled] {
+      opacity: 0.5;
+      cursor: not-allowed;
+      pointer-events: none;
     }
 
     .btn-danger {
@@ -477,6 +484,8 @@ export class TransactionTableComponent {
   @Output() selectionChanged = new EventEmitter<Set<string>>();
   /** Emitted when the user confirms deletion of the currently selected rows. */
   @Output() deleteRequested = new EventEmitter<string[]>();
+  /** Emitted after a CSV export has been triggered for the selected rows. */
+  @Output() exportRequested = new EventEmitter<string[]>();
 
   protected readonly _selectedIds = signal<Set<string>>(new Set());
 
@@ -520,8 +529,50 @@ export class TransactionTableComponent {
   }
 
   exportSelected(): void {
-    // Implement export logic
-    console.log('Export selected transactions:', Array.from(this._selectedIds()));
+    const ids = this._selectedIds();
+    const rows = this.transactions.filter(t => ids.has(t.id));
+    if (rows.length === 0) {
+      return;
+    }
+
+    const columns: ReadonlyArray<{ key: keyof Transaction; header: string }> = [
+      { key: 'reference', header: 'Reference' },
+      { key: 'orderNumber', header: 'Order Number' },
+      { key: 'counterparty', header: 'Receiver' },
+      { key: 'paymentDate', header: 'Created Date' },
+      { key: 'status', header: 'Status' },
+      { key: 'notes', header: 'Notes' },
+    ];
+
+    const escape = (value: unknown): string => {
+      if (value === null || value === undefined) return '';
+      const str = String(value);
+      return /[",\n\r]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+    };
+
+    const header = columns.map(c => escape(c.header)).join(',');
+    const body = rows
+      .map(row => columns.map(c => escape(row[c.key])).join(','))
+      .join('\n');
+    const csv = `${header}\n${body}\n`;
+
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const d = new Date();
+    const stamp = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    const filename = `orders-${stamp}.csv`;
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+
+    this.exportRequested.emit(Array.from(ids));
   }
 
   deleteSelected(): void {

@@ -843,7 +843,7 @@ serve(async (req) => {
         } else {
           // Build POD attachment (priority: pod.pdf_base64 > pods.pdf_url).
           const attachments: Array<Record<string, string>> = []
-          const podFilename = pod?.pdf_filename || `POD-${updatedPackage.reference}.pdf`
+          const podFilename = pod?.pdf_filename || `POD-${updatedPackage.reference}${poNumber ? `-${poNumber}` : ''}.pdf`
           if (pod?.pdf_base64) {
             const cleanBase64 = pod.pdf_base64.replace(/^data:application\/pdf;base64,/, '')
             attachments.push({ filename: podFilename, content: cleanBase64 })

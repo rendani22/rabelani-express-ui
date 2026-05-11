@@ -106,7 +106,9 @@ export class PodDocumentComponent implements OnChanges {
       const mod = await import('html2pdf.js');
       const html2pdf = (mod as { default?: unknown }).default ?? mod;
 
-      const filename = `POD-${podRecord.pod_reference || pkg.reference}.pdf`;
+      const baseRef = podRecord.pod_reference || pkg.reference;
+      const poSuffix = pkg.po_number ? `-${pkg.po_number}` : '';
+      const filename = `POD-${baseRef}${poSuffix}.pdf`;
 
       await (html2pdf as (...args: unknown[]) => {
         set: (opts: unknown) => { from: (el: HTMLElement) => { save: () => Promise<void> } };
