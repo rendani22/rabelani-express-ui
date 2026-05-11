@@ -275,10 +275,20 @@
         <div class="settings-card__body">
           <div class="setting-row">
             <div class="setting-row__label">
-              <span class="setting-row__name">Product tour</span>
+              <span class="setting-row__name">Dashboard tour</span>
               <span class="setting-row__hint">A short walkthrough of the main features</span>
             </div>
             <button class="btn btn--ghost" type="button" (click)="onRestartTour()">
+              <ng-icon name="tablerRoute" size="16"></ng-icon>
+              Restart tour
+            </button>
+          </div>
+          <div class="setting-row">
+            <div class="setting-row__label">
+              <span class="setting-row__name">Orders tour</span>
+              <span class="setting-row__hint">Learn how to search, filter and manage packages</span>
+            </div>
+            <button class="btn btn--ghost" type="button" (click)="onRestartOrdersTour()">
               <ng-icon name="tablerRoute" size="16"></ng-icon>
               Restart tour
             </button>

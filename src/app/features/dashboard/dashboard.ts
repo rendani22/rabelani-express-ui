@@ -101,7 +101,7 @@ export class Dashboard implements OnInit {
     await this.dashboardService.loadDashboardData();
     // Auto-launch the onboarding tour for first-time users. The service is a
     // no-op if the user has already completed (or skipped) the tour.
-    setTimeout(() => this.onboardingTour.start(), 600);
+    setTimeout(() => this.onboardingTour.start('dashboard'), 600);
   }
 
   onDateChange(dateRange: { start: Date; end?: Date }): void {

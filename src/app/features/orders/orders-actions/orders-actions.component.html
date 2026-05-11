@@ -7,7 +7,7 @@
   <!-- Right side: Actions -->
   <div class="flex flex-wrap items-center gap-2">
     <!-- Search input -->
-    <div class="relative flex-1 sm:flex-none min-w-0">
+    <div class="relative flex-1 sm:flex-none min-w-0" data-tour-orders="search">
       <input
         type="text"
         [value]="searchTerm()"
@@ -34,7 +34,7 @@
     </div>
 
     <!-- Status filter dropdown -->
-    <div class="relative" (clickOutside)="closeStatusDropdown()">
+    <div class="relative" data-tour-orders="status-filter" (clickOutside)="closeStatusDropdown()">
       <button
         (click)="toggleStatusDropdown()"
         class="btn flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600 focus:ring-2 focus:ring-violet-500">
@@ -76,6 +76,7 @@
     <!-- Refresh button -->
     <button
       (click)="onRefresh()"
+      data-tour-orders="refresh"
       class="btn flex items-center justify-center p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-gray-600 focus:ring-2 focus:ring-violet-500"
       title="Refresh">
       <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
@@ -86,6 +87,7 @@
     <!-- Add Package button -->
     <button
       (click)="onAddPackage()"
+      data-tour-orders="add-package"
       class="btn flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium rounded-lg transition-colors focus:ring-2 focus:ring-violet-500 focus:ring-offset-2">
       <svg class="h-4 w-4 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
         <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />

@@ -161,12 +161,19 @@ export class SettingsComponent {
     await this.router.navigate(['/login']);
   }
 
-  /** Re-launch the first-time-user onboarding tour from step 0. */
+  /** Re-launch the dashboard onboarding tour from step 0. */
   onRestartTour(): void {
     // Navigate to the dashboard first so all tour anchors exist in the DOM.
     this.router.navigate(['/dashboard']).then(() => {
       // Give the dashboard a moment to mount before starting the tour.
-      setTimeout(() => this.onboardingTour.restart(), 400);
+      setTimeout(() => this.onboardingTour.restart('dashboard'), 400);
+    });
+  }
+
+  /** Re-launch the orders page onboarding tour from step 0. */
+  onRestartOrdersTour(): void {
+    this.router.navigate(['/orders']).then(() => {
+      setTimeout(() => this.onboardingTour.restart('orders'), 500);
     });
   }
 }

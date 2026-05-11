@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { LayoutComponent } from '../../shared/components/layout/layout.component';
 import { TransactionTableComponent, Transaction } from '../../shared/components/transaction/transaction-table/transaction-table.component';
 import { OrdersActionsComponent } from './orders-actions/orders-actions.component';
-import { PackageService, Package, PACKAGE_STATUS, PackageStatus, SettingsService, MarkCollectedPayload, ReceiverService, ReceiverProfile, generatePodPdfBase64 } from '../../core';
+import { PackageService, Package, PACKAGE_STATUS, PackageStatus, SettingsService, MarkCollectedPayload, ReceiverService, ReceiverProfile, generatePodPdfBase64, OnboardingTourService } from '../../core';
 import { CreatePackageModalComponent, PackageDetailsPanelComponent, MarkCollectedModalComponent, PodDocumentComponent, AssignDriverModalComponent, AssignDriverPayload } from '../../shared/components/modals';
 import { QrCodeComponent } from '../../shared/components/qr-code';
 import { ToastService } from '../../shared/components/toast/toast.service';
@@ -37,6 +37,7 @@ export class OrdersComponent implements OnInit {
   private readonly receiverService = inject(ReceiverService);
   private readonly appRef = inject(ApplicationRef);
   private readonly environmentInjector = inject(EnvironmentInjector);
+  private readonly onboardingTour = inject(OnboardingTourService);
 
   /** Map of receiver email (lowercased) → full name for quick lookup. */
   private readonly receiverNamesByEmail = signal<Map<string, string>>(new Map());
@@ -130,6 +131,9 @@ export class OrdersComponent implements OnInit {
   async ngOnInit(): Promise<void> {
     // Load receivers in parallel so we can resolve names instead of emails.
     await Promise.all([this.loadReceivers(), this.loadPackages()]);
+    // Auto-launch the orders onboarding tour for first-time users (no-op if
+    // already completed). Delayed slightly so the table has rendered.
+    setTimeout(() => this.onboardingTour.start('orders'), 700);
   }
 
   /**
