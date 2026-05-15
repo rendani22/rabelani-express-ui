@@ -26,15 +26,15 @@ export interface AppVersion {
 }
 
 export const APP_VERSION: AppVersion = {
-  "version": "0.43.0-dev",
-  "semver": "0.43.0",
+  "version": "0.48.0-dev",
+  "semver": "0.48.0",
   "baseTag": null,
-  "commitsSinceBase": 45,
+  "commitsSinceBase": 50,
   "isDirty": true,
-  "hash": "37c551b",
-  "fullHash": "37c551b9ad6d44a8c5d85e230e6d3ff7359dcb84",
+  "hash": "255768e",
+  "fullHash": "255768e16c5a40b975904dac96cc3aa5940644c6",
   "branch": "main",
-  "message": "feat: add edit permission check for email templates and display read-only badge",
-  "commitDate": "2026-05-10T18:12:09+02:00",
-  "buildDate": "2026-05-10T16:13:50.328Z"
+  "message": "feat: enhance POD PDF filename generation to include purchase order number",
+  "commitDate": "2026-05-11T21:33:30+02:00",
+  "buildDate": "2026-05-15T09:27:30.905Z"
 };

@@ -168,6 +168,33 @@ export class CreatePackageModalComponent {
   /** Loading state for inventory */
   readonly isLoadingInventory = this.inventoryService.loading;
 
+  /** Per-row search query / displayed text for inventory combobox (keyed by row index) */
+  readonly inventorySearches = signal<Record<number, string>>({});
+
+  /** Index of the row whose inventory dropdown is open (null if none) */
+  readonly inventoryDropdownOpenIndex = signal<number | null>(null);
+
+  /** Get the current display text for a given inventory combobox row */
+  inventorySearchAt(index: number): string {
+    return this.inventorySearches()[index] ?? '';
+  }
+
+  /** Whether the inventory dropdown for a given row is open */
+  isInventoryDropdownOpen(index: number): boolean {
+    return this.inventoryDropdownOpenIndex() === index;
+  }
+
+  /** Filtered inventory items for a given row based on its search query */
+  activeInventoryItemsFor(index: number): InventoryItem[] {
+    const list = this.activeInventoryItems();
+    if (this.inventoryDropdownOpenIndex() !== index) return list;
+    const query = (this.inventorySearches()[index] ?? '').trim().toLowerCase();
+    if (!query) return list;
+    return list.filter(i =>
+      `${i.name} ${i.sku ?? ''}`.toLowerCase().includes(query)
+    );
+  }
+
   /** Form status as a signal (reacts to form validity changes) */
   private readonly formStatus = toSignal(this.form.statusChanges, {
     initialValue: this.form.status,
@@ -222,25 +249,6 @@ export class CreatePackageModalComponent {
   }
 
   /**
-   * Handles inventory item selection for a specific items-array index.
-   * Auto-fills description from the selected inventory item.
-   */
-  onInventoryItemSelect(index: number, event: Event): void {
-    const selectedId = (event.target as HTMLSelectElement).value;
-    const itemGroup = this.itemsArray.at(index) as FormGroup;
-
-    if (!selectedId) {
-      itemGroup.patchValue({ description: '' });
-      return;
-    }
-
-    const invItem = this.activeInventoryItems().find(i => i.id === selectedId);
-    if (invItem) {
-      itemGroup.patchValue({ description: invItem.name });
-    }
-  }
-
-  /**
    * Returns the available stock for an inventory item selected in a specific row.
    */
   getAvailableStock(index: number): number | null {
@@ -248,6 +256,67 @@ export class CreatePackageModalComponent {
     const selectedId = itemGroup?.get('inventoryItemId')?.value as string | undefined;
     if (!selectedId) return null;
     return this.activeInventoryItems().find(i => i.id === selectedId)?.quantity ?? null;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Inventory combobox (per-row)
+  // ---------------------------------------------------------------------------
+
+  /** Open the inventory dropdown for a given row and clear its filter */
+  openInventoryDropdown(index: number): void {
+    this.setInventorySearch(index, '');
+    this.inventoryDropdownOpenIndex.set(index);
+  }
+
+  /** Close the inventory dropdown and restore the selected item's label */
+  closeInventoryDropdown(index: number): void {
+    if (this.inventoryDropdownOpenIndex() !== index) return;
+    this.inventoryDropdownOpenIndex.set(null);
+    const itemGroup = this.itemsArray.at(index) as FormGroup | undefined;
+    const selectedId = itemGroup?.get('inventoryItemId')?.value as string | undefined;
+    const selected = selectedId
+      ? this.activeInventoryItems().find(i => i.id === selectedId)
+      : undefined;
+    this.setInventorySearch(index, selected ? this.getInventoryItemLabel(selected) : '');
+  }
+
+  /** Toggle the inventory dropdown open state for a row */
+  toggleInventoryDropdown(index: number): void {
+    if (this.isInventoryDropdownOpen(index)) {
+      this.closeInventoryDropdown(index);
+    } else {
+      this.openInventoryDropdown(index);
+    }
+  }
+
+  /** Handle typing in the inventory combobox: clears any previous selection */
+  onInventoryInput(index: number, event: Event): void {
+    const value = (event.target as HTMLInputElement).value;
+    this.setInventorySearch(index, value);
+    this.inventoryDropdownOpenIndex.set(index);
+    const itemGroup = this.itemsArray.at(index) as FormGroup;
+    if (itemGroup.get('inventoryItemId')?.value) {
+      itemGroup.patchValue({ inventoryItemId: '', description: '' });
+    }
+  }
+
+  /** Select an inventory item from the dropdown for a given row */
+  selectInventoryItem(index: number, invItem: InventoryItem | null): void {
+    const itemGroup = this.itemsArray.at(index) as FormGroup;
+    if (!invItem) {
+      itemGroup.patchValue({ inventoryItemId: '', description: '' });
+      this.setInventorySearch(index, '');
+    } else {
+      if (invItem.quantity === 0) return;
+      itemGroup.patchValue({ inventoryItemId: invItem.id, description: invItem.name });
+      this.setInventorySearch(index, this.getInventoryItemLabel(invItem));
+    }
+    this.inventoryDropdownOpenIndex.set(null);
+  }
+
+  /** Update the search text for a given row */
+  private setInventorySearch(index: number, value: string): void {
+    this.inventorySearches.update(map => ({ ...map, [index]: value }));
   }
 
   /**
@@ -282,6 +351,22 @@ export class CreatePackageModalComponent {
    */
   removeItem(index: number): void {
     this.itemsArray.removeAt(index);
+    // Re-key inventory searches: drop the removed index and shift higher indices down.
+    this.inventorySearches.update(map => {
+      const next: Record<number, string> = {};
+      for (const key of Object.keys(map)) {
+        const k = Number(key);
+        if (k < index) next[k] = map[k];
+        else if (k > index) next[k - 1] = map[k];
+      }
+      return next;
+    });
+    const openIdx = this.inventoryDropdownOpenIndex();
+    if (openIdx === index) {
+      this.inventoryDropdownOpenIndex.set(null);
+    } else if (openIdx !== null && openIdx > index) {
+      this.inventoryDropdownOpenIndex.set(openIdx - 1);
+    }
   }
 
   /**
@@ -299,6 +384,8 @@ export class CreatePackageModalComponent {
     this.locationSearch.set('');
     this.receiverDropdownOpen.set(false);
     this.locationDropdownOpen.set(false);
+    this.inventorySearches.set({});
+    this.inventoryDropdownOpenIndex.set(null);
   }
 
   // ---------------------------------------------------------------------------
