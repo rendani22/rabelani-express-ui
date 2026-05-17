@@ -34,18 +34,29 @@
             </div>
           </div>
           <div class="flex items-center gap-3">
+            <!-- Draft toggle switch -->
             <button
               type="button"
-              class="inline-flex items-center gap-2 px-3 py-1 rounded-md text-sm focus:outline-none"
-              [attr.aria-pressed]="isDraft()"
+              role="switch"
+              [attr.aria-checked]="isDraft()"
               (click)="isDraft.set(!isDraft())"
               title="Save as Draft — no communications will be sent"
+              class="inline-flex items-center gap-3 px-2 py-1 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
             >
-              <span
-                class="w-3.5 h-3.5 rounded-full"
-                [ngClass]="isDraft() ? 'bg-violet-500' : 'bg-gray-300 dark:bg-gray-600'"
-                aria-hidden="true"
-              ></span>
+              <span class="relative inline-block w-10 h-6">
+                <!-- track -->
+                <span
+                  class="block w-full h-6 rounded-full transition-colors duration-150"
+                  [ngClass]="isDraft() ? 'bg-violet-500' : 'bg-gray-300 dark:bg-gray-600'"
+                  aria-hidden="true"
+                ></span>
+                <!-- knob -->
+                <span
+                  class="absolute top-0.5 left-0 inline-block w-4 h-4 bg-white rounded-full shadow transform transition-transform duration-150"
+                  [ngClass]="isDraft() ? 'translate-x-4' : 'translate-x-0'"
+                  aria-hidden="true"
+                ></span>
+              </span>
               <span class="text-sm text-gray-600 dark:text-gray-300">Draft</span>
             </button>
 
@@ -604,4 +615,3 @@
     </div>
   </div>
 }
-

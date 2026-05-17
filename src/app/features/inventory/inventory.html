@@ -109,7 +109,7 @@
             <span><strong>{{ stats().outOfStockCount }}</strong> item(s) are out of stock. Restock to avoid delays.</span>
             <button type="button"
               class="ml-auto text-red-600 dark:text-red-400 underline text-xs hover:no-underline"
-              (click)="filterOutOfStock.set(true); filterLowStock.set(false); filterStaleStock.set(false)">
+              (click)="filterOutOfStock.set(true); filterLowStock.set(false); filterBackordered.set(false); filterStaleStock.set(false)">
               View
             </button>
             <button type="button"
@@ -125,7 +125,7 @@
             <span><strong>{{ stats().lowStockCount }}</strong> item(s) are running low on stock.</span>
             <button type="button"
               class="ml-auto text-amber-600 dark:text-amber-400 underline text-xs hover:no-underline"
-              (click)="filterLowStock.set(true); filterOutOfStock.set(false); filterStaleStock.set(false)">
+              (click)="filterLowStock.set(true); filterOutOfStock.set(false); filterBackordered.set(false); filterStaleStock.set(false)">
               View
             </button>
             <button type="button"
@@ -141,7 +141,7 @@
             <span><strong>{{ stats().staleStockCount }}</strong> item(s) haven't had a stock movement in over 2 months.</span>
             <button type="button"
               class="ml-auto text-violet-600 dark:text-violet-400 underline text-xs hover:no-underline"
-              (click)="filterStaleStock.set(true); filterLowStock.set(false); filterOutOfStock.set(false)">
+              (click)="filterStaleStock.set(true); filterLowStock.set(false); filterOutOfStock.set(false); filterBackordered.set(false)">
               View
             </button>
             <button type="button"
@@ -195,6 +195,13 @@
         Out of Stock
       </button>
 
+      <button type="button"
+        class="px-3 py-2 rounded-lg border text-sm flex items-center gap-1.5 transition-colors"
+        [class]="filterBackordered() ? 'border-rose-400 bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-400' : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'"
+        (click)="onToggleBackordered()">
+        <ng-icon name="tablerTrendingUp" size="14"></ng-icon>
+        Backordered
+      </button>
       <button type="button"
         class="px-3 py-2 rounded-lg border text-sm flex items-center gap-1.5 transition-colors"
         [class]="filterStaleStock() ? 'border-violet-400 bg-violet-50 dark:bg-violet-500/10 text-violet-700 dark:text-violet-400' : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'"
@@ -348,7 +355,7 @@
         <ng-icon name="tablerPackage" size="48" class="text-gray-300 dark:text-gray-600 mx-auto mb-3"></ng-icon>
         <p class="text-gray-500 dark:text-gray-400 font-medium">No inventory items found</p>
         <p class="text-sm text-gray-400 dark:text-gray-500 mt-1">
-          {{ searchQuery() || filterCategory() || filterLowStock() || filterOutOfStock() || filterStaleStock() ? 'Try adjusting your search or filters' : 'Add your first inventory item to get started' }}
+          {{ searchQuery() || filterCategory() || filterLowStock() || filterOutOfStock() || filterBackordered() || filterStaleStock() ? 'Try adjusting your search or filters' : 'Add your first inventory item to get started' }}
         </p>
       </div>
     } @else {
@@ -435,9 +442,9 @@
                     <td class="px-4 py-3">
                       <div class="flex items-center gap-3">
                         <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                          [class]="isOutOfStock(item) ? 'bg-red-100 dark:bg-red-500/20' : isLowStock(item) ? 'bg-amber-100 dark:bg-amber-500/20' : isStaleStock(item) ? 'bg-violet-100 dark:bg-violet-500/20' : 'bg-indigo-100 dark:bg-indigo-500/20'">
+                          [class]="isBackordered(item) ? 'bg-rose-100 dark:bg-rose-500/20' : isOutOfStock(item) ? 'bg-red-100 dark:bg-red-500/20' : isLowStock(item) ? 'bg-amber-100 dark:bg-amber-500/20' : isStaleStock(item) ? 'bg-violet-100 dark:bg-violet-500/20' : 'bg-indigo-100 dark:bg-indigo-500/20'">
                           <ng-icon name="tablerBox" size="16"
-                            [class]="isOutOfStock(item) ? 'text-red-500' : isLowStock(item) ? 'text-amber-500' : isStaleStock(item) ? 'text-violet-500' : 'text-indigo-500'"></ng-icon>
+                            [class]="isBackordered(item) ? 'text-rose-500' : isOutOfStock(item) ? 'text-red-500' : isLowStock(item) ? 'text-amber-500' : isStaleStock(item) ? 'text-violet-500' : 'text-indigo-500'"></ng-icon>
                         </div>
                         <div>
                           <p class="font-semibold text-gray-900 dark:text-gray-100">{{ item.name }}</p>
@@ -463,11 +470,15 @@
                     <td class="px-4 py-3 text-center">
                       <div class="flex flex-col items-center gap-0.5">
                         <span class="font-bold text-base"
-                          [class]="isOutOfStock(item) ? 'text-red-600 dark:text-red-400' : isLowStock(item) ? 'text-amber-600 dark:text-amber-400' : isStaleStock(item) ? 'text-violet-600 dark:text-violet-400' : 'text-gray-900 dark:text-gray-100'">
+                          [class]="isBackordered(item) ? 'text-rose-600 dark:text-rose-400' : isOutOfStock(item) ? 'text-red-600 dark:text-red-400' : isLowStock(item) ? 'text-amber-600 dark:text-amber-400' : isStaleStock(item) ? 'text-violet-600 dark:text-violet-400' : 'text-gray-900 dark:text-gray-100'">
                           {{ item.quantity | number }}
                         </span>
                         <span class="text-xs text-gray-400 dark:text-gray-500">{{ item.unit }}</span>
-                        @if (isOutOfStock(item)) {
+                        @if (isBackordered(item)) {
+                          <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-rose-100 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400">
+                            Backordered
+                          </span>
+                        } @else if (isOutOfStock(item)) {
                           <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400">
                             Out of stock
                           </span>

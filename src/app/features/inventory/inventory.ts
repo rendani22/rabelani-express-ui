@@ -112,6 +112,7 @@ export class InventoryComponent implements OnInit {
   readonly filterCategory = signal('');
   readonly filterLowStock = signal(false);
   readonly filterOutOfStock = signal(false);
+  readonly filterBackordered = signal(false);
   readonly filterStaleStock = signal(false);
   readonly showInactive = signal(false);
 
@@ -156,6 +157,7 @@ export class InventoryComponent implements OnInit {
     const cat = this.filterCategory();
     const lowStock = this.filterLowStock();
     const outOfStock = this.filterOutOfStock();
+    const backordered = this.filterBackordered();
     const staleStock = this.filterStaleStock();
     const showInactive = this.showInactive();
 
@@ -167,6 +169,7 @@ export class InventoryComponent implements OnInit {
       if (cat && item.category !== cat) return false;
       if (lowStock && !(item.quantity > 0 && item.quantity <= item.low_stock_threshold)) return false;
       if (outOfStock && item.quantity !== 0) return false;
+      if (backordered && item.quantity >= 0) return false;
       if (staleStock && !(item.quantity > 0 && new Date(item.updated_at) < twoMonthsAgo)) return false;
       if (q) {
         const haystack = [item.name, item.sku ?? '', item.category ?? '', item.description ?? ''].join(' ').toLowerCase();
@@ -417,6 +420,16 @@ export class InventoryComponent implements OnInit {
     this.currentPage.set(1);
   }
 
+  onToggleBackordered(): void {
+    this.filterBackordered.update(v => !v);
+    if (this.filterBackordered()) {
+      this.filterLowStock.set(false);
+      this.filterOutOfStock.set(false);
+      this.filterStaleStock.set(false);
+    }
+    this.currentPage.set(1);
+  }
+
   onToggleStaleStock(): void {
     this.filterStaleStock.update(v => !v);
     if (this.filterStaleStock()) {
@@ -594,6 +607,11 @@ export class InventoryComponent implements OnInit {
 
   isLowStock(item: InventoryItem): boolean {
     return item.quantity > 0 && item.quantity <= item.low_stock_threshold;
+  }
+
+  /** True when quantity is negative (backordered) */
+  isBackordered(item: InventoryItem): boolean {
+    return item.quantity < 0;
   }
 
   isOutOfStock(item: InventoryItem): boolean {
