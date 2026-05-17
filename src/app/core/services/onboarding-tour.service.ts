@@ -121,7 +121,7 @@ const ORDERS_TOUR: TourDefinition = {
     {
       id: 'status-filter',
       title: 'Filter by status',
-      body: 'Narrow the list to Pending, In Transit, Ready for Pickup or Completed. Your default filter can be set in Settings.',
+      body: 'Narrow the list to Pending, In Transit, Ready for Collection or Completed. Your default filter can be set in Settings.',
       target: '[data-tour-orders="status-filter"]',
       placement: 'bottom',
     },

@@ -93,6 +93,7 @@ export type InventoryMovementSource =
   | 'initial'         // item created with opening stock > 0
   | 'manual_edit'     // quantity changed via the edit form
   | 'package_deduct'  // stock deducted when a delivery package was created
+  | 'package_backorder' // reservation/allocation for a package when stock was insufficient
   | 'restock';        // stock added via a restock action
 
 export interface InventoryMovement {

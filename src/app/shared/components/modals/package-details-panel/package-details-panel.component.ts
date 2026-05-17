@@ -239,13 +239,15 @@ interface TimelineEntry {
                   <!-- Edit mode -->
                   <ul class="space-y-2">
                     @for (draft of draftItems(); track draft.id) {
-                      <li
-                        class="flex items-center gap-2 p-3 rounded-lg transition-colors"
-                        [class.bg-gray-50]="!draft.deleted"
-                        [class.dark:bg-gray-700/50]="!draft.deleted"
-                        [class.bg-red-50]="draft.deleted"
-                        [class.dark:bg-red-900/20]="draft.deleted"
-                      >
+                        <li
+                          class="flex items-center gap-2 p-3 rounded-lg transition-colors"
+                          [ngClass]="{
+                            'bg-gray-50': !draft.deleted,
+                            'dark:bg-gray-700/50': !draft.deleted,
+                            'bg-red-50': draft.deleted,
+                            'dark:bg-red-900/20': draft.deleted
+                          }"
+                        >
                         <div class="flex-1 min-w-0">
                           <p
                             class="text-sm text-gray-900 dark:text-white truncate"
@@ -1013,6 +1015,7 @@ export class PackageDetailsPanelComponent implements OnChanges {
     const currentIndex = statusOrder.indexOf(pkg.status as PackageStatus);
 
     const labels: Record<string, string> = {
+      [PACKAGE_STATUS.DRAFT]: 'Draft',
       [PACKAGE_STATUS.PENDING]: 'Package created',
       [PACKAGE_STATUS.NOTIFIED]: 'Receiver notified',
       [PACKAGE_STATUS.IN_TRANSIT]: 'Driver picked up',
@@ -1022,6 +1025,7 @@ export class PackageDetailsPanelComponent implements OnChanges {
     };
 
     const colors: Record<string, string> = {
+      [PACKAGE_STATUS.DRAFT]: 'bg-gray-400',
       [PACKAGE_STATUS.PENDING]: 'bg-yellow-500',
       [PACKAGE_STATUS.NOTIFIED]: 'bg-blue-500',
       [PACKAGE_STATUS.IN_TRANSIT]: 'bg-indigo-500',
@@ -1047,6 +1051,7 @@ export class PackageDetailsPanelComponent implements OnChanges {
    */
   getHistoryDotColor(status: string): string {
     const colors: Record<string, string> = {
+      [PACKAGE_STATUS.DRAFT]: 'bg-gray-400',
       [PACKAGE_STATUS.PENDING]: 'bg-yellow-500',
       [PACKAGE_STATUS.NOTIFIED]: 'bg-blue-500',
       [PACKAGE_STATUS.IN_TRANSIT]: 'bg-indigo-500',
@@ -1138,6 +1143,7 @@ export class PackageDetailsPanelComponent implements OnChanges {
 
   getStatusBadgeClass(status: PackageStatus): string {
     const classes: Record<PackageStatus, string> = {
+      [PACKAGE_STATUS.DRAFT]: 'bg-gray-100 text-gray-800 dark:bg-gray-500/20 dark:text-gray-400',
       [PACKAGE_STATUS.PENDING]: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-500/20 dark:text-yellow-400',
       [PACKAGE_STATUS.NOTIFIED]: 'bg-blue-100 text-blue-800 dark:bg-blue-500/20 dark:text-blue-400',
       [PACKAGE_STATUS.IN_TRANSIT]: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-500/20 dark:text-indigo-400',
@@ -1151,6 +1157,7 @@ export class PackageDetailsPanelComponent implements OnChanges {
 
   getStatusBgClass(status: PackageStatus): string {
     const classes: Record<PackageStatus, string> = {
+      [PACKAGE_STATUS.DRAFT]: 'bg-gray-100 dark:bg-gray-500/20',
       [PACKAGE_STATUS.PENDING]: 'bg-yellow-100 dark:bg-yellow-500/20',
       [PACKAGE_STATUS.NOTIFIED]: 'bg-blue-100 dark:bg-blue-500/20',
       [PACKAGE_STATUS.IN_TRANSIT]: 'bg-indigo-100 dark:bg-indigo-500/20',
@@ -1164,6 +1171,7 @@ export class PackageDetailsPanelComponent implements OnChanges {
 
   getStatusIconClass(status: PackageStatus): string {
     const classes: Record<PackageStatus, string> = {
+      [PACKAGE_STATUS.DRAFT]: 'text-gray-600 dark:text-gray-400',
       [PACKAGE_STATUS.PENDING]: 'text-yellow-600 dark:text-yellow-400',
       [PACKAGE_STATUS.NOTIFIED]: 'text-blue-600 dark:text-blue-400',
       [PACKAGE_STATUS.IN_TRANSIT]: 'text-indigo-600 dark:text-indigo-400',

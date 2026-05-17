@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS public.inventory_items (
   description         TEXT,
   category            TEXT,
   unit                TEXT          NOT NULL DEFAULT 'pieces',
-  quantity            INTEGER       NOT NULL DEFAULT 0 CHECK (quantity >= 0),
+  quantity            INTEGER       NOT NULL DEFAULT 0,
   low_stock_threshold INTEGER       NOT NULL DEFAULT 10 CHECK (low_stock_threshold >= 0),
   unit_price          NUMERIC(12,2),
   is_active           BOOLEAN       NOT NULL DEFAULT TRUE,
@@ -76,14 +76,15 @@ CREATE POLICY "Staff can delete inventory"
 -- ============================================================================
 -- RPC: Atomic inventory stock decrement
 -- Used by the UI when a package is created to deduct consumed quantities.
--- GREATEST(0, ...) ensures stock never goes below zero.
+-- This implementation allows inventory to go negative (backorders) by
+-- performing a straight subtraction. Do NOT clamp to zero here.
 -- ============================================================================
 
 CREATE OR REPLACE FUNCTION public.decrement_inventory_quantity(item_id UUID, decrement_by INTEGER)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER AS $$
 BEGIN
   UPDATE public.inventory_items
-  SET quantity = GREATEST(0, quantity - decrement_by)
+  SET quantity = quantity - decrement_by
   WHERE id = item_id;
 END;
 $$;

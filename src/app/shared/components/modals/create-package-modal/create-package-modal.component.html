@@ -33,16 +33,33 @@
               <p class="text-sm text-gray-500 dark:text-gray-400">Register a package for delivery</p>
             </div>
           </div>
-          <button
-            type="button"
-            class="text-gray-400 hover:text-gray-500 dark:text-gray-500 dark:hover:text-gray-400 p-1 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-500"
-            (click)="onClose()"
-            aria-label="Close modal"
-          >
-            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-              <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
-            </svg>
-          </button>
+          <div class="flex items-center gap-3">
+            <button
+              type="button"
+              class="inline-flex items-center gap-2 px-3 py-1 rounded-md text-sm focus:outline-none"
+              [attr.aria-pressed]="isDraft()"
+              (click)="isDraft.set(!isDraft())"
+              title="Save as Draft — no communications will be sent"
+            >
+              <span
+                class="w-3.5 h-3.5 rounded-full"
+                [ngClass]="isDraft() ? 'bg-violet-500' : 'bg-gray-300 dark:bg-gray-600'"
+                aria-hidden="true"
+              ></span>
+              <span class="text-sm text-gray-600 dark:text-gray-300">Draft</span>
+            </button>
+
+            <button
+              type="button"
+              class="text-gray-400 hover:text-gray-500 dark:text-gray-500 dark:hover:text-gray-400 p-1 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-500"
+              (click)="onClose()"
+              aria-label="Close modal"
+            >
+              <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+              </svg>
+            </button>
+          </div>
         </div>
       </header>
 
@@ -59,6 +76,9 @@
                 <span class="text-sm font-medium text-green-700 dark:text-green-400">
                   Package created successfully! Reference: {{ pkg.reference }}
                 </span>
+                @if (pkg.status === 'draft') {
+                  <div class="ml-2 text-xs inline-block px-2 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-600/20 dark:text-amber-200">Saved as draft — communications suppressed</div>
+                }
               </div>
             </div>
 
@@ -454,17 +474,18 @@
                               <li
                                 role="option"
                                 [attr.aria-selected]="item.get('inventoryItemId')?.value === invItem.id"
-                                [attr.aria-disabled]="invItem.quantity === 0 ? 'true' : null"
-                                class="px-3 py-2 text-gray-800 dark:text-gray-100"
+                                class="px-3 py-2 text-gray-800 dark:text-gray-100 flex items-center justify-between"
                                 [ngClass]="{
                                   'bg-violet-50 dark:bg-violet-500/10': item.get('inventoryItemId')?.value === invItem.id,
-                                  'cursor-pointer hover:bg-violet-50 dark:hover:bg-violet-500/10': invItem.quantity !== 0,
-                                  'opacity-50 cursor-not-allowed': invItem.quantity === 0
+                                  'cursor-pointer hover:bg-violet-50 dark:hover:bg-violet-500/10': true
                                 }"
                                 (mousedown)="$event.preventDefault()"
                                 (click)="selectInventoryItem(i, invItem)"
                               >
-                                {{ getInventoryItemLabel(invItem) }}
+                                <span class="truncate">{{ getInventoryItemLabel(invItem) }}</span>
+                                @if (invItem.quantity === 0) {
+                                  <span class="ml-2 text-xs text-amber-700 dark:text-amber-300 font-medium">Out of stock</span>
+                                }
                               </li>
                             }
                             @if (activeInventoryItemsFor(i).length === 0) {

@@ -41,6 +41,7 @@ export class OrdersActionsComponent implements OnDestroy {
   /** Status filter options */
   readonly statusOptions: StatusOption[] = [
     { value: 'all', label: 'All Statuses' },
+    { value: PACKAGE_STATUS.DRAFT, label: 'Draft' },
     { value: PACKAGE_STATUS.PENDING, label: 'Pending' },
     { value: PACKAGE_STATUS.NOTIFIED, label: 'Notified' },
     { value: PACKAGE_STATUS.IN_TRANSIT, label: 'In Transit' },

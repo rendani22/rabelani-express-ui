@@ -212,7 +212,7 @@ CREATE OR REPLACE FUNCTION "public"."decrement_inventory_quantity"("item_id" "uu
     AS $$
 BEGIN
   UPDATE public.inventory_items
-  SET quantity = GREATEST(0, quantity - decrement_by)
+  SET quantity = quantity - decrement_by
   WHERE id = item_id;
 END;
 $$;
@@ -753,8 +753,7 @@ CREATE TABLE IF NOT EXISTS "public"."inventory_items" (
     "is_active" boolean DEFAULT true NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    CONSTRAINT "inventory_items_low_stock_threshold_check" CHECK (("low_stock_threshold" >= 0)),
-    CONSTRAINT "inventory_items_quantity_check" CHECK (("quantity" >= 0))
+    CONSTRAINT "inventory_items_low_stock_threshold_check" CHECK (("low_stock_threshold" >= 0))
 );
 
 

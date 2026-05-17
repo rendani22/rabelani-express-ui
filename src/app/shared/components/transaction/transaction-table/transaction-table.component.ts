@@ -89,6 +89,7 @@ export type { Transaction } from '../transaction.model';
                   [class.canceled]="transaction.status === 'Canceled'"
                   [class.in-transit]="transaction.status === 'In Transit'"
                   [class.ready]="transaction.status === 'Ready'"
+                  [class.draft]="transaction.status === 'Draft'"
                 >
                   {{ transaction.status }}
                 </span>
@@ -311,6 +312,10 @@ export type { Transaction } from '../transaction.model';
     .status-badge.ready {
       background: #e0e7ff;
       color: #3730a3;
+    }
+    .status-badge.draft {
+      background: #eef2ff;
+      color: #4f46e5;
     }
 
     .reference {

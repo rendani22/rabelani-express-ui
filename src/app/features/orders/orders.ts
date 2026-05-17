@@ -220,8 +220,10 @@ export class OrdersComponent implements OnInit {
   /**
    * Maps package status to transaction status.
    */
-  private mapPackageStatusToTransactionStatus(status: PackageStatus): 'Pending' | 'Completed' | 'Canceled' | 'In Transit' | 'Ready' {
+  private mapPackageStatusToTransactionStatus(status: PackageStatus): 'Draft' | 'Pending' | 'Completed' | 'Canceled' | 'In Transit' | 'Ready' {
     switch (status) {
+      case PACKAGE_STATUS.DRAFT:
+        return 'Draft';
       case PACKAGE_STATUS.COLLECTED:
       case PACKAGE_STATUS.DELIVERED:
         return 'Completed';
@@ -404,6 +406,7 @@ export class OrdersComponent implements OnInit {
    */
   private getStatusLabel(status: PackageStatus): string {
     const labels: Record<PackageStatus, string> = {
+      [PACKAGE_STATUS.DRAFT]: 'Draft',
       [PACKAGE_STATUS.PENDING]: 'Pending',
       [PACKAGE_STATUS.NOTIFIED]: 'Notified',
       [PACKAGE_STATUS.IN_TRANSIT]: 'In Transit',

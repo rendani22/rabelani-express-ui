@@ -26,15 +26,15 @@ export interface AppVersion {
 }
 
 export const APP_VERSION: AppVersion = {
-  "version": "0.48.0-dev",
-  "semver": "0.48.0",
+  "version": "0.49.0-dev",
+  "semver": "0.49.0",
   "baseTag": null,
-  "commitsSinceBase": 50,
+  "commitsSinceBase": 51,
   "isDirty": true,
-  "hash": "255768e",
-  "fullHash": "255768e16c5a40b975904dac96cc3aa5940644c6",
+  "hash": "c96dd74",
+  "fullHash": "c96dd74cc86ebba09de84fc14a294e0a13e6c610",
   "branch": "main",
-  "message": "feat: enhance POD PDF filename generation to include purchase order number",
-  "commitDate": "2026-05-11T21:33:30+02:00",
-  "buildDate": "2026-05-15T09:27:30.905Z"
+  "message": "feat: replace inventory select with searchable combobox in package modal",
+  "commitDate": "2026-05-15T11:46:28+02:00",
+  "buildDate": "2026-05-17T08:13:31.226Z"
 };

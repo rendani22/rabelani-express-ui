@@ -24,6 +24,7 @@ import {
   Package,
   PackageItemFormValue,
   PackageItemRequest,
+  PACKAGE_STATUS,
   PackageService,
   ReceiverService,
   ReceiverProfile,
@@ -103,6 +104,9 @@ export class CreatePackageModalComponent {
 
   /** Whether form submission is in progress */
   readonly isSubmitting = signal(false);
+
+  /** Whether this package should be created as a Draft (suppress outgoing communications) */
+  readonly isDraft = signal(false);
 
   /** Error message to display */
   readonly errorMessage = signal<string | null>(null);
@@ -307,7 +311,6 @@ export class CreatePackageModalComponent {
       itemGroup.patchValue({ inventoryItemId: '', description: '' });
       this.setInventorySearch(index, '');
     } else {
-      if (invItem.quantity === 0) return;
       itemGroup.patchValue({ inventoryItemId: invItem.id, description: invItem.name });
       this.setInventorySearch(index, this.getInventoryItemLabel(invItem));
     }
@@ -386,6 +389,7 @@ export class CreatePackageModalComponent {
     this.locationDropdownOpen.set(false);
     this.inventorySearches.set({});
     this.inventoryDropdownOpenIndex.set(null);
+    this.isDraft.set(false);
   }
 
   // ---------------------------------------------------------------------------
@@ -635,6 +639,7 @@ export class CreatePackageModalComponent {
       ...(poNumber?.trim() && { po_number: poNumber.trim() }),
       ...(deliveryLocationId?.trim() && { delivery_location_id: deliveryLocationId.trim() }),
       ...(validItems.length > 0 && { items: validItems }),
+      ...(this.isDraft() && { status: PACKAGE_STATUS.DRAFT }),
     };
   }
 

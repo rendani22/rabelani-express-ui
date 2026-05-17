@@ -2,7 +2,16 @@ import { Injectable, signal, computed } from '@angular/core';
 
 const SETTINGS_STORAGE_KEY = 'app-settings';
 
-export type DefaultOrdersFilter = 'all' | 'pending' | 'in_transit' | 'completed' | 'ready';
+export type DefaultOrdersFilter =
+  | 'all'
+  | 'draft'
+  | 'pending'
+  | 'notified'
+  | 'in_transit'
+  | 'ready_for_collection'
+  | 'collected'
+  | 'delivered'
+  | 'returned';
 export type DefaultDriversView = 'map' | 'list';
 
 export interface AppSettings {

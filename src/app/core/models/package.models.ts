@@ -9,6 +9,7 @@
 
 /** Package status values returned by the API */
 export const PACKAGE_STATUS = {
+  DRAFT: 'draft',
   PENDING: 'pending',
   NOTIFIED: 'notified',
   IN_TRANSIT: 'in_transit',
@@ -49,6 +50,8 @@ export interface PackageItemRequest {
 export interface CreatePackageRequest {
   readonly receiver_email: string;
   readonly notes?: string;
+  /** Optional initial status for the package (e.g. 'draft') */
+  readonly status?: PackageStatus;
   readonly items?: readonly PackageItemRequest[];
   readonly delivery_location_id?: string;
   readonly po_number?: string;
@@ -357,6 +360,7 @@ export type GetPackagesResult = PackageServiceResult<readonly Package[]>;
  * change a package's status.
  */
 export const PACKAGE_STATUS_FLOW: readonly PackageStatus[] = [
+  PACKAGE_STATUS.DRAFT,
   PACKAGE_STATUS.PENDING,
   PACKAGE_STATUS.NOTIFIED,
   PACKAGE_STATUS.IN_TRANSIT,
@@ -392,6 +396,11 @@ export function getAllowedManualStatusTransitions(
     return [PACKAGE_STATUS.NOTIFIED];
   }
 
+  // Allow draft to move forward to pending
+  if (currentStatus === PACKAGE_STATUS.DRAFT) {
+    return [PACKAGE_STATUS.PENDING];
+  }
+
   const currentIndex = PACKAGE_STATUS_FLOW.indexOf(currentStatus);
   if (currentIndex === -1) {
     return [];
@@ -409,6 +418,10 @@ export function getAllowedManualStatusTransitions(
  * limited to the `pending` and `notified` statuses.
  */
 export function isPackageEditable(pkg: Pick<Package, 'status'>): boolean {
-  return pkg.status === PACKAGE_STATUS.PENDING || pkg.status === PACKAGE_STATUS.NOTIFIED;
+  return (
+    pkg.status === PACKAGE_STATUS.PENDING ||
+    pkg.status === PACKAGE_STATUS.NOTIFIED ||
+    pkg.status === PACKAGE_STATUS.DRAFT
+  );
 }
 

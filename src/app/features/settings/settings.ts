@@ -20,7 +20,7 @@ import {
   tablerRoute,
 } from '@ng-icons/tabler-icons';
 import { LayoutComponent } from '../../shared/components/layout/layout.component';
-import { ThemeService } from '../../core';
+import { ThemeService, PACKAGE_STATUS } from '../../core';
 import { SettingsService, AppSettings, DefaultOrdersFilter, DefaultDriversView } from '../../core';
 import { AuthService } from '../../core';
 import { OnboardingTourService } from '../../core';
@@ -113,10 +113,14 @@ export class SettingsComponent {
 
   readonly orderFilterOptions: { label: string; value: DefaultOrdersFilter }[] = [
     { label: 'All Orders', value: 'all' },
-    { label: 'Pending', value: 'pending' },
-    { label: 'In Transit', value: 'in_transit' },
-    { label: 'Ready for Pickup', value: 'ready' },
-    { label: 'Completed', value: 'completed' },
+    { label: 'Draft', value: PACKAGE_STATUS.DRAFT },
+    { label: 'Pending', value: PACKAGE_STATUS.PENDING },
+    { label: 'Notified', value: PACKAGE_STATUS.NOTIFIED },
+    { label: 'In Transit', value: PACKAGE_STATUS.IN_TRANSIT },
+    { label: 'Ready for Collection', value: PACKAGE_STATUS.READY_FOR_COLLECTION },
+    { label: 'Collected', value: PACKAGE_STATUS.COLLECTED },
+    { label: 'Delivered', value: PACKAGE_STATUS.DELIVERED },
+    { label: 'Returned', value: PACKAGE_STATUS.RETURNED },
   ];
 
   onThemeChange(theme: 'light' | 'dark'): void {

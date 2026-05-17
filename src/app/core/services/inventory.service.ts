@@ -226,7 +226,8 @@ export class InventoryService {
     const beforeMap = new Map(this._items().map(i => [i.id, i.quantity]));
 
     // Execute all decrements in parallel using atomic RPC to avoid race conditions.
-    // Each call uses GREATEST(0, quantity - N) so stock never goes below zero.
+    // The RPC now performs a straight subtraction so inventory may go negative
+    // (representing allocated-but-unavailable stock / backorders).
     await Promise.all(
       items.map(({ inventoryItemId, quantity }) =>
         this.supabase.client.rpc('decrement_inventory_quantity', {
@@ -239,7 +240,8 @@ export class InventoryService {
     // Log a movement for each deducted item (fire-and-forget, non-fatal)
     for (const { inventoryItemId, quantity } of items) {
       const quantityBefore = beforeMap.get(inventoryItemId) ?? 0;
-      const quantityAfter = Math.max(0, quantityBefore - quantity);
+      // Allow negative quantities to represent allocated/backordered stock
+      const quantityAfter = quantityBefore - quantity;
       this.logMovement({
         item_id: inventoryItemId,
         delta: quantityAfter - quantityBefore,
