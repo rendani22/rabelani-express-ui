@@ -28,6 +28,8 @@ interface SupabaseLike {
 export interface EmailTemplate {
   subject: string
   body_html: string
+  cc?: string[]
+  bcc?: string[]
 }
 
 export type EmailTemplateKey =
@@ -176,7 +178,7 @@ export async function loadTemplate(
   try {
     const { data, error } = await adminClient
       .from('email_templates')
-      .select('subject, body_html, is_active')
+      .select('subject, body_html, is_active, cc, bcc')
       .eq('key', key)
       .maybeSingle()
     if (error) {
@@ -184,7 +186,7 @@ export async function loadTemplate(
       return null
     }
     if (!data || !data.is_active) return null
-    return { subject: data.subject, body_html: data.body_html }
+    return { subject: data.subject, body_html: data.body_html, cc: data.cc ?? [], bcc: data.bcc ?? [] }
   } catch (e) {
     console.warn(`loadTemplate(${key}) exception:`, e)
     return null

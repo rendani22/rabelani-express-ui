@@ -763,7 +763,10 @@ serve(async (req) => {
             location_address: locationAddress,
             location_maps_link: locationMapsLink || ''
           })
-          const emailResponse = await fetchWithTimeout('https://api.resend.com/emails', {
+           const ccList = (tpl as any).cc && (tpl as any).cc.length ? (tpl as any).cc : undefined
+           const bccList = (tpl as any).bcc && (tpl as any).bcc.length ? (tpl as any).bcc : undefined
+
+           const emailResponse = await fetchWithTimeout('https://api.resend.com/emails', {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${resendApiKey}`,
@@ -772,6 +775,8 @@ serve(async (req) => {
             body: JSON.stringify({
               from: Deno.env.get('EMAIL_FROM') || 'POD System <noreply@example.com>',
               to: [updatedPackage.receiver_email],
+              ...(ccList ? { cc: ccList } : {}),
+              ...(bccList ? { bcc: bccList } : {}),
               subject: rendered.subject,
               html: rendered.html
             })
@@ -867,6 +872,8 @@ serve(async (req) => {
             location_address: locationAddress,
             location_maps_link: locationMapsLink || ''
           })
+          const ccList = (tpl as any).cc && (tpl as any).cc.length ? (tpl as any).cc : undefined
+          const bccList = (tpl as any).bcc && (tpl as any).bcc.length ? (tpl as any).bcc : undefined
 
           const emailResponse = await fetchWithTimeout('https://api.resend.com/emails', {
             method: 'POST',
@@ -877,6 +884,8 @@ serve(async (req) => {
             body: JSON.stringify({
               from: Deno.env.get('EMAIL_FROM') || 'POD System <noreply@example.com>',
               to: [updatedPackage.receiver_email],
+              ...(ccList ? { cc: ccList } : {}),
+              ...(bccList ? { bcc: bccList } : {}),
               subject: rendered.subject,
               html: rendered.html
             })
@@ -972,8 +981,10 @@ serve(async (req) => {
             items: packageItems.map(i => ({ quantity: i.quantity, description: i.description })),
             has_items: packageItems.length > 0
           })
+          const templateCc = (tpl as any).cc && (tpl as any).cc.length ? (tpl as any).cc : undefined
+          const templateBcc = (tpl as any).bcc && (tpl as any).bcc.length ? (tpl as any).bcc : undefined
 
-          const ccAddress = Deno.env.get('PACKAGE_COMPLETED_CC') || supportEmail || 'rabelanimm@gmail.com'
+          const ccAddress = templateCc ?? (Deno.env.get('PACKAGE_COMPLETED_CC') ? [Deno.env.get('PACKAGE_COMPLETED_CC') as string] : (supportEmail ? [supportEmail] : ['rabelanimm@gmail.com']))
 
           const emailResponse = await fetchWithTimeout('https://api.resend.com/emails', {
             method: 'POST',
@@ -984,7 +995,8 @@ serve(async (req) => {
             body: JSON.stringify({
               from: Deno.env.get('EMAIL_FROM') || 'POD System <noreply@example.com>',
               to: [updatedPackage.receiver_email],
-              cc: [ccAddress],
+              ...(ccAddress ? { cc: ccAddress } : {}),
+              ...(templateBcc ? { bcc: templateBcc } : {}),
               subject: rendered.subject,
               ...(attachments.length > 0 ? { attachments } : {}),
               html: rendered.html
@@ -1058,6 +1070,8 @@ serve(async (req) => {
             previous_items: previousItems,
             has_previous_items: previousItems.length > 0
           })
+          const ccList = (tpl as any).cc && (tpl as any).cc.length ? (tpl as any).cc : undefined
+          const bccList = (tpl as any).bcc && (tpl as any).bcc.length ? (tpl as any).bcc : undefined
 
           const emailResponse = await fetchWithTimeout('https://api.resend.com/emails', {
             method: 'POST',
@@ -1068,6 +1082,8 @@ serve(async (req) => {
             body: JSON.stringify({
               from: Deno.env.get('EMAIL_FROM') || 'POD System <noreply@example.com>',
               to: [updatedPackage.receiver_email],
+              ...(ccList ? { cc: ccList } : {}),
+              ...(bccList ? { bcc: bccList } : {}),
               subject: rendered.subject,
               html: rendered.html
             })

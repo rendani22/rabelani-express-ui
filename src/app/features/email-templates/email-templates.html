@@ -48,7 +48,7 @@
                 </button>
                 <ng-template #editActions>
                   <button type="button" class="px-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50" (click)="cancelEdit()">Cancel</button>
-                  <button type="button" class="px-3 py-1.5 text-sm rounded-lg bg-green-500 hover:bg-green-600 text-white flex items-center gap-1.5" (click)="saveTemplate()" [disabled]="isSaving()">
+                  <button type="button" class="px-3 py-1.5 text-sm rounded-lg bg-green-500 hover:bg-green-600 text-white flex items-center gap-1.5" (click)="saveTemplate()" [disabled]="isSaving() || hasInvalidEmails()">
                     <ng-icon name="tablerDeviceFloppy" size="14"></ng-icon>
                     {{ isSaving() ? 'Saving…' : 'Save' }}
                   </button>
@@ -72,6 +72,15 @@
                 <p class="text-xs text-gray-500 dark:text-gray-400 font-medium">Subject preview</p>
                 <p class="text-sm text-gray-800 dark:text-gray-100 mt-0.5">{{ previewSubject() }}</p>
                 <p class="text-xs text-gray-400 dark:text-gray-500 mt-1 font-mono">Template: {{ tmpl.subject }}</p>
+              </div>
+
+              <!-- Show template-level CC/BCC when viewing (not editing) -->
+              <div *ngIf="(tmpl.cc?.length || tmpl.bcc?.length)" class="mb-4 p-3 rounded-lg bg-gray-50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-700/60">
+                <p class="text-xs text-gray-500 dark:text-gray-400 font-medium">Recipients</p>
+                <div class="mt-1 text-sm text-gray-800 dark:text-gray-100">
+                  <p *ngIf="tmpl.cc?.length" class="truncate"><span class="font-semibold">CC:</span> <span class="font-mono text-xs">{{ tmpl.cc?.join(', ') }}</span></p>
+                  <p *ngIf="tmpl.bcc?.length" class="truncate"><span class="font-semibold">BCC:</span> <span class="font-mono text-xs">{{ tmpl.bcc?.join(', ') }}</span></p>
+                </div>
               </div>
 
               <div *ngIf="variablesFor(tmpl).length > 0" class="mb-4 p-3 rounded-lg bg-gray-50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-700/60">
@@ -98,6 +107,16 @@
                   <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Subject line</label>
                   <input type="text" [(ngModel)]="editSubject" class="w-full px-3 py-2 rounded-lg border text-sm border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/50 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
                 </div>
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">CC Addresses <span class="text-xs font-normal text-gray-400">(comma-separated)</span></label>
+                    <input type="text" [(ngModel)]="editCc" class="w-full px-3 py-2 rounded-lg border text-sm border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/50 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+                    <p *ngIf="invalidEmails(editCc).length > 0" class="text-xs text-red-600 dark:text-red-400 mt-1">Invalid email(s): {{ invalidEmails(editCc).join(', ') }}</p>
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">BCC Addresses <span class="text-xs font-normal text-gray-400">(comma-separated)</span></label>
+                    <input type="text" [(ngModel)]="editBcc" class="w-full px-3 py-2 rounded-lg border text-sm border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/50 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+                    <p *ngIf="invalidEmails(editBcc).length > 0" class="text-xs text-red-600 dark:text-red-400 mt-1">Invalid email(s): {{ invalidEmails(editBcc).join(', ') }}</p>
+                  </div>
                 <div>
                   <label class="flex text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 items-center gap-1.5">
                     <ng-icon name="tablerCode" size="14"></ng-icon>

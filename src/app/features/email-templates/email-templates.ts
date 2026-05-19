@@ -21,6 +21,8 @@ interface EmailTemplate {
   body_html: string;
   description?: string | null;
   variables?: TemplateVariable[] | null;
+  cc?: string[] | null;
+  bcc?: string[] | null;
   version?: number | null;
   is_active?: boolean | null;
   updated_at?: string | null;
@@ -95,6 +97,8 @@ export class EmailTemplatesComponent implements OnInit {
   readonly isSaving = signal(false);
   editSubject = '';
   editHtmlBody = '';
+  editCc = '';
+  editBcc = '';
   ngOnInit(): void {
     void this.loadTemplates();
   }
@@ -103,7 +107,7 @@ export class EmailTemplatesComponent implements OnInit {
     try {
       const { data, error } = await this.supabaseService.client
         .from('email_templates')
-        .select('id, key, name, description, subject, body_html, variables, version, is_active, updated_at')
+        .select('id, key, name, description, subject, body_html, variables, cc, bcc, version, is_active, updated_at')
         .order('name', { ascending: true });
       if (error) {
         this.toastService.error(`Failed to load templates: ${error.message}`);
@@ -125,6 +129,8 @@ export class EmailTemplatesComponent implements OnInit {
     this.mode.set('preview');
     this.editSubject = template.subject;
     this.editHtmlBody = template.body_html;
+    this.editCc = (template.cc ?? []).join(', ');
+    this.editBcc = (template.bcc ?? []).join(', ');
   }
   startEdit(): void {
     if (!this.canEdit()) {
@@ -138,6 +144,8 @@ export class EmailTemplatesComponent implements OnInit {
     if (!template) return;
     this.editSubject = template.subject;
     this.editHtmlBody = template.body_html;
+    this.editCc = (template.cc ?? []).join(', ');
+    this.editBcc = (template.bcc ?? []).join(', ');
     this.mode.set('preview');
   }
   async saveTemplate(): Promise<void> {
@@ -147,13 +155,18 @@ export class EmailTemplatesComponent implements OnInit {
       this.toastService.error('You do not have permission to edit email templates.');
       return;
     }
+    if (this.hasInvalidEmails()) {
+      const invalids = this.invalidEmails().join(', ');
+      this.toastService.error(`Cannot save: invalid email address(es): ${invalids}`);
+      return;
+    }
     this.isSaving.set(true);
     try {
       const { data, error } = await this.supabaseService.client
         .from('email_templates')
-        .update({ subject: this.editSubject, body_html: this.editHtmlBody })
+        .update({ subject: this.editSubject, body_html: this.editHtmlBody, cc: this.editCc ? this.editCc.split(',').map(s => s.trim()).filter(Boolean) : [], bcc: this.editBcc ? this.editBcc.split(',').map(s => s.trim()).filter(Boolean) : [] })
         .eq('id', template.id)
-        .select('id, key, name, description, subject, body_html, variables, version, is_active, updated_at')
+        .select('id, key, name, description, subject, body_html, variables, cc, bcc, version, is_active, updated_at')
         .single();
       if (error) {
         this.toastService.error(`Save failed: ${error.message}`);
@@ -171,6 +184,24 @@ export class EmailTemplatesComponent implements OnInit {
     } finally {
       this.isSaving.set(false);
     }
+  }
+  private readonly EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+  parseEmails(input: string): string[] {
+    if (!input) return []
+    return input.split(',').map(s => s.trim()).filter(Boolean)
+  }
+
+  invalidEmails(input?: string): string[] {
+    const ccList = this.parseEmails(input ?? this.editCc)
+    const bccList = this.parseEmails(input ?? this.editBcc)
+    // If input arg provided, treat it as a single list; otherwise combine both
+    const list = input !== undefined ? this.parseEmails(input) : [...ccList, ...bccList]
+    return list.filter(e => !this.EMAIL_RE.test(e))
+  }
+
+  hasInvalidEmails(): boolean {
+    return this.invalidEmails().length > 0
   }
   previewSubject = computed((): string => {
     const template = this.selectedTemplate();

@@ -248,6 +248,10 @@ serve(async (req) => {
         }
         const rendered = renderEmail(tpl, vars)
 
+        // Use template-defined cc/bcc when present, otherwise omit.
+        const ccList = (tpl as any).cc && (tpl as any).cc.length ? (tpl as any).cc : undefined
+        const bccList = (tpl as any).bcc && (tpl as any).bcc.length ? (tpl as any).bcc : undefined
+
         const emailResponse = await fetch('https://api.resend.com/emails', {
           method: 'POST',
           headers: {
@@ -257,6 +261,8 @@ serve(async (req) => {
           body: JSON.stringify({
             from: Deno.env.get('EMAIL_FROM') || 'POD System <noreply@example.com>',
             to: [receiver_email],
+            ...(ccList ? { cc: ccList } : {}),
+            ...(bccList ? { bcc: bccList } : {}),
             subject: rendered.subject,
             html: rendered.html
           })
