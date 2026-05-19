@@ -205,10 +205,7 @@ describe('Dashboard', () => {
       expect(salesVsRefundsCard).toBeTruthy();
     });
 
-    it('should render recent activity card', () => {
-      const recentActivityCard = fixture.debugElement.query(By.css('app-recent-activity-card'));
-      expect(recentActivityCard).toBeTruthy();
-    });
+    // recent activity / recent packages report removed from dashboard
 
     it('should render income expenses card', () => {
       const incomeExpensesCard = fixture.debugElement.query(By.css('app-income-expenses-card'));

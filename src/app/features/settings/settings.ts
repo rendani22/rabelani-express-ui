@@ -120,7 +120,7 @@ export class SettingsComponent {
     { label: 'Ready for Collection', value: PACKAGE_STATUS.READY_FOR_COLLECTION },
     { label: 'Collected', value: PACKAGE_STATUS.COLLECTED },
     { label: 'Delivered', value: PACKAGE_STATUS.DELIVERED },
-    { label: 'Returned', value: PACKAGE_STATUS.RETURNED },
+    { label: 'Canceled', value: PACKAGE_STATUS.RETURNED },
   ];
 
   onThemeChange(theme: 'light' | 'dark'): void {

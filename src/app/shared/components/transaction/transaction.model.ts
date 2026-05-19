@@ -18,7 +18,7 @@ export interface Transaction {
   counterparty: string;
   counterpartyImage: string;
   paymentDate: string;
-  status: 'Draft' | 'Pending' | 'Completed' | 'Canceled' | 'In Transit' | 'Ready';
+  status: 'Draft' | 'Pending' | 'Notified' | 'Completed' | 'Canceled' | 'In Transit' | 'Ready';
   amount?: number;
   notes?: string;
   details?: TransactionDetails;

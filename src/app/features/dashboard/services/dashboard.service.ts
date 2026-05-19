@@ -856,7 +856,7 @@ export class DashboardService {
         status: PACKAGE_STATUS.COLLECTED,
       },
       {
-        label: 'Returned',
+        label: 'Canceled',
         value: statusCounts.get(PACKAGE_STATUS.RETURNED) || 0,
         color: '#EF4444', // Red
         status: PACKAGE_STATUS.RETURNED,
@@ -1000,7 +1000,7 @@ export class DashboardService {
       case PACKAGE_STATUS.READY_FOR_COLLECTION: return 'Ready';
       case PACKAGE_STATUS.DELIVERED: return 'Delivered';
       case PACKAGE_STATUS.COLLECTED: return 'Collected';
-      case PACKAGE_STATUS.RETURNED: return 'Returned';
+      case PACKAGE_STATUS.RETURNED: return 'Canceled';
       default: return 'Unknown';
     }
   }

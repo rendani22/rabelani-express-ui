@@ -234,7 +234,7 @@ export class CustomerManagementComponent implements OnInit {
       [PACKAGE_STATUS.READY_FOR_COLLECTION]: 'Ready',
       [PACKAGE_STATUS.DELIVERED]: 'Delivered',
       [PACKAGE_STATUS.COLLECTED]: 'Collected',
-      [PACKAGE_STATUS.RETURNED]: 'Returned',
+      [PACKAGE_STATUS.RETURNED]: 'Canceled',
     };
     return labels[status] ?? status;
   }

@@ -12,7 +12,6 @@ import { StuckPackage } from './services/dashboard.service';
 import { PackageStatsCardComponent, StatItem } from './cards/package-stats-card/package-stats-card.component';
 import { PackageStatusChartComponent } from './cards/package-status-chart/package-status-chart.component';
 import { PackagesTrendCardComponent } from './cards/packages-trend-card/packages-trend-card.component';
-import { RecentPackagesCardComponent } from './cards/recent-packages-card/recent-packages-card.component';
 import { DeliveryPerformanceCardComponent } from './cards/delivery-performance-card/delivery-performance-card.component';
 import { MonthlyPackagesCardComponent } from './cards/monthly-packages-card/monthly-packages-card.component';
 import { DriverStatusCardComponent } from './cards/driver-status-card/driver-status-card.component';
@@ -37,7 +36,6 @@ import { HourlyHeatmapCardComponent } from './cards/hourly-heatmap-card/hourly-h
     PackageStatsCardComponent,
     PackageStatusChartComponent,
     PackagesTrendCardComponent,
-    RecentPackagesCardComponent,
     DeliveryPerformanceCardComponent,
     MonthlyPackagesCardComponent,
     DriverStatusCardComponent,
@@ -68,7 +66,7 @@ export class Dashboard implements OnInit {
   readonly statusDistribution = this.dashboardService.statusDistribution;
   readonly weeklyTimeSeries = this.dashboardService.weeklyTimeSeries;
   readonly monthlyTimeSeries = this.dashboardService.monthlyTimeSeries;
-  readonly recentActivity = this.dashboardService.recentActivity;
+  // recentActivity (recent packages) removed — report intentionally omitted
   readonly driverStats = this.dashboardService.driverStats;
   readonly podStats = this.dashboardService.podStats;
   readonly locationDistribution = this.dashboardService.locationDistribution;
@@ -130,14 +128,7 @@ export class Dashboard implements OnInit {
     await this.dashboardService.loadDashboardData();
   }
 
-  onPackageClick(activity: PackageActivity): void {
-    // Navigate to orders page with the package selected
-    this.router.navigate(['/orders'], { queryParams: { id: activity.id } });
-  }
-
-  onViewAllPackages(): void {
-    this.router.navigate(['/orders']);
-  }
+  // recent packages callbacks removed along with the report
 
   onStuckPackageClick(stuck: StuckPackage): void {
     this.router.navigate(['/orders'], { queryParams: { id: stuck.id } });

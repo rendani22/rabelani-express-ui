@@ -84,7 +84,7 @@ export type { Transaction } from '../transaction.model';
               <td class="status-col">
                 <span
                   class="status-badge"
-                  [class.pending]="transaction.status === 'Pending'"
+                  [class.pending]="transaction.status === 'Pending' || transaction.status === 'Notified'"
                   [class.completed]="transaction.status === 'Completed'"
                   [class.canceled]="transaction.status === 'Canceled'"
                   [class.in-transit]="transaction.status === 'In Transit'"

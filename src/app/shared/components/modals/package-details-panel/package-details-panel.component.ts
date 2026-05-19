@@ -856,7 +856,7 @@ export class PackageDetailsPanelComponent implements OnChanges {
 
       this.toastService.success(
         fresh.status === PACKAGE_STATUS.RETURNED
-          ? 'All items removed. Order marked as returned.'
+          ? 'All items removed. Order marked as canceled.'
           : 'Package items updated.'
       );
       this.editMode.set(false);
@@ -1021,7 +1021,7 @@ export class PackageDetailsPanelComponent implements OnChanges {
       [PACKAGE_STATUS.IN_TRANSIT]: 'Driver picked up',
       [PACKAGE_STATUS.READY_FOR_COLLECTION]: 'Arrived at collection point',
       [PACKAGE_STATUS.COLLECTED]: 'Package collected',
-      [PACKAGE_STATUS.RETURNED]: 'Order returned',
+      [PACKAGE_STATUS.RETURNED]: 'Order canceled',
     };
 
     const colors: Record<string, string> = {
@@ -1128,17 +1128,29 @@ export class PackageDetailsPanelComponent implements OnChanges {
     }
   }
 
-  getStatusLabel(status: PackageStatus | string): string {
+    getStatusLabel(status: PackageStatus | string): string {
     const labels: Record<string, string> = {
+      [PACKAGE_STATUS.DRAFT]: 'Draft',
       [PACKAGE_STATUS.PENDING]: 'Pending',
       [PACKAGE_STATUS.NOTIFIED]: 'Notified',
       [PACKAGE_STATUS.IN_TRANSIT]: 'In Transit',
       [PACKAGE_STATUS.READY_FOR_COLLECTION]: 'Ready for Collection',
       [PACKAGE_STATUS.DELIVERED]: 'Delivered',
       [PACKAGE_STATUS.COLLECTED]: 'Collected',
-      [PACKAGE_STATUS.RETURNED]: 'Returned',
+      [PACKAGE_STATUS.RETURNED]: 'Canceled',
     };
-    return labels[status] || status;
+
+    // If we have a direct mapping, use it. Otherwise convert the status
+    // (e.g. snake_case or lowercase) into Title Case → 'in_transit' -> 'In Transit'.
+    if (labels[status]) return labels[status];
+
+    if (typeof status !== 'string' || status.trim() === '') return '';
+
+    return String(status)
+      .replace(/[_-]+/g, ' ')
+      .split(' ')
+      .map(s => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase())
+      .join(' ');
   }
 
   getStatusBadgeClass(status: PackageStatus): string {

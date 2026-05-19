@@ -48,7 +48,7 @@ function statusTitle(status: string, reference: string): string {
     case PACKAGE_STATUS.READY_FOR_COLLECTION: return `Ready for collection (${reference})`;
     case PACKAGE_STATUS.DELIVERED:  return `Package delivered (${reference})`;
     case PACKAGE_STATUS.COLLECTED:  return `Package collected (${reference})`;
-    case PACKAGE_STATUS.RETURNED:   return `Package returned (${reference})`;
+    case PACKAGE_STATUS.RETURNED:   return `Package canceled (${reference})`;
     default:                        return `Package updated (${reference})`;
   }
 }
@@ -64,7 +64,7 @@ function statusDescription(status: string, email: string): string {
     case PACKAGE_STATUS.READY_FOR_COLLECTION: return `The package for ${email} has arrived at the collection point.`;
     case PACKAGE_STATUS.DELIVERED:  return `Package successfully delivered to ${email}.`;
     case PACKAGE_STATUS.COLLECTED:  return `Package collected by ${email}.`;
-    case PACKAGE_STATUS.RETURNED:   return `The package for ${email} was returned because it has no remaining items.`;
+    case PACKAGE_STATUS.RETURNED:   return `The package for ${email} was canceled because it has no remaining items.`;
     default:                        return `Package status updated for ${email}.`;
   }
 }

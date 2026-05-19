@@ -4,7 +4,8 @@ import { PackageActivity } from '../../services/dashboard.service';
 import { PACKAGE_STATUS } from '../../../../core';
 
 @Component({
-  selector: 'app-recent-packages-card',
+  // Component deprecated: recent packages report removed from dashboard
+  selector: 'app-deprecated-recent-packages-card',
   standalone: true,
   imports: [CommonModule],
   host: { 'class': 'col-span-12 lg:col-span-8 block' },
@@ -69,7 +70,7 @@ import { PACKAGE_STATUS } from '../../../../core';
   `,
   styles: []
 })
-export class RecentPackagesCardComponent {
+export class DeprecatedRecentPackagesCardComponent {
   @Input() title = 'Recent Packages';
   @Input() packages: PackageActivity[] = [];
 

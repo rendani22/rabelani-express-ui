@@ -68,14 +68,7 @@
           [podStats]="podStats()">
         </app-pod-stats-card>
 
-        <!-- ── Row 5: Recent Packages (8 cols) + Delivery Performance (4 cols) ── -->
-        <app-recent-packages-card
-          title="Recent Packages"
-          [packages]="recentActivity()"
-          (packageClick)="onPackageClick($event)"
-          (viewAllClick)="onViewAllPackages()">
-        </app-recent-packages-card>
-
+        <!-- ── Row 5: Delivery Performance (4 cols) — recent packages report removed ── -->
         <app-delivery-performance-card
           title="Delivery Performance"
           [completedCount]="stats().completed"

@@ -26,15 +26,15 @@ export interface AppVersion {
 }
 
 export const APP_VERSION: AppVersion = {
-  "version": "0.49.0-dev",
-  "semver": "0.49.0",
+  "version": "0.52.0-dev",
+  "semver": "0.52.0",
   "baseTag": null,
-  "commitsSinceBase": 51,
+  "commitsSinceBase": 54,
   "isDirty": true,
-  "hash": "c96dd74",
-  "fullHash": "c96dd74cc86ebba09de84fc14a294e0a13e6c610",
+  "hash": "69de8c0",
+  "fullHash": "69de8c0224e858394032bb4670e9470033ea0109",
   "branch": "main",
-  "message": "feat: replace inventory select with searchable combobox in package modal",
-  "commitDate": "2026-05-15T11:46:28+02:00",
-  "buildDate": "2026-05-17T08:13:31.226Z"
+  "message": "feat: enable direct Draft to Notified transition with notification email and UI updates",
+  "commitDate": "2026-05-19T10:03:27+02:00",
+  "buildDate": "2026-05-19T08:49:01.551Z"
 };
