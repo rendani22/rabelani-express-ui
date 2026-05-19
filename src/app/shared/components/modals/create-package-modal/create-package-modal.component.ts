@@ -588,8 +588,10 @@ export class CreatePackageModalComponent {
       const result = await this.packageService.createPackage(request);
 
       if (result.success) {
-        // Deduct inventory stock for items that came from inventory
-        await this.deductInventoryStock();
+        // Deduct inventory stock for items that came from inventory. Pass the
+        // created package reference so inventory movements include a link back
+        // to the order for auditing / traceability in Recent Movements.
+        await this.deductInventoryStock(result.data.package.reference);
         this.handleSuccess(result.data.package);
       } else {
         this.errorMessage.set(result.error);
@@ -647,7 +649,7 @@ export class CreatePackageModalComponent {
    * Deducts inventory stock for all form items that have an inventoryItemId selected.
    * Non-fatal: errors do not prevent package creation from succeeding.
    */
-  private async deductInventoryStock(): Promise<void> {
+  private async deductInventoryStock(packageReference?: string | null): Promise<void> {
     const items = this.form.getRawValue().items as Array<Record<string, unknown>>;
     const deductions = items
       .filter((item) => {
@@ -662,7 +664,7 @@ export class CreatePackageModalComponent {
 
     if (deductions.length > 0) {
       try {
-        await this.inventoryService.deductStock(deductions);
+        await this.inventoryService.deductStock(deductions, packageReference ?? undefined);
       } catch {
         this.toastService.warning('Package created, but inventory stock levels could not be updated. Please adjust them manually.');
       }

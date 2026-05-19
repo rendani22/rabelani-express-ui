@@ -289,5 +289,52 @@ export class StaffService {
       this.loading.set(false);
     }
   }
+
+  /**
+   * Batch fetch staff profiles by an array of IDs. Returns an array of
+   * StaffProfile objects (may be empty). This is useful when resolving
+   * multiple user names in one request to avoid many round-trips.
+   */
+  async getStaffByIds(ids: string[]): Promise<StaffProfile[]> {
+    if (!ids.length) return [];
+
+    this.loading.set(true);
+    this.error.set(null);
+
+    try {
+      // Prefer a read-only view exposing only public fields if it exists.
+      // This view (public_staff_profiles) should be created in Supabase and
+      // have RLS/policies that allow authenticated users to SELECT only the
+      // non-sensitive columns (id, full_name, avatar_url). Falling back to
+      // querying the main table when the view doesn't exist keeps behavior
+      // backwards-compatible for dev environments.
+      const tryView = await this.supabaseService.client
+        .from('public_staff_profiles')
+        .select('id, full_name')
+        .in('id', ids);
+
+      if (!tryView.error && (tryView.data ?? []).length > 0) {
+        return (tryView.data ?? []) as StaffProfile[];
+      }
+
+      // Fallback to the full table (may be blocked by RLS in production)
+      const { data, error } = await this.supabaseService.client
+        .from('staff_profiles')
+        .select('user_id, full_name')
+        .in('user_id', ids);
+
+      if (error) {
+        this.error.set(error.message);
+        return [];
+      }
+
+      return (data ?? []) as StaffProfile[];
+    } catch (err) {
+      this.error.set('An unexpected error occurred while fetching staff profiles.');
+      return [];
+    } finally {
+      this.loading.set(false);
+    }
+  }
 }
 
