@@ -323,6 +323,22 @@ export class OrdersComponent implements OnInit {
       let result: { success: boolean; error?: string };
 
       switch (pkg.status) {
+        case PACKAGE_STATUS.DRAFT:
+          // Option: support Draft -> Notified direct transition from the UI.
+          // This will trigger the Edge Function to send the notification email
+          // just like a normal status update.
+          {
+            const result = await this.packageService.updatePackage(pkg.id, { status: PACKAGE_STATUS.NOTIFIED });
+            if (result.success) {
+              this.toastService.success(`Package ${pkg.reference} status updated to Notified.`);
+              this.onCloseDetailsPanel();
+              await this.loadPackages();
+            } else {
+              this.toastService.error(result.error ?? 'Failed to update package status.');
+            }
+            return;
+          }
+
         case PACKAGE_STATUS.PENDING:
         case PACKAGE_STATUS.NOTIFIED:
           // Driver picks up package — open the assign-driver modal so the

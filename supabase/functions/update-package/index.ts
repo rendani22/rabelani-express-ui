@@ -807,6 +807,111 @@ serve(async (req) => {
     }
 
     // ------------------------------------------------------------------
+    // Send "Notified" email when transitioning to that status (e.g. Draft -> Notified)
+    // Reuse the package_registered template used by creation so receivers get
+    // a consistent notification when a package is marked notified.
+    // ------------------------------------------------------------------
+    let notifiedEmailSent = false
+    let notifiedEmailError: string | null = null
+    const transitionedToNotified =
+      effectiveStatus === 'notified' &&
+      existingPackage.status !== 'notified'
+
+    if (transitionedToNotified) {
+      try {
+        // Fetch package items for the contents table
+        const { data: itemsData } = await adminClient
+          .from('package_items')
+          .select('id, quantity, description')
+          .eq('package_id', package_id)
+
+        const packageItems: { id: string; quantity: number; description: string }[] =
+          itemsData ?? []
+
+        // Fetch delivery location if linked
+        let deliveryLocation:
+          | { name: string; address: string; google_maps_link: string | null }
+          | null = null
+        if (existingPackage.delivery_location_id) {
+          const { data: locationData } = await adminClient
+            .from('delivery_locations')
+            .select('name, address, google_maps_link')
+            .eq('id', existingPackage.delivery_location_id)
+            .single()
+          if (locationData) deliveryLocation = locationData
+        }
+
+        const resendApiKey = Deno.env.get('RESEND_API_KEY')
+        const locationName    = deliveryLocation?.name    || Deno.env.get('COLLECTION_LOCATION') || 'the designated collection point'
+        const locationAddress = deliveryLocation?.address || ''
+        const locationMapsLink = deliveryLocation?.google_maps_link || null
+        const poNumber: string | null = existingPackage.po_number ?? null
+
+        if (!resendApiKey) {
+          notifiedEmailError = 'Email service not configured (RESEND_API_KEY not set)'
+          console.log('Notified email skipped:', notifiedEmailError)
+        } else if (!updatedPackage.receiver_email) {
+          notifiedEmailError = 'Package has no receiver_email; cannot send notification'
+          console.warn(notifiedEmailError)
+        } else {
+          // Resolve template from DB (with in-code fallback) and render.
+          const tpl = await resolveTemplate(adminClient, 'package_registered')
+          const rendered = renderEmail(tpl, {
+            ...buildCommonVars((k) => Deno.env.get(k) ?? undefined),
+            reference: updatedPackage.reference,
+            po_number: poNumber || '',
+            notes: updatedPackage.notes || '',
+            items: packageItems.map(i => ({ quantity: i.quantity, description: i.description })),
+            has_items: packageItems.length > 0,
+            location_name: locationName,
+            location_address: locationAddress,
+            location_maps_link: locationMapsLink || ''
+          })
+
+          const emailResponse = await fetchWithTimeout('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${resendApiKey}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              from: Deno.env.get('EMAIL_FROM') || 'POD System <noreply@example.com>',
+              to: [updatedPackage.receiver_email],
+              subject: rendered.subject,
+              html: rendered.html
+            })
+          }, RESEND_TIMEOUT_MS)
+
+          if (emailResponse instanceof Response && emailResponse.ok) {
+            notifiedEmailSent = true
+            await adminClient.from('audit_logs').insert({
+              action: 'PACKAGE_PREPARED_NOTIFICATION',
+              entity_type: 'package',
+              entity_id: package_id,
+              performed_by: callingUser.id,
+              metadata: {
+                reference: updatedPackage.reference,
+                receiver_email: updatedPackage.receiver_email,
+                notification_type: 'email',
+                notification_status: 'sent',
+                email_subject: 'Package Notification'
+              }
+            })
+          } else {
+            notifiedEmailError = emailResponse instanceof Response
+              ? `Email API error: ${await emailResponse.text()}`
+              : `Email transport error: ${emailResponse.error}`
+            console.error('Notified email send failed:', notifiedEmailError)
+          }
+        }
+      } catch (e: unknown) {
+        const errorMessage = e instanceof Error ? e.message : String(e)
+        notifiedEmailError = `Email exception: ${errorMessage}`
+        console.error('Notified email exception:', e)
+      }
+    }
+
+    // ------------------------------------------------------------------
     // Send "Package Completed" email when transitioning to `collected`.
     //
     // Mirrors the branded styling used by the create / ready-for-collection
@@ -1015,6 +1120,8 @@ serve(async (req) => {
         pod_persist_error: podPersistError,
         ready_email_sent: transitionedToReady ? readyEmailSent : undefined,
         ready_email_error: transitionedToReady ? readyEmailError : undefined,
+        notified_email_sent: transitionedToNotified ? notifiedEmailSent : undefined,
+        notified_email_error: transitionedToNotified ? notifiedEmailError : undefined,
         completed_email_sent: transitionedToCollected ? completedEmailSent : undefined,
         completed_email_error: transitionedToCollected ? completedEmailError : undefined,
         items_updated_email_sent: itemChangesSummary ? itemsUpdatedEmailSent : undefined,
@@ -1031,11 +1138,13 @@ serve(async (req) => {
         package: updatedPackage,
         message: `Package ${updatedPackage.reference} updated successfully`,
         ...(podPersistError ? { pod_warning: podPersistError } : {}),
-        ...(transitionedToReady
-          ? { email_sent: readyEmailSent, email_error: readyEmailError }
-          : transitionedToCollected
-            ? { email_sent: completedEmailSent, email_error: completedEmailError }
-            : {}),
+        ...(transitionedToNotified
+          ? { email_sent: notifiedEmailSent, email_error: notifiedEmailError }
+          : transitionedToReady
+            ? { email_sent: readyEmailSent, email_error: readyEmailError }
+            : transitionedToCollected
+              ? { email_sent: completedEmailSent, email_error: completedEmailError }
+              : {}),
         ...(itemChangesSummary
           ? { items_email_sent: itemsUpdatedEmailSent, items_email_error: itemsUpdatedEmailError }
           : {})

@@ -1201,6 +1201,7 @@ export class PackageDetailsPanelComponent implements OnChanges {
 
   getNextStatusAction(status: PackageStatus): string {
     const actions: Record<string, string> = {
+      [PACKAGE_STATUS.DRAFT]: 'Mark as Notified',
       [PACKAGE_STATUS.PENDING]: 'Mark as Notified',
       [PACKAGE_STATUS.NOTIFIED]: 'Start Transit',
       [PACKAGE_STATUS.IN_TRANSIT]: 'Mark Ready',

@@ -398,7 +398,9 @@ export function getAllowedManualStatusTransitions(
 
   // Allow draft to move forward to pending
   if (currentStatus === PACKAGE_STATUS.DRAFT) {
-    return [PACKAGE_STATUS.PENDING];
+    // Option: allow admins to move a Draft directly to Notified (skip Pending)
+    // so the receiver can be notified immediately from the UI.
+    return [PACKAGE_STATUS.PENDING, PACKAGE_STATUS.NOTIFIED];
   }
 
   const currentIndex = PACKAGE_STATUS_FLOW.indexOf(currentStatus);
