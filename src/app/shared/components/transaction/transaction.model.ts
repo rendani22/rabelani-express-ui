@@ -18,7 +18,9 @@ export interface Transaction {
   counterparty: string;
   counterpartyImage: string;
   paymentDate: string;
-  status: 'Draft' | 'Pending' | 'Notified' | 'Completed' | 'Canceled' | 'In Transit' | 'Ready';
+  // Added 'Collected' so collected packages display the correct label in the
+  // status column instead of being lumped under "Completed".
+  status: 'Draft' | 'Pending' | 'Notified' | 'Completed' | 'Collected' | 'Canceled' | 'In Transit' | 'Ready';
   amount?: number;
   notes?: string;
   details?: TransactionDetails;

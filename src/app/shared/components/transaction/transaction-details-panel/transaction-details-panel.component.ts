@@ -59,7 +59,7 @@ import { Transaction } from '../transaction.model';
               <span
                 class="status-badge"
                 [class.pending]="transaction.status === 'Pending'"
-                [class.completed]="transaction.status === 'Completed'"
+                [class.completed]="transaction.status === 'Completed' || transaction.status === 'Collected'"
                 [class.canceled]="transaction.status === 'Canceled'"
               >
                 {{ transaction.status }}

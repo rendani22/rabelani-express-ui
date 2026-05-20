@@ -220,11 +220,14 @@ export class OrdersComponent implements OnInit {
   /**
    * Maps package status to transaction status.
    */
-  private mapPackageStatusToTransactionStatus(status: PackageStatus): 'Draft' | 'Pending' | 'Notified' | 'Completed' | 'Canceled' | 'In Transit' | 'Ready' {
+  private mapPackageStatusToTransactionStatus(status: PackageStatus): 'Draft' | 'Pending' | 'Notified' | 'Completed' | 'Collected' | 'Canceled' | 'In Transit' | 'Ready' {
     switch (status) {
       case PACKAGE_STATUS.DRAFT:
         return 'Draft';
       case PACKAGE_STATUS.COLLECTED:
+        // A collected package at a collection point should be labelled
+        // "Collected" in the orders/status column (not "Completed").
+        return 'Collected';
       case PACKAGE_STATUS.DELIVERED:
         return 'Completed';
       case PACKAGE_STATUS.RETURNED:
