@@ -405,11 +405,21 @@ interface TimelineEntry {
                   </div>
                 } @else if (hasPod()) {
                   <div class="rounded-lg border border-green-200 dark:border-green-700 bg-green-50 dark:bg-green-900/20 p-4 space-y-3">
-                    <!-- POD reference -->
-                    @if (podStatus()?.podReference || podRecord()?.pod_reference) {
+                      <!-- POD reference -->
+                    @if (pkg.po_number || pkg.reference || podStatus()?.podReference || podRecord()?.pod_reference) {
                       <div class="flex items-center justify-between">
-                        <span class="text-xs text-gray-500 dark:text-gray-400">POD Reference</span>
-                        <span class="text-xs font-mono font-medium text-gray-900 dark:text-white">{{ podStatus()?.podReference || podRecord()?.pod_reference }}</span>
+                        <span class="text-xs text-gray-500 dark:text-gray-400">Purchase Order · Reference</span>
+                        <span class="text-xs font-mono font-medium text-gray-900 dark:text-white">
+                          @if (pkg.po_number && pkg.reference) {
+                            Purchase Order {{ pkg.po_number }} · Reference {{ pkg.reference }}
+                          } @else if (pkg.po_number) {
+                            Purchase Order {{ pkg.po_number }}
+                          } @else if (pkg.reference) {
+                            Reference {{ pkg.reference }}
+                          } @else {
+                            {{ podStatus()?.podReference || podRecord()?.pod_reference }}
+                          }
+                        </span>
                       </div>
                     }
                     @if (podStatus()?.lockedAt || podRecord()?.locked_at || podRecord()?.completed_at) {

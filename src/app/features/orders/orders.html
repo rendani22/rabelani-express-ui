@@ -59,6 +59,9 @@
       <app-transaction-table
         [transactions]="pagedTransactions()"
         [selectedIds]="selectedIds()"
+        [sortField]="sortField()"
+        [sortDirection]="sortDirection()"
+        (sortChange)="onSortChange($event)"
         (transactionSelected)="onTransactionSelected($event)"
         (selectionChanged)="onSelectionChanged($event)"
         (deleteRequested)="onDeletePackages($event)">

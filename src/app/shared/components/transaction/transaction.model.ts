@@ -18,6 +18,12 @@ export interface Transaction {
   counterparty: string;
   counterpartyImage: string;
   paymentDate: string;
+  /** ISO timestamp for the created/paid date (used to compute relative times) */
+  paymentDateIso?: string;
+  /** Last updated date for the transaction (mapped from package.updated_at) */
+  lastUpdated?: string;
+  /** ISO timestamp for the last-updated value (used to compute relative times) */
+  lastUpdatedIso?: string;
   // Added 'Collected' so collected packages display the correct label in the
   // status column instead of being lumped under "Completed".
   status: 'Draft' | 'Pending' | 'Notified' | 'Completed' | 'Collected' | 'Canceled' | 'In Transit' | 'Ready';

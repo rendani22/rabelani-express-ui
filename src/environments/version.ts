@@ -26,15 +26,15 @@ export interface AppVersion {
 }
 
 export const APP_VERSION: AppVersion = {
-  "version": "0.52.0-dev",
-  "semver": "0.52.0",
+  "version": "0.57.0-dev",
+  "semver": "0.57.0",
   "baseTag": null,
-  "commitsSinceBase": 54,
+  "commitsSinceBase": 59,
   "isDirty": true,
-  "hash": "69de8c0",
-  "fullHash": "69de8c0224e858394032bb4670e9470033ea0109",
+  "hash": "3b71bd1",
+  "fullHash": "3b71bd1992a90bc4ca50b59f21c41ddf54f34462",
   "branch": "main",
-  "message": "feat: enable direct Draft to Notified transition with notification email and UI updates",
-  "commitDate": "2026-05-19T10:03:27+02:00",
-  "buildDate": "2026-05-19T08:49:01.551Z"
+  "message": "feat: allow additional user to edit email templates by updating editor check",
+  "commitDate": "2026-05-23T14:23:57+02:00",
+  "buildDate": "2026-05-23T12:46:55.929Z"
 };

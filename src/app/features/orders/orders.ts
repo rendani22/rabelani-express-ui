@@ -77,8 +77,37 @@ export class OrdersComponent implements OnInit {
   readonly error = this.packageService.error;
 
   // Transform packages to transactions for the table
+  // Sorting state for the transaction table (default: lastUpdated desc)
+  readonly sortField = signal<string | null>('lastUpdated');
+  readonly sortDirection = signal<'asc' | 'desc'>('desc');
+
   readonly transactions = computed<Transaction[]>(() => {
-    return this.packageService.packages().map(pkg => this.mapPackageToTransaction(pkg));
+    const txs = this.packageService.packages().map(pkg => this.mapPackageToTransaction(pkg));
+    const field = this.sortField();
+    const dir = this.sortDirection();
+    if (!field) return txs;
+
+    const getTime = (t: Transaction) => {
+      if (field === 'lastUpdated') {
+        const iso = (t as any).lastUpdatedIso as string | undefined;
+        const createdIso = (t as any).paymentDateIso as string | undefined;
+        const v = iso ?? createdIso ?? '';
+        const d = new Date(v);
+        return Number.isNaN(d.getTime()) ? 0 : d.getTime();
+      }
+      if (field === 'paymentDate') {
+        const v = (t as any).paymentDateIso as string | undefined ?? '';
+        const d = new Date(v);
+        return Number.isNaN(d.getTime()) ? 0 : d.getTime();
+      }
+      return 0;
+    };
+
+    return txs.slice().sort((a, b) => {
+      const ta = getTime(a);
+      const tb = getTime(b);
+      return dir === 'asc' ? ta - tb : tb - ta;
+    });
   });
 
   // Status filter — initialised from user settings
@@ -180,7 +209,16 @@ export class OrdersComponent implements OnInit {
       orderNumber: pkg.po_number ?? undefined,
       counterparty: displayName,
       counterpartyImage: this.getAvatarUrl(displayName),
-      paymentDate: this.formatDate(pkg.created_at),
+      // Created date shown without time (date-only)
+      paymentDate: this.formatDateShort(pkg.created_at),
+      // Keep ISO timestamps so the UI can render relative times while CSV
+      // exports and tooltips use the already-formatted absolute strings.
+      paymentDateIso: pkg.created_at,
+      // Show the package.updated_at as the last-updated timestamp when
+      // available; fall back to created_at for packages that haven't been
+      // updated since creation.
+      lastUpdated: this.formatDate(pkg.updated_at ?? pkg.created_at),
+      lastUpdatedIso: pkg.updated_at ?? pkg.created_at,
       status: this.mapPackageStatusToTransactionStatus(pkg.status),
       notes: pkg.notes || undefined
     };
@@ -210,10 +248,26 @@ export class OrdersComponent implements OnInit {
    */
   private formatDate(dateString: string): string {
     const date = new Date(dateString);
+    // Include a short time in the absolute format so exported rows and
+    // inline absolute timestamps show both date and time (e.g. "May 23, 2026, 3:45 PM").
+    return date.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  }
+
+  /**
+   * Formats a date string as date-only (no time) for created/paid dates.
+   */
+  private formatDateShort(dateString: string): string {
+    const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
-      year: 'numeric'
+      year: 'numeric',
     });
   }
 
@@ -259,6 +313,21 @@ export class OrdersComponent implements OnInit {
     this.statusFilter.set(status);
     this.currentPage.set(1);
     await this.loadPackages();
+  }
+
+  /** Handle sort change requests from the transaction table headers */
+  onSortChange(event: { field: string }): void {
+    const field = event.field;
+    if (this.sortField() === field) {
+      // Toggle direction
+      this.sortDirection.set(this.sortDirection() === 'asc' ? 'desc' : 'asc');
+    } else {
+      this.sortField.set(field);
+      // Default to descending so newest appear first
+      this.sortDirection.set('desc');
+    }
+    // Reset to first page when sorting changes
+    this.currentPage.set(1);
   }
 
   /**

@@ -42,6 +42,10 @@ export type { Transaction } from '../transaction.model';
               <th class="text-left">Order #</th>
               <th class="text-left">Receiver</th>
               <th class="text-left">Created Date</th>
+              <th class="text-left" (click)="onHeaderClick('lastUpdated')" style="cursor: pointer; user-select: none;">
+                Last Updated
+                <span *ngIf="sortField === 'lastUpdated'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span>
+              </th>
               <th class="text-left">Status</th>
             </tr>
           </thead>
@@ -79,7 +83,15 @@ export type { Transaction } from '../transaction.model';
                 </div>
               </td>
               <td class="date-col">
-                <span class="date">{{ transaction.paymentDate }}</span>
+                <!-- Created Date: keep as the absolute formatted date for clarity -->
+                <span class="date" [title]="transaction.paymentDate">{{ transaction.paymentDate }}</span>
+              </td>
+              <td class="date-col">
+                <!-- Last Updated: show both relative and absolute inline -->
+                <span class="date" [title]="transaction.lastUpdated || transaction.paymentDate">
+                  <span class="relative">{{ formatRelative(transaction.lastUpdatedIso || transaction.paymentDateIso || transaction.lastUpdated || transaction.paymentDate, transaction.lastUpdated || transaction.paymentDate) }}</span>
+                  <span class="abs"> — {{ transaction.lastUpdated || transaction.paymentDate }}</span>
+                </span>
               </td>
               <td class="status-col">
                 <span
@@ -277,8 +289,32 @@ export type { Transaction } from '../transaction.model';
       color: #111827;
     }
 
+    /* Date display: keep relative + absolute on a single line and
+       allow the absolute part to truncate with ellipsis when space is
+       constrained. */
     .date {
       color: #6b7280;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 20rem; /* reasonable default; table cell will constrain it further */
+    }
+
+    .date .relative {
+      flex: 0 0 auto;
+      font-weight: 600;
+      color: #111827;
+    }
+
+    .date .abs {
+      flex: 1 1 auto;
+      color: #6b7280;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .status-badge {
@@ -479,10 +515,39 @@ export type { Transaction } from '../transaction.model';
 })
 export class TransactionTableComponent {
   @Input() transactions: Transaction[] = [];
+  /** Optional sort field name provided by parent (e.g. 'lastUpdated') */
+  @Input() sortField?: string | null = null;
+  /** Optional sort direction provided by parent ('asc'|'desc') */
+  @Input() sortDirection?: 'asc' | 'desc' = 'desc';
+
+  /** Emitted when the user requests a sort change by clicking a header */
+  @Output() sortChange = new EventEmitter<{ field: string }>();
 
   /** Syncs external selection state with internal signal */
   @Input() set selectedIds(value: Set<string>) {
     this._selectedIds.set(new Set(value));
+  }
+
+  /**
+   * Return a concise relative time string (e.g. "5m ago", "3h ago", "2d ago",
+   * or a fallback absolute string when the date is older than ~30 days or
+   * the input cannot be parsed).
+   */
+  formatRelative(isoOrString: string | undefined, absoluteFallback = ''): string {
+    if (!isoOrString) return absoluteFallback || '—';
+    const d = new Date(isoOrString);
+    if (Number.isNaN(d.getTime())) return absoluteFallback || isoOrString;
+
+    const now = Date.now();
+    const diff = Math.floor((now - d.getTime()) / 1000); // seconds
+    if (diff < 60) return 'just now';
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+    const days = Math.floor(diff / 86400);
+    if (days < 7) return `${days}d ago`;
+    if (days < 30) return `${Math.floor(days / 7)}w ago`;
+    // For older dates, show the absolute fallback (already formatted)
+    return absoluteFallback || d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   }
 
   @Output() transactionSelected = new EventEmitter<Transaction>();
@@ -528,6 +593,10 @@ export class TransactionTableComponent {
     this.transactionSelected.emit(transaction);
   }
 
+  onHeaderClick(field: string): void {
+    this.sortChange.emit({ field });
+  }
+
   formatAmount(amount: number): string {
     const sign = amount >= 0 ? '+' : '';
     return `${sign}$${Math.abs(amount).toFixed(2)}`;
@@ -545,6 +614,7 @@ export class TransactionTableComponent {
       { key: 'orderNumber', header: 'Order Number' },
       { key: 'counterparty', header: 'Receiver' },
       { key: 'paymentDate', header: 'Created Date' },
+      { key: 'lastUpdated', header: 'Last Updated' },
       { key: 'status', header: 'Status' },
       { key: 'notes', header: 'Notes' },
     ];

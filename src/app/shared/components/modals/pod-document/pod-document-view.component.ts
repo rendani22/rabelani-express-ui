@@ -69,6 +69,20 @@ export class PodDocumentViewComponent {
   }
 
   /**
+   * Returns the display string for Purchase Order and Reference in the POD.
+   * Preferred format: "Purchase Order <po_number> · Reference <reference>".
+   * Falls back sensibly to whichever values are present or to the pod reference.
+   */
+  getPoReferenceDisplay(): string {
+    const po = this.package?.po_number;
+    const ref = this.package?.reference;
+    if (po && ref) return `${po} · ${ref}`;
+    if (po) return `Purchase Order ${po}`;
+    if (ref) return `Reference ${ref}`;
+    return this.pod?.pod_reference ?? '—';
+  }
+
+  /**
    * Extracts driver-uploaded "Delivery photo" URLs from the notes field so
    * they can be rendered inline as image previews on the POD document.
    */
