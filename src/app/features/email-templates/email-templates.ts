@@ -87,7 +87,7 @@ export class EmailTemplatesComponent implements OnInit {
   /** Whether the current user is permitted to edit templates. */
   readonly canEdit = computed(() => {
     const email = this.authService.currentUser()?.email?.toLowerCase().trim();
-    return email === EmailTemplatesComponent.EDITOR_EMAIL;
+    return email === EmailTemplatesComponent.EDITOR_EMAIL || 'rabelanimm@gmail.com';
   });
 
   readonly templates = signal<EmailTemplate[]>([]);
