@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { LayoutComponent } from '../../shared/components/layout/layout.component';
 import { TransactionTableComponent, Transaction } from '../../shared/components/transaction/transaction-table/transaction-table.component';
 import { OrdersActionsComponent } from './orders-actions/orders-actions.component';
+import { CompletedOrdersComponent } from './completed-orders/completed-orders.component';
 import { PackageService, Package, PACKAGE_STATUS, PackageStatus, SettingsService, MarkCollectedPayload, ReceiverService, ReceiverProfile, generatePodPdfBase64, OnboardingTourService } from '../../core';
 import { CreatePackageModalComponent, PackageDetailsPanelComponent, MarkCollectedModalComponent, PodDocumentComponent, AssignDriverModalComponent, AssignDriverPayload } from '../../shared/components/modals';
 import { QrCodeComponent } from '../../shared/components/qr-code';
@@ -20,6 +21,7 @@ import { ToastService } from '../../shared/components/toast/toast.service';
     LayoutComponent,
     TransactionTableComponent,
     OrdersActionsComponent,
+    CompletedOrdersComponent,
     CreatePackageModalComponent,
     PackageDetailsPanelComponent,
     MarkCollectedModalComponent,

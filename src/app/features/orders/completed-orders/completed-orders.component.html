@@ -1,0 +1,31 @@
+<div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-6">
+  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div>
+      <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Completed Orders</h3>
+      <p class="text-sm text-gray-500 dark:text-gray-400">All orders marked as delivered.</p>
+    </div>
+
+    <div class="flex items-center gap-2">
+      <label class="text-sm text-gray-700 dark:text-gray-300">From</label>
+      <input type="date" [value]="startDate()" (change)="startDate.set($event.target.value)"
+             class="form-input text-sm rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 px-2 py-1">
+      <label class="text-sm text-gray-700 dark:text-gray-300">To</label>
+      <input type="date" [value]="endDate()" (change)="endDate.set($event.target.value)"
+             class="form-input text-sm rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 px-2 py-1">
+      <button (click)="clearFilters()" class="ml-2 text-sm text-violet-600 hover:text-violet-800">Clear</button>
+    </div>
+  </div>
+
+  <div class="mt-4">
+    <div *ngIf="filteredTransactions().length === 0" class="text-sm text-gray-500 dark:text-gray-400 p-4">
+      No completed orders in the selected date range.
+    </div>
+
+    <app-transaction-table *ngIf="filteredTransactions().length > 0"
+                           [transactions]="filteredTransactions()"
+                           [selectedIds]="new Set()"
+                           [sortField]="'lastUpdated'"
+                           [sortDirection]="'desc'">
+    </app-transaction-table>
+  </div>
+</div>
