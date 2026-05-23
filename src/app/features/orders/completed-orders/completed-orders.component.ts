@@ -1,6 +1,7 @@
 import { Component, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { TransactionTableComponent, Transaction } from '../../../shared/components/transaction/transaction-table/transaction-table.component';
+import { TransactionTableComponent } from '../../../shared/components/transaction/transaction-table/transaction-table.component';
+import type { Transaction } from '../../../shared/components/transaction/transaction-table/transaction-table.component';
 import { PackageService, PACKAGE_STATUS } from '../../../core';
 
 @Component({
@@ -15,6 +16,7 @@ export class CompletedOrdersComponent {
 
   readonly startDate = signal<string>('');
   readonly endDate = signal<string>('');
+  readonly selectedIds = signal<Set<string>>(new Set());
 
   readonly filteredTransactions = computed<Transaction[]>(() => {
     const pkgs = this.packageService.packages().filter(p => p.status === PACKAGE_STATUS.DELIVERED);

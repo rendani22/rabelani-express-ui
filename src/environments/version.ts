@@ -26,15 +26,15 @@ export interface AppVersion {
 }
 
 export const APP_VERSION: AppVersion = {
-  "version": "0.57.0-dev",
-  "semver": "0.57.0",
+  "version": "0.59.0-dev",
+  "semver": "0.59.0",
   "baseTag": null,
-  "commitsSinceBase": 59,
+  "commitsSinceBase": 61,
   "isDirty": true,
-  "hash": "3b71bd1",
-  "fullHash": "3b71bd1992a90bc4ca50b59f21c41ddf54f34462",
+  "hash": "988ec66",
+  "fullHash": "988ec663358690aa51d534ef7d288bb226d5c1ef",
   "branch": "main",
-  "message": "feat: allow additional user to edit email templates by updating editor check",
-  "commitDate": "2026-05-23T14:23:57+02:00",
-  "buildDate": "2026-05-23T12:46:55.929Z"
+  "message": "feat(orders): add CompletedOrdersComponent with date filter and table",
+  "commitDate": "2026-05-23T15:29:01+02:00",
+  "buildDate": "2026-05-23T13:33:15.563Z"
 };

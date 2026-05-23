@@ -23,7 +23,7 @@
 
     <app-transaction-table *ngIf="filteredTransactions().length > 0"
                            [transactions]="filteredTransactions()"
-                           [selectedIds]="new Set()"
+                           [selectedIds]="selectedIds()"
                            [sortField]="'lastUpdated'"
                            [sortDirection]="'desc'">
     </app-transaction-table>
