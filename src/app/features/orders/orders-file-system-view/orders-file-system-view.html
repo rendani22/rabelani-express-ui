@@ -1,0 +1,39 @@
+<div class="fs-view">
+  <ul class="date-list">
+    <li *ngFor="let dateGroup of getGrouped()">
+      <div class="date-row" (click)="toggleDate(dateGroup.dateKey)">
+        <label class="date-select" (click)="$event.stopPropagation()">
+          <input type="checkbox"
+                 [checked]="isDateFullySelected(dateGroup.dateKey)"
+                 [indeterminate]="isDatePartiallySelected(dateGroup.dateKey)"
+                 (change)="toggleDateSelection(dateGroup.dateKey, $event)" />
+        </label>
+        <button class="chev">{{ isDateExpanded(dateGroup.dateKey) ? '▾' : '▸' }}</button>
+        <span class="date-label">{{ dateGroup.dateLabel }}</span>
+        <span class="selected-count" *ngIf="selectedCount(dateGroup.dateKey) > 0">{{ selectedCount(dateGroup.dateKey) }} / {{ totalCount(dateGroup.dateKey) }} selected</span>
+        <span class="count">{{ dateGroup.pos.length }} PO(s)</span>
+      </div>
+
+      <ul *ngIf="isDateExpanded(dateGroup.dateKey)" class="po-list">
+        <li *ngFor="let poGroup of dateGroup.pos">
+          <div class="po-row" (click)="togglePo(dateGroup.dateKey, poGroup.po)">
+            <button class="chev">{{ isPoExpanded(dateGroup.dateKey, poGroup.po) ? '▾' : '▸' }}</button>
+            <span class="po-label">{{ poGroup.po }}</span>
+            <span class="count">{{ poGroup.rows.length }} package(s)</span>
+          </div>
+
+          <ul *ngIf="isPoExpanded(dateGroup.dateKey, poGroup.po)" class="package-list">
+            <li *ngFor="let pkg of poGroup.rows" class="package-row" (click)="openPackage(pkg)">
+              <label class="flex items-center gap-2" (click)="$event.stopPropagation()">
+                <input type="checkbox" [checked]="isSelected(pkg.id)" (change)="toggleSelection(pkg.id, $event)" />
+                <span class="ref">{{ pkg.reference }}</span>
+              </label>
+              <span class="receiver">{{ pkg.receiver_email }}</span>
+            </li>
+          </ul>
+        </li>
+      </ul>
+    </li>
+  </ul>
+</div>
+

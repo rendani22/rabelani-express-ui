@@ -27,3 +27,4 @@ export * from './guards/auth.guard';
 export * from './utils/form-validation.utils';
 export * from './utils/pod-pdf.utils';
 export * from './utils/template-render.utils';
+export * from './utils/zip.utils';

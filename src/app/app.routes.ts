@@ -22,6 +22,11 @@ export const routes: Routes = [
     canActivate: [authGuard],
   },
   {
+    path: 'orders/completed',
+    loadComponent: () => import('./features/orders/completed-orders/completed-orders.component').then(m => m.CompletedOrdersComponent),
+    canActivate: [authGuard],
+  },
+  {
     path: 'drivers',
     loadComponent: () => import('./features/drivers/drivers').then(m => m.DriversComponent),
     canActivate: [authGuard],

@@ -26,15 +26,15 @@ export interface AppVersion {
 }
 
 export const APP_VERSION: AppVersion = {
-  "version": "0.59.0-dev",
-  "semver": "0.59.0",
+  "version": "0.59.1-dev",
+  "semver": "0.59.1",
   "baseTag": null,
-  "commitsSinceBase": 61,
+  "commitsSinceBase": 62,
   "isDirty": true,
-  "hash": "988ec66",
-  "fullHash": "988ec663358690aa51d534ef7d288bb226d5c1ef",
+  "hash": "7a3fd5f",
+  "fullHash": "7a3fd5f524ab14ba64c3a5d553e7c8640b396dba",
   "branch": "main",
-  "message": "feat(orders): add CompletedOrdersComponent with date filter and table",
-  "commitDate": "2026-05-23T15:29:01+02:00",
-  "buildDate": "2026-05-23T13:33:15.563Z"
+  "message": "fix(orders): make CompletedOrdersComponent AOT-safe; avoid 'new' in template and ensure value imports\\n\\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+  "commitDate": "2026-05-23T15:33:46+02:00",
+  "buildDate": "2026-05-24T09:20:51.104Z"
 };

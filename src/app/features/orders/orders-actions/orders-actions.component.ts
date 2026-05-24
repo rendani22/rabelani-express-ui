@@ -23,17 +23,25 @@ interface StatusOption {
 })
 export class OrdersActionsComponent implements OnDestroy {
   @Input() title = 'Orders';
+  /** Whether to show the date range filters. Default true to preserve existing behaviour. */
+  @Input() showDateFilters = true;
 
   @Output() searchChange = new EventEmitter<string>();
   @Output() statusFilterChange = new EventEmitter<string>();
   @Output() addPackageClick = new EventEmitter<void>();
   @Output() refreshClick = new EventEmitter<void>();
+  @Output() viewCompleted = new EventEmitter<void>();
+  @Output() dateRangeChange = new EventEmitter<{ dateFrom?: string; dateTo?: string }>();
 
   /** Search input value */
   searchTerm = signal('');
 
   /** Selected status filter */
   selectedStatus = signal('all');
+
+  /** Date range filters (YYYY-MM-DD local) */
+  selectedDateFrom = signal<string | null>(null);
+  selectedDateTo = signal<string | null>(null);
 
   /** Status dropdown open state */
   statusDropdownOpen = signal(false);
@@ -70,6 +78,17 @@ export class OrdersActionsComponent implements OnDestroy {
     this.destroy$.complete();
   }
 
+  /** Emit date range change. Dates are emitted as ISO timestamps (start/end of day). */
+  emitDateRangeChange(): void {
+    const from = this.selectedDateFrom();
+    const to = this.selectedDateTo();
+
+    const toIso = to ? new Date(`${to}T23:59:59.999`).toISOString() : undefined;
+    const fromIso = from ? new Date(`${from}T00:00:00`).toISOString() : undefined;
+
+    this.dateRangeChange.emit({ dateFrom: fromIso, dateTo: toIso });
+  }
+
   /**
    * Handle search input change.
    */
@@ -85,6 +104,18 @@ export class OrdersActionsComponent implements OnDestroy {
   clearSearch(): void {
     this.searchTerm.set('');
     this.searchSubject.next('');
+  }
+
+  onDateFromChange(event: Event): void {
+    const v = (event.target as HTMLInputElement).value || null;
+    this.selectedDateFrom.set(v);
+    this.emitDateRangeChange();
+  }
+
+  onDateToChange(event: Event): void {
+    const v = (event.target as HTMLInputElement).value || null;
+    this.selectedDateTo.set(v);
+    this.emitDateRangeChange();
   }
 
   /**
@@ -130,6 +161,11 @@ export class OrdersActionsComponent implements OnDestroy {
    */
   onRefresh(): void {
     this.refreshClick.emit();
+  }
+
+  /** Handle view completed orders click. */
+  onViewCompleted(): void {
+    this.viewCompleted.emit();
   }
 }
 

@@ -1,12 +1,13 @@
 import { ApplicationRef, Component, EnvironmentInjector, OnInit, inject, computed, signal } from '@angular/core';
+import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { LayoutComponent } from '../../shared/components/layout/layout.component';
 import { TransactionTableComponent, Transaction } from '../../shared/components/transaction/transaction-table/transaction-table.component';
 import { OrdersActionsComponent } from './orders-actions/orders-actions.component';
-import { CompletedOrdersComponent } from './completed-orders/completed-orders.component';
 import { PackageService, Package, PACKAGE_STATUS, PackageStatus, SettingsService, MarkCollectedPayload, ReceiverService, ReceiverProfile, generatePodPdfBase64, OnboardingTourService } from '../../core';
 import { CreatePackageModalComponent, PackageDetailsPanelComponent, MarkCollectedModalComponent, PodDocumentComponent, AssignDriverModalComponent, AssignDriverPayload } from '../../shared/components/modals';
 import { QrCodeComponent } from '../../shared/components/qr-code';
+// ...existing imports...
 import { ToastService } from '../../shared/components/toast/toast.service';
 
 /**
@@ -21,7 +22,7 @@ import { ToastService } from '../../shared/components/toast/toast.service';
     LayoutComponent,
     TransactionTableComponent,
     OrdersActionsComponent,
-    CompletedOrdersComponent,
+    // File-system view removed — only table view is shown now
     CreatePackageModalComponent,
     PackageDetailsPanelComponent,
     MarkCollectedModalComponent,
@@ -30,7 +31,7 @@ import { ToastService } from '../../shared/components/toast/toast.service';
     QrCodeComponent
   ],
   templateUrl: './orders.html',
-  styleUrl: './orders.css',
+  styleUrls: ['./orders.css'],
 })
 export class OrdersComponent implements OnInit {
   private readonly packageService = inject(PackageService);
@@ -40,6 +41,7 @@ export class OrdersComponent implements OnInit {
   private readonly appRef = inject(ApplicationRef);
   private readonly environmentInjector = inject(EnvironmentInjector);
   private readonly onboardingTour = inject(OnboardingTourService);
+  private readonly router = inject(Router);
 
   /** Map of receiver email (lowercased) → full name for quick lookup. */
   private readonly receiverNamesByEmail = signal<Map<string, string>>(new Map());
@@ -77,6 +79,8 @@ export class OrdersComponent implements OnInit {
   // Loading and error states from service
   readonly isLoading = this.packageService.isLoading;
   readonly error = this.packageService.error;
+  // Expose the packages signal from the service for use in the template
+  readonly packages = this.packageService.packages;
 
   // Transform packages to transactions for the table
   // Sorting state for the transaction table (default: lastUpdated desc)
@@ -144,6 +148,8 @@ export class OrdersComponent implements OnInit {
     Math.min(this.currentPage() * this.pageSize(), this.transactions().length)
   );
 
+  // View mode removed — always use table view
+
   /** Visible page-number buttons (windowed around the current page). */
   readonly visiblePages = computed<number[]>(() => {
     const total = this.totalPages();
@@ -162,6 +168,9 @@ export class OrdersComponent implements OnInit {
   async ngOnInit(): Promise<void> {
     // Load receivers in parallel so we can resolve names instead of emails.
     await Promise.all([this.loadReceivers(), this.loadPackages()]);
+    // Debug: log active status filter and number of packages loaded to help
+    // diagnose empty-list issues during development.
+    console.debug('[Orders] statusFilter=', this.statusFilter(), 'packagesLoaded=', this.packageService.packages().length);
     // Auto-launch the orders onboarding tour for first-time users (no-op if
     // already completed). Delayed slightly so the table has rendered.
     setTimeout(() => this.onboardingTour.start('orders'), 700);
@@ -317,6 +326,8 @@ export class OrdersComponent implements OnInit {
     await this.loadPackages();
   }
 
+  // Date range filtering is disabled on the Orders page (handled elsewhere when needed)
+
   /** Handle sort change requests from the transaction table headers */
   onSortChange(event: { field: string }): void {
     const field = event.field;
@@ -369,6 +380,11 @@ export class OrdersComponent implements OnInit {
     );
   }
 
+  /** Navigate to completed orders view */
+  onViewCompleted(): void {
+    this.router.navigate(['orders', 'completed']);
+  }
+
   /**
    * Handle transaction row selection.
    */
@@ -380,6 +396,8 @@ export class OrdersComponent implements OnInit {
       this.detailsPanelOpen.set(true);
     }
   }
+
+  // File system selection handler removed (filesystem view disabled)
 
   /**
    * Handle details panel close.

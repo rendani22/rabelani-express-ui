@@ -1,31 +1,97 @@
-<div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-6">
-  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+<app-layout>
+  <div class="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-9xl mx-auto">
+
+    <!-- Page header -->
+    <div class="sm:flex sm:justify-between sm:items-center mb-6">
+      <div class="mb-4 sm:mb-0">
+        <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-1">
+          <a routerLink="/orders" class="inline-flex items-center gap-1 hover:text-indigo-500">
+            <ng-icon name="tablerArrowLeft" size="14"></ng-icon>
+            Orders
+          </a>
+          <span>/</span>
+          <span>Completed Orders</span>
+        </div>
+        <h1 class="text-2xl md:text-3xl text-gray-800 dark:text-gray-100 font-bold flex items-center gap-2">
+          <ng-icon name="tablerPackage" size="24" class="text-indigo-500"></ng-icon>
+          Completed Orders
+        </h1>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          All orders marked as delivered. Showing {{ filteredPackages().length }} completed package(s).
+        </p>
+      </div>
+      <div class="flex gap-3">
+        <button type="button"
+          class="btn-sm px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2"
+          (click)="refresh()"
+          [disabled]="isLoading()">
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none"><path d="M4 4v6h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path><path d="M20 20v-6h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+          Refresh
+        </button>
+      </div>
+    </div>
+
+    <!-- Body -->
     <div>
-      <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Completed Orders</h3>
-      <p class="text-sm text-gray-500 dark:text-gray-400">All orders marked as delivered.</p>
-    </div>
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-6">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Completed Orders</h3>
+            <p class="text-sm text-gray-500 dark:text-gray-400">All orders marked as delivered.</p>
+          </div>
 
-    <div class="flex items-center gap-2">
-      <label class="text-sm text-gray-700 dark:text-gray-300">From</label>
-      <input type="date" [value]="startDate()" (change)="startDate.set($event.target.value)"
-             class="form-input text-sm rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 px-2 py-1">
-      <label class="text-sm text-gray-700 dark:text-gray-300">To</label>
-      <input type="date" [value]="endDate()" (change)="endDate.set($event.target.value)"
-             class="form-input text-sm rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 px-2 py-1">
-      <button (click)="clearFilters()" class="ml-2 text-sm text-violet-600 hover:text-violet-800">Clear</button>
+          <div class="flex items-center gap-2">
+            <label class="text-sm text-gray-700 dark:text-gray-300">From</label>
+            <input type="date" [value]="startDate()" (change)="onStartDateChange($event)"
+                   class="form-input text-sm rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 px-2 py-1">
+            <label class="text-sm text-gray-700 dark:text-gray-300">To</label>
+            <input type="date" [value]="endDate()" (change)="onEndDateChange($event)"
+                   class="form-input text-sm rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 px-2 py-1">
+            <button (click)="clearFilters()" class="ml-2 text-sm text-violet-600 hover:text-violet-800">Clear</button>
+            <button
+              *ngIf="selectedIds().size > 0"
+              (click)="bulkDownloadPODs()"
+              class="ml-2 text-sm text-white bg-violet-600 hover:bg-violet-700 px-3 py-1 rounded-md"
+              [disabled]="bulkDownloading()">
+              {{ bulkDownloading() ? 'Downloading...' : 'Download PODs' }}
+            </button>
+          </div>
+        </div>
+
+        <div class="mt-4">
+          <div *ngIf="isLoading()" class="flex items-center justify-center py-6">
+            <svg class="animate-spin h-8 w-8 text-violet-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+          </div>
+
+          <div *ngIf="error() && !isLoading()" class="text-sm text-red-600 p-4">
+            {{ error() }}
+          </div>
+
+          <div *ngIf="!isLoading() && !error() && filteredPackages().length === 0" class="text-sm text-gray-500 dark:text-gray-400 p-4">
+            No completed orders in the selected date range.
+          </div>
+
+          <div>
+            <div *ngIf="!isLoading() && !error() && packages().length === 0" class="text-sm text-gray-500 dark:text-gray-400 p-4">
+              No completed packages available.
+            </div>
+            <app-orders-file-system-view *ngIf="!isLoading() && !error() && filteredPackages().length > 0"
+              [packages]="filteredPackages()"
+              (packageSelected)="onPackageSelected($event)"
+              (selectionChanged)="onSelectionChanged($event)">
+            </app-orders-file-system-view>
+            <app-package-details-panel
+              [isOpen]="detailsPanelOpen()"
+              [package]="selectedPackage()"
+              (closePanel)="onCloseDetailsPanel()">
+            </app-package-details-panel>
+          </div>
+
+        </div>
+      </div>
     </div>
   </div>
-
-  <div class="mt-4">
-    <div *ngIf="filteredTransactions().length === 0" class="text-sm text-gray-500 dark:text-gray-400 p-4">
-      No completed orders in the selected date range.
-    </div>
-
-    <app-transaction-table *ngIf="filteredTransactions().length > 0"
-                           [transactions]="filteredTransactions()"
-                           [selectedIds]="selectedIds()"
-                           [sortField]="'lastUpdated'"
-                           [sortDirection]="'desc'">
-    </app-transaction-table>
-  </div>
-</div>
+</app-layout>

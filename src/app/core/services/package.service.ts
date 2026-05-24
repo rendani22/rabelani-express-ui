@@ -1,5 +1,6 @@
 import { Injectable, inject, signal, computed } from '@angular/core';
 import { SupabaseService } from '../../shared/services/supabase.service';
+import { StaffService } from './staff.service';
 import { environment } from '../../../environments/environment';
 import {
   Package,
@@ -44,6 +45,7 @@ import {
 })
 export class PackageService {
   private readonly supabaseService = inject(SupabaseService);
+  private readonly staffService = inject(StaffService);
   private readonly baseUrl = environment.supabase.functionsUrl;
   private readonly apiKey = environment.supabase.anonKey;
 
@@ -581,6 +583,14 @@ export class PackageService {
    */
   async getPodForPackage(packageId: string): Promise<PodRecord | null> {
     try {
+      // Helpful debug: log current session user id so operators can correlate RLS behavior
+      try {
+        const { data: sessionData } = await this.supabaseService.client.auth.getSession();
+        const uid = sessionData?.session?.user?.id ?? null;
+        console.debug('[PackageService] getPodForPackage currentUserId=', uid);
+      } catch (sErr) {
+        // ignore session lookup errors — we only log for debugging
+      }
       const { data, error } = await this.supabaseService.client
         .from('pods')
         .select(
@@ -611,6 +621,89 @@ export class PackageService {
       return data as unknown as PodRecord;
     } catch (err) {
       console.error('[PackageService] getPodForPackage threw:', err);
+      return null;
+    }
+  }
+
+  /**
+   * Ensure a POD row exists for the given package. If a POD already exists
+   * it is returned. Otherwise, attempt to create a minimal POD record using
+   * package data and the current staff profile so client-side PDF generation
+   * / downloads that expect a POD row will succeed.
+   *
+   * NOTE: This creates a minimal/stub POD (empty signatures) so it should be
+   * used only for the purpose of allowing PDF generation/download. The
+   * real POD with signatures should still be created via the normal
+   * collection flow.
+   */
+  async ensurePodExists(packageId: string): Promise<PodRecord | null> {
+    try {
+      // If a POD is already visible, return it
+      const existing = await this.getPodForPackage(packageId);
+      if (existing) return existing;
+
+      // Load the package to populate required fields
+      const pkgRes = await this.getPackage(packageId);
+      if (!pkgRes.success) {
+        console.warn('[PackageService] ensurePodExists: failed to load package', packageId, pkgRes.error);
+        return null;
+      }
+      const pkg = pkgRes.data;
+
+      // Ensure we have a staff profile for the current user
+      let staff = this.staffService.currentProfile();
+      if (!staff) {
+        staff = await this.staffService.loadCurrentProfile();
+      }
+      if (!staff) {
+        console.warn('[PackageService] ensurePodExists: no staff profile available for current user; cannot create POD row');
+        return null;
+      }
+
+      // Create a minimal POD row. Several columns are NOT NULL in the schema
+      // so we provide defaults where appropriate (empty strings for signature
+      // URLs/paths, signed_at/completed_at = now). This is a pragmatic stub
+      // to allow downstream PDF generation; the final POD should include
+      // real signature data later when saved through the normal flow.
+      const insertData: Record<string, unknown> = {
+        package_id: packageId,
+        package_reference: pkg.reference,
+        receiver_email: pkg.receiver_email ?? '',
+        staff_id: staff.id,
+        staff_name: staff.full_name ?? staff.user_id ?? '',
+        staff_email: staff.email ?? '',
+        signature_url: '',
+        signature_path: '',
+        signed_at: new Date().toISOString(),
+        completed_at: new Date().toISOString(),
+        is_locked: false,
+        // Package rows do not include receiver_name in the canonical model;
+        // leave receiver_name null here (the POD modal flow will populate it
+        // when a real signature/collector is recorded).
+        receiver_name: null,
+      };
+
+      const { data, error } = await this.supabaseService.client
+        .from('pods')
+        .insert(insertData)
+        .select(
+          'id, package_id, pod_reference, is_locked, locked_at, receiver_name, receiver_employee_number, receiver_phone, receiver_signature, witness_name, witness_employee_number, witness_phone, witness_signature, completed_at, completed_by, pdf_url'
+        )
+        .maybeSingle();
+
+      if (error) {
+        console.error('[PackageService] ensurePodExists: insert error', error);
+        return null;
+      }
+
+      if (!data) {
+        console.warn('[PackageService] ensurePodExists: insert returned no data for package', packageId);
+        return null;
+      }
+
+      return data as PodRecord;
+    } catch (err) {
+      console.error('[PackageService] ensurePodExists threw:', err);
       return null;
     }
   }
