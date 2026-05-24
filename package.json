@@ -38,6 +38,7 @@
     "@angular/router": "^21.1.0",
     "@ng-icons/core": "^33.1.0",
     "@ng-icons/tabler-icons": "^33.1.0",
+    "@sentry/angular": "^10.53.1",
     "@supabase/supabase-js": "^2.95.3",
     "@tabler/icons": "^3.36.1",
     "@types/leaflet": "^1.9.21",
@@ -45,11 +46,11 @@
     "chart.js": "^4.5.1",
     "flatpickr": "^4.6.13",
     "html2pdf.js": "^0.14.0",
+    "jszip": "^3.10.1",
     "leaflet": "^1.9.4",
+    "pdf-lib": "^1.17.1",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0"
-    ,
-    "jszip": "^3.10.1"
   },
   "devDependencies": {
     "@angular-devkit/architect": "^0.2101.0",

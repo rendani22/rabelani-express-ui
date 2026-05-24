@@ -1,2 +1,22 @@
 /* Minimal styling for completed-orders component */
 :host { display: block; }
+
+.completed-empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 2rem 1rem;
+  color: var(--tw-text-opacity, #6b7280);
+}
+
+.fade-in {
+  transition: opacity 200ms ease-in-out, transform 180ms ease-in-out;
+  opacity: 1;
+}
+
+.fade-in.hidden {
+  opacity: 0;
+  transform: translateY(6px);
+}
+

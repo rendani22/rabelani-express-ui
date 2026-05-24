@@ -22,6 +22,11 @@ export const routes: Routes = [
     canActivate: [authGuard],
   },
   {
+    path: 'pods/bulk-downloads',
+    loadComponent: () => import('./features/pods/bulk-pod-downloads').then(m => m.BulkPodDownloadsComponent),
+    canActivate: [authGuard],
+  },
+  {
     path: 'orders/completed',
     loadComponent: () => import('./features/orders/completed-orders/completed-orders.component').then(m => m.CompletedOrdersComponent),
     canActivate: [authGuard],

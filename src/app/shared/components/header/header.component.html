@@ -135,6 +135,16 @@
           <ng-icon *ngIf="darkMode()" name="tablerMoon" size="16"></ng-icon>
         </button>
 
+        <!-- Sentry test error button (development helper) -->
+        <button
+          type="button"
+          class="header-icon-btn"
+          title="Throw Sentry test error"
+          (click)="testSentry()">
+          <span class="sr-only">Throw test error</span>
+          ⚠
+        </button>
+
         <!-- Divider -->
         <hr class="w-px h-6 bg-slate-200 dark:bg-slate-700 border-none">
 

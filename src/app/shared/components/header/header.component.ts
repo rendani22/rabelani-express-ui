@@ -16,6 +16,7 @@ import {
   tablerHelp,
 } from '@ng-icons/tabler-icons';
 import { ThemeService } from '../../../core';
+import { throwTestError } from '../../../core/utils/sentry.utils';
 import { HeaderService } from './header.service';
 import { HelpLink, HeaderNotification } from './header.models';
 import { DEFAULT_HELP_LINKS } from './header.constants';
@@ -79,6 +80,12 @@ export class HeaderComponent implements OnInit {
   toggleUserDropdown(): void { this.headerService.toggleDropdown('user'); }
   closeAllDropdowns(): void { this.headerService.closeAllDropdowns(); }
   toggleDarkMode(): void { this.themeService.toggleTheme(); }
+
+  // Helper used by a small test button in the header to trigger a thrown error
+  // This bubbles to Angular's global ErrorHandler (and Sentry integration) for testing.
+  testSentry(): never {
+    return throwTestError();
+  }
 
   openDocs(event: Event): void {
     event.preventDefault();

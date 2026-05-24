@@ -44,3 +44,13 @@
 .receiver { color: #374151; font-size: 0.9rem; }
 .count { margin-left: auto; font-weight: 400; color: #6b7280; font-size: 0.85rem; }
 
+/* Entrance animation for filesystem items (stagger via inline animation-delay) */
+@keyframes fsFadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.entry {
+  opacity: 0;
+  animation: fsFadeIn 220ms ease forwards;
+}
+

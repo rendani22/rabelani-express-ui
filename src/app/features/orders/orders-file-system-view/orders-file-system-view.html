@@ -1,7 +1,7 @@
 <div class="fs-view">
   <ul class="date-list">
-    <li *ngFor="let dateGroup of getGrouped()">
-      <div class="date-row" (click)="toggleDate(dateGroup.dateKey)">
+    <li *ngFor="let dateGroup of getGrouped(); let i = index">
+      <div class="date-row entry" (click)="toggleDate(dateGroup.dateKey)" [style.animationDelay]="(i * 30) + 'ms'">
         <label class="date-select" (click)="$event.stopPropagation()">
           <input type="checkbox"
                  [checked]="isDateFullySelected(dateGroup.dateKey)"
@@ -15,15 +15,15 @@
       </div>
 
       <ul *ngIf="isDateExpanded(dateGroup.dateKey)" class="po-list">
-        <li *ngFor="let poGroup of dateGroup.pos">
-          <div class="po-row" (click)="togglePo(dateGroup.dateKey, poGroup.po)">
+        <li *ngFor="let poGroup of dateGroup.pos; let j = index">
+          <div class="po-row entry" (click)="togglePo(dateGroup.dateKey, poGroup.po)" [style.animationDelay]="(i * 30 + j * 20) + 'ms'">
             <button class="chev">{{ isPoExpanded(dateGroup.dateKey, poGroup.po) ? '▾' : '▸' }}</button>
             <span class="po-label">{{ poGroup.po }}</span>
             <span class="count">{{ poGroup.rows.length }} package(s)</span>
           </div>
 
-          <ul *ngIf="isPoExpanded(dateGroup.dateKey, poGroup.po)" class="package-list">
-            <li *ngFor="let pkg of poGroup.rows" class="package-row" (click)="openPackage(pkg)">
+           <ul *ngIf="isPoExpanded(dateGroup.dateKey, poGroup.po)" class="package-list">
+             <li *ngFor="let pkg of poGroup.rows; let k = index" class="package-row entry" (click)="openPackage(pkg)" [style.animationDelay]="(i * 30 + j * 20 + k * 15) + 'ms'">
               <label class="flex items-center gap-2" (click)="$event.stopPropagation()">
                 <input type="checkbox" [checked]="isSelected(pkg.id)" (change)="toggleSelection(pkg.id, $event)" />
                 <span class="ref">{{ pkg.reference }}</span>
@@ -36,4 +36,5 @@
     </li>
   </ul>
 </div>
+
 

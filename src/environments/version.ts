@@ -26,15 +26,15 @@ export interface AppVersion {
 }
 
 export const APP_VERSION: AppVersion = {
-  "version": "0.59.1-dev",
-  "semver": "0.59.1",
+  "version": "0.60.0-dev",
+  "semver": "0.60.0",
   "baseTag": null,
-  "commitsSinceBase": 62,
+  "commitsSinceBase": 63,
   "isDirty": true,
-  "hash": "7a3fd5f",
-  "fullHash": "7a3fd5f524ab14ba64c3a5d553e7c8640b396dba",
+  "hash": "215db0b",
+  "fullHash": "215db0b76f10fedc0137e41f134eb902d9b221d3",
   "branch": "main",
-  "message": "fix(orders): make CompletedOrdersComponent AOT-safe; avoid 'new' in template and ensure value imports\\n\\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
-  "commitDate": "2026-05-23T15:33:46+02:00",
-  "buildDate": "2026-05-24T09:20:51.104Z"
+  "message": "feat(orders): add file-system view for completed orders with bulk POD download and ZIP support",
+  "commitDate": "2026-05-24T16:28:10+02:00",
+  "buildDate": "2026-05-24T18:57:30.778Z"
 };

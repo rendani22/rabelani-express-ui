@@ -30,6 +30,13 @@ export class CompletedOrdersComponent implements OnInit{
   readonly endDate = signal<string>('');
   readonly selectedIds = signal<Set<string>>(new Set());
 
+  // Human-friendly selection count for UI
+  readonly selectionCount = computed(() => this.selectedIds().size);
+  readonly selectionLabel = computed(() => {
+    const c = this.selectionCount();
+    return c === 0 ? '' : c === 1 ? '1 item selected' : `${c} items selected`;
+  });
+
   readonly isLoading = this.packageService.isLoading;
   readonly error = this.packageService.error;
   readonly packages = this.packageService.packages;
@@ -229,6 +236,11 @@ export class CompletedOrdersComponent implements OnInit{
   clearFilters(): void {
     this.startDate.set('');
     this.endDate.set('');
+  }
+
+  /** Clear the current selection. Needed because `new` is not permitted in Angular templates. */
+  clearSelection(): void {
+    this.selectedIds.set(new Set());
   }
 
   // Handler for selection events emitted by the File System view component
