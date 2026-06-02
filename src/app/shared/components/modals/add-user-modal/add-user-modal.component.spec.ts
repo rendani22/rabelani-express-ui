@@ -186,6 +186,7 @@ describe('AddUserModalComponent', () => {
 
   it('should request confirmation when closing a dirty form', async () => {
     component.form.controls.full_name.setValue('Draft User');
+    component.form.markAsDirty();
     const closeSpy = vi.spyOn(component.closeModal, 'emit');
 
     await component.onClose();
@@ -196,6 +197,7 @@ describe('AddUserModalComponent', () => {
 
   it('should keep the modal open when discard confirmation is rejected', async () => {
     component.form.controls.full_name.setValue('Draft User');
+    component.form.markAsDirty();
     confirmServiceMock.confirmDiscard.mockResolvedValueOnce(false);
     const closeSpy = vi.spyOn(component.closeModal, 'emit');
 
@@ -207,6 +209,7 @@ describe('AddUserModalComponent', () => {
   it('should close without prompting when already successful', async () => {
     component.successMessage.set('Created!');
     component.form.controls.full_name.setValue('Draft User');
+    component.form.markAsDirty();
     const closeSpy = vi.spyOn(component.closeModal, 'emit');
 
     await component.onClose();

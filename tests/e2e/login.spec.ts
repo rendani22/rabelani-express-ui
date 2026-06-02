@@ -15,7 +15,7 @@ test.describe('login page', () => {
     await page.goto('/login');
 
     await page.getByLabel('Email Address').fill('invalid-email');
-    await page.getByLabel('Password').fill('secret123');
+    await page.locator('#password').fill('secret123');
     await page.getByRole('button', { name: 'Sign In' }).click();
 
     await expect(page.getByText('Please enter a valid email address')).toBeVisible();

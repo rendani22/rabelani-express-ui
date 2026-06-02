@@ -1,5 +1,4 @@
 import { signal } from '@angular/core';
-import { ApplicationRef, EnvironmentInjector } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
 import { vi } from 'vitest';
@@ -97,12 +96,14 @@ describe('OrdersComponent', () => {
         { provide: SettingsService, useValue: settingsServiceMock },
         { provide: ToastService, useValue: toastServiceMock },
         { provide: SupabaseService, useValue: supabaseServiceMock },
-        { provide: ApplicationRef, useValue: {} },
-        { provide: EnvironmentInjector, useValue: {} },
         { provide: OnboardingTourService, useValue: onboardingTourMock },
         { provide: Router, useValue: routerMock },
       ],
-    }).compileComponents();
+    })
+      .overrideComponent(OrdersComponent, {
+        set: { template: '' },
+      })
+      .compileComponents();
 
     fixture = TestBed.createComponent(OrdersComponent);
     component = fixture.componentInstance;

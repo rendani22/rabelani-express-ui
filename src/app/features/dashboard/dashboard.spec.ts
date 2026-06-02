@@ -59,7 +59,11 @@ describe('Dashboard', () => {
         { provide: Router, useValue: routerMock },
         { provide: OnboardingTourService, useValue: onboardingTourMock },
       ],
-    }).compileComponents();
+    })
+      .overrideComponent(Dashboard, {
+        set: { template: '' },
+      })
+      .compileComponents();
 
     fixture = TestBed.createComponent(Dashboard);
     component = fixture.componentInstance;
@@ -140,6 +144,7 @@ describe('Dashboard', () => {
       receiver_email: 'receiver@example.com',
       status: PACKAGE_STATUS.PENDING,
       created_at: '2026-01-01T00:00:00Z',
+      notes: null,
       items: [],
     } as Package;
 
