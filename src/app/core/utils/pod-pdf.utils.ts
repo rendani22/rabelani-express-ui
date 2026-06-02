@@ -138,19 +138,34 @@ export async function generatePodPdfBase64(
     // Use the `.toPdf().get('pdf')` chain to obtain the jsPDF instance and
     // call `output('datauristring')` directly — this is more reliable than
     // `.outputPdf('datauristring')` across html2pdf.js versions and bundlers.
+    interface JsPdfInstance {
+      output: (type: string) => string;
+      internal: {
+        getNumberOfPages: () => number;
+        pageSize: {
+          getWidth: () => number;
+          getHeight: () => number;
+        };
+      };
+      setPage: (page: number) => void;
+      setFontSize: (size: number) => void;
+      setTextColor: (r: number, g: number, b: number) => void;
+      text: (text: string, x: number, y: number, opts?: { align?: string }) => void;
+    }
+
     const worker = (
       html2pdf as (...args: unknown[]) => {
         set: (opts: unknown) => {
           from: (el: HTMLElement) => {
             toPdf: () => {
-              get: (key: 'pdf') => Promise<{ output: (type: string) => string }>;
+              get: (key: 'pdf') => Promise<JsPdfInstance>;
             };
           };
         };
       }
     )()
       .set({
-        margin: [10, 10, 10, 10],
+        margin: [10, 10, 15, 10],
         filename: `POD-${pkg.reference}${pkg.po_number ? `-${pkg.po_number}` : ''}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false },
@@ -161,6 +176,30 @@ export async function generatePodPdfBase64(
       .toPdf();
 
     const pdfInstance = await worker.get('pdf');
+
+    // Stamp a footer on every page: "Purchase Order: <po>" left, "Page X of Y" right.
+    try {
+      const totalPages = pdfInstance.internal.getNumberOfPages();
+      const pageWidth = pdfInstance.internal.pageSize.getWidth();
+      const pageHeight = pdfInstance.internal.pageSize.getHeight();
+      const poLabel = pkg.po_number
+        ? `Purchase Order: ${pkg.po_number}`
+        : `Reference: ${pkg.reference}`;
+
+      for (let i = 1; i <= totalPages; i++) {
+        pdfInstance.setPage(i);
+        pdfInstance.setFontSize(8);
+        pdfInstance.setTextColor(120, 120, 120);
+        pdfInstance.text(poLabel, 10, pageHeight - 5);
+        pdfInstance.text(`Page ${i} of ${totalPages}`, pageWidth - 10, pageHeight - 5, {
+          align: 'right',
+        });
+      }
+    } catch (footerErr) {
+      // Footer is a nice-to-have — log but don't fail PDF generation.
+      console.warn('[POD PDF] Failed to stamp page footers:', footerErr);
+    }
+
     const dataUri = pdfInstance.output('datauristring');
 
     if (typeof dataUri !== 'string' || dataUri.length === 0) {

@@ -112,10 +112,26 @@ export class PodDocumentComponent implements OnChanges {
       const filename = `POD-${pkg.reference}${poSuffix}.pdf`;
 
       await (html2pdf as (...args: unknown[]) => {
-        set: (opts: unknown) => { from: (el: HTMLElement) => { save: () => Promise<void> } };
+        set: (opts: unknown) => {
+          from: (el: HTMLElement) => {
+            toPdf: () => {
+              get: (key: 'pdf') => Promise<{
+                internal: {
+                  getNumberOfPages: () => number;
+                  pageSize: { getWidth: () => number; getHeight: () => number };
+                };
+                setPage: (page: number) => void;
+                setFontSize: (size: number) => void;
+                setTextColor: (r: number, g: number, b: number) => void;
+                text: (text: string, x: number, y: number, opts?: { align?: string }) => void;
+                save: (filename?: string) => Promise<void>;
+              }>;
+            };
+          };
+        };
       })()
         .set({
-          margin: [10, 10, 10, 10],
+          margin: [10, 10, 15, 10],
           filename,
           image: { type: 'jpeg', quality: 0.98 },
           html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
@@ -123,7 +139,31 @@ export class PodDocumentComponent implements OnChanges {
           pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
         })
         .from(element)
-        .save();
+        .toPdf()
+        .get('pdf')
+        .then(async (pdf) => {
+          // Stamp footer on every page: PO/Reference (left) + Page X of Y (right).
+          try {
+            const totalPages = pdf.internal.getNumberOfPages();
+            const pageWidth = pdf.internal.pageSize.getWidth();
+            const pageHeight = pdf.internal.pageSize.getHeight();
+            const poLabel = pkg.po_number
+              ? `Purchase Order: ${pkg.po_number}`
+              : `Reference: ${pkg.reference}`;
+            for (let i = 1; i <= totalPages; i++) {
+              pdf.setPage(i);
+              pdf.setFontSize(8);
+              pdf.setTextColor(120, 120, 120);
+              pdf.text(poLabel, 10, pageHeight - 5);
+              pdf.text(`Page ${i} of ${totalPages}`, pageWidth - 10, pageHeight - 5, {
+                align: 'right',
+              });
+            }
+          } catch (footerErr) {
+            console.warn('[POD PDF] Failed to stamp page footers:', footerErr);
+          }
+          await pdf.save(filename);
+        });
     } catch (err) {
       console.error('Failed to generate PDF', err);
       this.errorMessage.set('Failed to generate PDF. Please try again.');
