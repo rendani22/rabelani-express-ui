@@ -289,7 +289,7 @@ serve(async (req) => {
     let previousItemsSnapshot: { quantity: number; description: string }[] | null = null
     let updatedItemsSnapshot:  { quantity: number; description: string }[] | null = null
     if (items && (items.updates?.length || items.deletes?.length)) {
-      const canEditItems = ['pending', 'notified'].includes(existingPackage.status)
+      const canEditItems = ['pending', 'notified', 'draft'].includes(existingPackage.status)
       if (!canEditItems) {
         return new Response(
           JSON.stringify({
