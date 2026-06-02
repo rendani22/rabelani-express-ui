@@ -4,7 +4,7 @@ import { RouterLink } from '@angular/router';
 import { LayoutComponent } from '../../../shared/components/layout/layout.component';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { tablerArrowLeft, tablerPackage } from '@ng-icons/tabler-icons';
-import { PackageService, PACKAGE_STATUS, Package, MarkCollectedPayload, generatePodPdfBase64, createZip, ZipEntry } from '../../../core';
+import { PackageService, PACKAGE_STATUS, Package, MarkCollectedPayload, generatePodPdfBase64, createZip, ZipEntry, StaffService } from '../../../core';
 import { ToastService } from '../../../shared/components/toast';
 import { OrdersFileSystemViewComponent } from '../orders-file-system-view/orders-file-system-view';
 import { PackageDetailsPanelComponent } from '../../../shared/components/modals';
@@ -21,6 +21,7 @@ import { PackageDetailsPanelComponent } from '../../../shared/components/modals'
 })
 export class CompletedOrdersComponent implements OnInit{
   private readonly packageService = inject(PackageService);
+  private readonly staffService = inject(StaffService);
   // File-system view only (table view removed)
   // Details panel state for viewing a package from the filesystem view
   selectedPackage = signal<Package | null>(null);
@@ -150,7 +151,21 @@ export class CompletedOrdersComponent implements OnInit{
             collected_at: pod.completed_at ?? new Date().toISOString()
           };
 
-          const res = await generatePodPdfBase64(pkg, payload, this.appRef, this.environmentInjector);
+          const currentStaff = this.staffService.currentProfile() ?? await this.staffService.loadCurrentProfile();
+          // A "delivery photo" in the notes is only ever attached by a driver
+          // completing a delivery, so its presence forces 'Delivered'. Otherwise
+          // honour any persisted status, then fall back to the staff role.
+          const completionStatus: 'Delivered' | 'Collected' = /delivery photo/i.test(pkg.notes ?? '')
+            ? 'Delivered'
+            : pod.completion_status ?? (currentStaff?.role === 'driver' ? 'Delivered' : 'Collected');
+          const res = await generatePodPdfBase64(
+            pkg,
+            payload,
+            this.appRef,
+            this.environmentInjector,
+            pod.staff_name,
+            completionStatus
+          );
           if (res.base64) {
             const blob = this.base64ToBlob(res.base64, 'application/pdf');
             const filename = `POD-${pkg.reference}${pkg.po_number ? `-${pkg.po_number}` : ''}.pdf`;

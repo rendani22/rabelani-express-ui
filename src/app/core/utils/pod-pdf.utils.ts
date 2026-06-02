@@ -39,7 +39,12 @@ export interface PodPdfResult {
  * will see when they re-open the POD modal later (modulo `pod_reference`
  * and `is_locked`, which are filled in by the database).
  */
-function synthesizePodRecord(pkg: Package, payload: MarkCollectedPayload): PodRecord {
+function synthesizePodRecord(
+  pkg: Package,
+  payload: MarkCollectedPayload,
+  staffName?: string | null,
+  completionStatus?: 'Delivered' | 'Collected' | null,
+): PodRecord {
   // The PDF is generated on the client BEFORE the edge function inserts
   // and locks the POD row. To avoid the attached document looking like a
   // "Draft" we render it as if it were already locked at the moment of
@@ -65,6 +70,8 @@ function synthesizePodRecord(pkg: Package, payload: MarkCollectedPayload): PodRe
 
     completed_at: payload.collected_at,
     completed_by: null,
+    staff_name: staffName,
+    completion_status: completionStatus,
   };
 }
 
@@ -79,12 +86,16 @@ function synthesizePodRecord(pkg: Package, payload: MarkCollectedPayload): PodRe
  * @param payload             Receiver/witness payload captured by the modal.
  * @param appRef              The current `ApplicationRef` (caller injects it).
  * @param environmentInjector The current `EnvironmentInjector`.
+ * @param staffName           Optional name of the staff member/driver completing the action.
+ * @param completionStatus    Optional 'Delivered' or 'Collected' status label.
  */
 export async function generatePodPdfBase64(
   pkg: Package,
   payload: MarkCollectedPayload,
   appRef: ApplicationRef,
   environmentInjector: EnvironmentInjector,
+  staffName?: string | null,
+  completionStatus?: 'Delivered' | 'Collected' | null,
 ): Promise<PodPdfResult> {
   let host: HTMLDivElement | null = null;
   let componentRef: ComponentRef<PodDocumentViewComponent> | null = null;
@@ -109,7 +120,7 @@ export async function generatePodPdfBase64(
       environmentInjector,
     });
     componentRef.setInput('package', pkg);
-    componentRef.setInput('pod', synthesizePodRecord(pkg, payload));
+    componentRef.setInput('pod', synthesizePodRecord(pkg, payload, staffName, completionStatus));
     appRef.attachView(componentRef.hostView);
     componentRef.changeDetectorRef.detectChanges();
 
@@ -176,4 +187,3 @@ export async function generatePodPdfBase64(
     if (host) host.remove();
   }
 }
-

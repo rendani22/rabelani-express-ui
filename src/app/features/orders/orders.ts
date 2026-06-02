@@ -4,10 +4,9 @@ import { CommonModule } from '@angular/common';
 import { LayoutComponent } from '../../shared/components/layout/layout.component';
 import { TransactionTableComponent, Transaction } from '../../shared/components/transaction/transaction-table/transaction-table.component';
 import { OrdersActionsComponent } from './orders-actions/orders-actions.component';
-import { PackageService, Package, PACKAGE_STATUS, PackageStatus, PackageFilters, SettingsService, MarkCollectedPayload, ReceiverProfile, generatePodPdfBase64, OnboardingTourService } from '../../core';
+import { PackageService, Package, PACKAGE_STATUS, PackageStatus, PackageFilters, SettingsService, MarkCollectedPayload, ReceiverProfile, generatePodPdfBase64, OnboardingTourService, StaffService } from '../../core';
 import { CreatePackageModalComponent, PackageDetailsPanelComponent, MarkCollectedModalComponent, PodDocumentComponent, AssignDriverModalComponent, AssignDriverPayload } from '../../shared/components/modals';
 import { QrCodeComponent } from '../../shared/components/qr-code';
-// ...existing imports...
 import { ToastService } from '../../shared/components/toast/toast.service';
 import { SupabaseService } from '../../shared/services/supabase.service';
 
@@ -37,6 +36,7 @@ import { SupabaseService } from '../../shared/services/supabase.service';
 })
 export class OrdersComponent implements OnInit {
   private readonly packageService = inject(PackageService);
+  private readonly staffService = inject(StaffService);
   private readonly settingsService = inject(SettingsService);
   private readonly toastService = inject(ToastService);
   private readonly supabaseService = inject(SupabaseService);
@@ -292,7 +292,7 @@ export class OrdersComponent implements OnInit {
       paymentDateIso: pkg.created_at,
       lastUpdated: this.formatDate(pkg.updated_at ?? pkg.created_at),
       lastUpdatedIso: pkg.updated_at ?? pkg.created_at,
-      status: this.mapPackageStatusToTransactionStatus(pkg.status),
+      status: this.mapPackageToTransactionStatus(pkg),
       notes: pkg.notes || undefined,
     };
     this.txCache.set(pkg.id, { sig, tx });
@@ -358,15 +358,20 @@ export class OrdersComponent implements OnInit {
   }
 
   /**
-   * Maps package status to transaction status.
+   * Maps package entity to transaction status, honoring the "Delivery Photo"
+   * business rule for terminal statuses.
    */
-  private mapPackageStatusToTransactionStatus(status: PackageStatus): 'Draft' | 'Pending' | 'Notified' | 'Completed' | 'Collected' | 'Canceled' | 'In Transit' | 'Ready' {
+  private mapPackageToTransactionStatus(pkg: Package): 'Draft' | 'Pending' | 'Notified' | 'Completed' | 'Collected' | 'Canceled' | 'In Transit' | 'Ready' {
+    const status = pkg.status;
+    const hasPhoto = /delivery photo/i.test(pkg.notes ?? '');
+
     switch (status) {
       case PACKAGE_STATUS.DRAFT:
         return 'Draft';
       case PACKAGE_STATUS.COLLECTED:
-        // A collected package at a collection point should be labelled
-        // "Collected" in the orders/status column (not "Completed").
+        // A "delivery photo" forces the terminal label to "Completed" (Delivered)
+        // regardless of whether the action was recorded as a collection.
+        if (hasPhoto) return 'Completed';
         return 'Collected';
       case PACKAGE_STATUS.DELIVERED:
         return 'Completed';
@@ -638,11 +643,19 @@ export class OrdersComponent implements OnInit {
       // mark the package as collected without an attachment, but we
       // surface the underlying error so the user knows the email won't
       // include the POD document.
+      const currentStaff = this.staffService.currentProfile() ?? await this.staffService.loadCurrentProfile();
+      // A "delivery photo" in the notes is only attached by a driver
+      // completing a delivery, so its presence forces the status to
+      // 'Delivered'. Otherwise derive from the staff role.
+      const hasDeliveryPhoto = /delivery photo/i.test(pkg.notes ?? '');
+      const completionStatus = (hasDeliveryPhoto || currentStaff?.role === 'driver') ? 'Delivered' : 'Collected';
       const pdfResult = await generatePodPdfBase64(
         pkg,
         payload,
         this.appRef,
         this.environmentInjector,
+        currentStaff?.full_name,
+        completionStatus
       );
       if (!pdfResult.base64) {
         this.toastService.warning(
@@ -657,8 +670,12 @@ export class OrdersComponent implements OnInit {
             ...payload,
             pdf_base64: pdfResult.base64,
             pdf_filename: `POD-${pkg.reference}${pkg.po_number ? `-${pkg.po_number}` : ''}.pdf`,
+            completion_status: completionStatus as 'Delivered' | 'Collected',
           }
-        : payload;
+        : {
+            ...payload,
+            completion_status: completionStatus as 'Delivered' | 'Collected',
+          };
 
       const result = await this.packageService.updatePackage(pkg.id, {
         status: PACKAGE_STATUS.COLLECTED,
@@ -888,4 +905,3 @@ export class OrdersComponent implements OnInit {
     }
   }
 }
-

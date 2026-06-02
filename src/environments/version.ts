@@ -26,15 +26,15 @@ export interface AppVersion {
 }
 
 export const APP_VERSION: AppVersion = {
-  "version": "0.62.0-dev",
-  "semver": "0.62.0",
+  "version": "0.67.0-dev",
+  "semver": "0.67.0",
   "baseTag": null,
-  "commitsSinceBase": 65,
+  "commitsSinceBase": 70,
   "isDirty": true,
-  "hash": "565328c",
-  "fullHash": "565328cfb1358a3c297fd4ceb5a357c1dd55a0aa",
+  "hash": "9359069",
+  "fullHash": "935906971cee5747a53751dbe79d3ff76261c637",
   "branch": "main",
-  "message": "feat(header): add server-side Sentry test functionality for development",
-  "commitDate": "2026-06-02T18:52:48+02:00",
-  "buildDate": "2026-06-02T17:01:10.961Z"
+  "message": "feat(pod): standardize POD filename format to use package reference and optional PO number",
+  "commitDate": "2026-06-02T20:37:14+02:00",
+  "buildDate": "2026-06-02T19:34:00.860Z"
 };

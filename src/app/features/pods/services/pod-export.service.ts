@@ -4,6 +4,7 @@ import { FileSaveService } from '../../../shared/services/file-save.service';
 import { createZip, ZipEntry } from '../../../core/utils/zip.utils';
 import { generatePodPdfBase64 } from '../../../core/utils/pod-pdf.utils';
 import { ApplicationRef, EnvironmentInjector } from '@angular/core';
+import {MarkCollectedPayload, StaffService} from '../../../core';
 
 /**
  * Service responsible for creating bulk POD exports.
@@ -16,6 +17,7 @@ import { ApplicationRef, EnvironmentInjector } from '@angular/core';
 @Injectable({ providedIn: 'root' })
 export class PodExportService {
   private readonly packageService = inject(PackageService);
+  private readonly staffService = inject(StaffService);
   private readonly appRef = inject(ApplicationRef);
   private readonly envInjector = inject(EnvironmentInjector);
   // In-memory job registry for export jobs so UI can poll by job id.
@@ -280,14 +282,44 @@ export class PodExportService {
       if (!pkgRes.success || !pkgRes.data) return null;
       const pkg = pkgRes.data;
 
-      // Create a minimal mark-collected payload so the PDF renderer has required fields
-      const payload = {
-        collected_at: new Date().toISOString(),
-        receiver: { name: pkg.receiver_email ?? '', employee_number: '', phone: '', signature_data_url: '' },
-        witness: { name: '', employee_number: '', phone: '', signature_data_url: '' },
-      } as any;
+      // Extract existing POD details if available to ensure the generated PDF
+      // matches the previously captured identification and signatures.
+      const pod = await this.packageService.getPodForPackage(packageId);
 
-      const result = await generatePodPdfBase64(pkg as any, payload, this.appRef, this.envInjector);
+      // Create a mark-collected payload so the PDF renderer has required fields.
+      // Reconstitute from the POD record if it exists, otherwise use minimal placeholders.
+      const payload: MarkCollectedPayload = {
+        collected_at: pod?.completed_at || pkg.updated_at || new Date().toISOString(),
+        receiver: {
+          name: pod?.receiver_name || '',
+          employee_number: pod?.receiver_employee_number || '',
+          phone: pod?.receiver_phone || '',
+          signature_data_url: pod?.receiver_signature || '',
+        },
+        witness: {
+          name: pod?.witness_name || '',
+          employee_number: pod?.witness_employee_number || '',
+          phone: pod?.witness_phone || '',
+          signature_data_url: pod?.witness_signature || '',
+        },
+      };
+
+      const currentStaff = this.staffService.currentProfile() ?? await this.staffService.loadCurrentProfile();
+      // A "delivery photo" in the notes is only ever attached by a driver
+      // completing a delivery, so its presence forces 'Delivered'. Otherwise
+      // honour any persisted status, then fall back to the staff role.
+      const completionStatus: 'Delivered' | 'Collected' = /Delivery photo:/i.test(pkg.notes ?? '')
+        ? 'Delivered'
+        : pod?.completion_status ?? (currentStaff?.role === 'driver' ? 'Delivered' : 'Collected');
+      console.log(pkg.notes);
+      const result = await generatePodPdfBase64(
+        pkg as any,
+        payload,
+        this.appRef,
+        this.envInjector,
+        pod?.staff_name,
+        completionStatus
+      );
       if (!result.base64) return null;
 
       const binary = atob(result.base64);
@@ -302,8 +334,3 @@ export class PodExportService {
     }
   }
 }
-
-
-
-
-

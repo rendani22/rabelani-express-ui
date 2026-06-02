@@ -842,7 +842,7 @@ export class PackageService {
           'id, package_id, pod_reference, is_locked, locked_at, ' +
           'receiver_name, receiver_employee_number, receiver_phone, receiver_signature, ' +
           'witness_name, witness_employee_number, witness_phone, witness_signature, ' +
-          'completed_at, completed_by'
+          'completed_at, completed_by, staff_name, completion_status'
         )
         .eq('package_id', packageId)
         .maybeSingle();
@@ -922,6 +922,14 @@ export class PackageService {
         signed_at: new Date().toISOString(),
         completed_at: new Date().toISOString(),
         is_locked: false,
+        // A "delivery photo" in the notes is only ever attached by a driver
+        // completing a delivery, so its presence forces the status to
+        // 'Delivered'. Otherwise derive it from the staff role.
+        completion_status: /delivery photo/i.test(pkg.notes ?? '')
+          ? 'Delivered'
+          : staff.role === 'driver'
+            ? 'Delivered'
+            : 'Collected',
         // Package rows do not include receiver_name in the canonical model;
         // leave receiver_name null here (the POD modal flow will populate it
         // when a real signature/collector is recorded).
@@ -932,7 +940,7 @@ export class PackageService {
         .from('pods')
         .insert(insertData)
         .select(
-          'id, package_id, pod_reference, is_locked, locked_at, receiver_name, receiver_employee_number, receiver_phone, receiver_signature, witness_name, witness_employee_number, witness_phone, witness_signature, completed_at, completed_by, pdf_url'
+          'id, package_id, pod_reference, is_locked, locked_at, receiver_name, receiver_employee_number, receiver_phone, receiver_signature, witness_name, witness_employee_number, witness_phone, witness_signature, completed_at, completed_by, pdf_url, staff_name, completion_status'
         )
         .maybeSingle();
 

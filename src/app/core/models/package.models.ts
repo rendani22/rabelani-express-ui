@@ -81,6 +81,8 @@ export interface MarkCollectedPayload {
   readonly pdf_base64?: string;
   /** Optional filename for the attached POD PDF (defaults to POD-<reference>.pdf) */
   readonly pdf_filename?: string;
+  /** Optional status label to persist on the POD record (e.g. 'Delivered', 'Collected') */
+  readonly completion_status?: 'Delivered' | 'Collected';
 }
 
 /** Quantity change for an existing package_items row (pending/notified packages only) */
@@ -236,6 +238,8 @@ export interface PodRecord {
   // Completion metadata
   readonly completed_at: string | null;
   readonly completed_by: string | null;
+  readonly staff_name?: string | null;
+  readonly completion_status?: 'Delivered' | 'Collected' | null;
 }
 
 /** Package lock status information */
@@ -439,4 +443,3 @@ export function isPackageEditable(pkg: Pick<Package, 'status'>): boolean {
     pkg.status === PACKAGE_STATUS.DRAFT
   );
 }
-

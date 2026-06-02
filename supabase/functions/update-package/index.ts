@@ -28,6 +28,8 @@ interface MarkCollectedPayload {
   pdf_base64?: string
   /** Optional filename for the attached POD PDF (defaults to POD-<reference>.pdf) */
   pdf_filename?: string
+  /** Optional status label to persist on the POD record (e.g. 'Delivered', 'Collected') */
+  completion_status?: 'Delivered' | 'Collected'
 }
 
 interface PackageItemUpdatePayload {
@@ -658,6 +660,19 @@ serve(async (req) => {
         callingUser.email ||
         ''
 
+      // Derive the POD completion status. A "delivery photo" in the notes is
+      // only ever attached by a driver completing a delivery, so its presence
+      // forces the status to 'Delivered' regardless of the client-supplied
+      // value. Otherwise fall back to the client value (or 'Collected').
+      const effectiveNotes =
+        (typeof updateData.notes === 'string' ? updateData.notes : undefined) ??
+        updatedPackage.notes ??
+        existingPackage.notes ??
+        ''
+      const hasDeliveryPhoto = /delivery photo/i.test(effectiveNotes)
+      const completionStatus: 'Delivered' | 'Collected' =
+        hasDeliveryPhoto ? 'Delivered' : (pod.completion_status ?? 'Collected')
+
       const podRow: Record<string, unknown> = {
         package_id,
         // NOT NULL columns mirrored from the package / caller.
@@ -682,7 +697,8 @@ serve(async (req) => {
         witness_phone:            pod.witness.phone,
         witness_signature:        pod.witness.signature_data_url,
         completed_at:             pod.collected_at,
-        completed_by:             callingUser.id
+        completed_by:             callingUser.id,
+        completion_status:        completionStatus
       }
 
       // Insert only if no POD row exists yet (the unique index on

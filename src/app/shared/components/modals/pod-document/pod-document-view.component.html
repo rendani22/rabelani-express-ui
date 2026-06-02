@@ -36,7 +36,7 @@
       </div>
       <div class="flex justify-between border-b border-gray-100 pb-1">
         <dt class="text-gray-500">Status</dt>
-        <dd class="font-semibold">{{ getStatusLabel(package.status) }}</dd>
+        <dd class="font-semibold">{{ getCompletionStatus() }}</dd>
       </div>
       <div class="flex justify-between border-b border-gray-100 pb-1">
         <dt class="text-gray-500">Created</dt>
@@ -46,6 +46,14 @@
         <dt class="text-gray-500">Completed</dt>
         <dd>{{ formatDateTime(pod.completed_at) }}</dd>
       </div>
+      @if (pod.staff_name) {
+        <div class="flex justify-between border-b border-gray-100 pb-1">
+          <dt class="text-gray-500">
+            {{ getCompletionStatus() === 'Delivered' ? 'Delivered By' : 'Assisted By' }}
+          </dt>
+          <dd class="font-semibold">{{ pod.staff_name }}</dd>
+        </div>
+      }
       <div class="flex justify-between border-b border-gray-100 pb-1 col-span-2">
         <dt class="text-gray-500">Receiver Email</dt>
         <dd>{{ package.receiver_email }}</dd>
@@ -198,4 +206,3 @@
     </p>
   </footer>
 </article>
-

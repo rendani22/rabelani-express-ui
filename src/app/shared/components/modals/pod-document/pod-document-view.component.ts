@@ -83,6 +83,16 @@ export class PodDocumentViewComponent {
   }
 
   /**
+   * Returns the completion status to display, prioritizing the "Delivery Photo"
+   * business rule: if notes contain a delivery photo, it's always "Delivered".
+   */
+  getCompletionStatus(): string {
+    const hasPhoto = /delivery photo/i.test(this.package?.notes ?? '');
+    if (hasPhoto) return 'Delivered';
+    return this.pod?.completion_status || this.getStatusLabel(this.package?.status);
+  }
+
+  /**
    * Extracts driver-uploaded "Delivery photo" URLs from the notes field so
    * they can be rendered inline as image previews on the POD document.
    */
@@ -105,4 +115,3 @@ export class PodDocumentViewComponent {
     return { photoUrls, text };
   }
 }
-
