@@ -170,6 +170,7 @@ export class HeaderService {
       const { data, error } = await this.supabaseService.client
         .from('packages')
         .select('id, reference, receiver_email, status, created_at, updated_at')
+        .is('deleted_at', null)
         .order('updated_at', { ascending: false })
         .limit(MAX_NOTIFICATIONS);
 

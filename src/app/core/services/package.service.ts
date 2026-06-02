@@ -1,6 +1,7 @@
 import { Injectable, inject, signal, computed } from '@angular/core';
 import { SupabaseService } from '../../shared/services/supabase.service';
 import { StaffService } from './staff.service';
+import { InventoryService } from './inventory.service';
 import { environment } from '../../../environments/environment';
 import {
   Package,
@@ -46,6 +47,7 @@ import {
 export class PackageService {
   private readonly supabaseService = inject(SupabaseService);
   private readonly staffService = inject(StaffService);
+  private readonly inventoryService = inject(InventoryService);
   private readonly baseUrl = environment.supabase.functionsUrl;
   private readonly apiKey = environment.supabase.anonKey;
 
@@ -70,6 +72,21 @@ export class PackageService {
 
   /** Computed property for current user ID */
   readonly currentUserId = computed(() => this.supabaseService.currentUser()?.id ?? null);
+
+  /**
+   * Email of the only account permitted to delete orders. Deletion also
+   * returns linked inventory stock for any items in the deleted package.
+   */
+  private static readonly ORDER_DELETE_ALLOWED_EMAIL = 'rendani@email.com';
+
+  /**
+   * True when the currently authenticated user is allowed to delete orders.
+   * Currently restricted to a single account (see ORDER_DELETE_ALLOWED_EMAIL).
+   */
+  readonly canDeleteOrders = computed(() => {
+    const email = this.supabaseService.currentUser()?.email?.trim().toLowerCase() ?? '';
+    return email === PackageService.ORDER_DELETE_ALLOWED_EMAIL;
+  });
 
   // ============================================================================
   // Package Creation
@@ -127,8 +144,13 @@ export class PackageService {
    * Load all packages with optional filters.
    *
    * @param filters - Optional filters for status, search, and limit
+   * @param options - When `includeDeleted` is true, soft-deleted packages are
+   *   included (only the privileged "Deleted orders" view should set this).
    */
-  async loadPackages(filters?: PackageFilters): Promise<GetPackagesResult> {
+  async loadPackages(
+    filters?: PackageFilters,
+    options?: { includeDeleted?: boolean },
+  ): Promise<GetPackagesResult> {
     this._isLoading.set(true);
     this._error.set(null);
 
@@ -137,6 +159,14 @@ export class PackageService {
         .from('packages')
         .select('*, items:package_items(id, quantity, description, inventory_item_id)')
         .order('created_at', { ascending: false });
+
+      if (!options?.includeDeleted) {
+        // Hide soft-deleted orders from the standard list. RLS would also
+        // filter them out for non-privileged accounts, but applying the
+        // filter client-side keeps the privileged account's normal views
+        // free of recycle-bin rows too.
+        query = query.is('deleted_at', null);
+      }
 
       if (filters?.status) {
         query = query.eq('status', filters.status);
@@ -218,6 +248,7 @@ export class PackageService {
         .from('packages')
         .select('*, items:package_items(id, quantity, description, inventory_item_id)')
         .eq('id', id)
+        .is('deleted_at', null)
         .single();
 
       if (error) {
@@ -241,6 +272,7 @@ export class PackageService {
         .from('packages')
         .select('*, items:package_items(id, quantity, description, inventory_item_id)')
         .eq('reference', reference.toUpperCase())
+        .is('deleted_at', null)
         .single();
 
       if (error) {
@@ -270,6 +302,7 @@ export class PackageService {
         .from('packages')
         .select('*, items:package_items(id, quantity, description, inventory_item_id)')
         .eq('po_number', trimmed)
+        .is('deleted_at', null)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -302,6 +335,7 @@ export class PackageService {
         .from('packages')
         .select('*')
         .eq('created_by', userId)
+        .is('deleted_at', null)
         .order('created_at', { ascending: false })
         .limit(limit);
 
@@ -457,6 +491,195 @@ export class PackageService {
   // ============================================================================
   // Package Deletion
   // ============================================================================
+
+  /**
+   * Soft-delete a package: marks `deleted_at` so the order is hidden from
+   * the live list but its row, items, POD, and inventory-movement audit
+   * trail are preserved. Stock for any inventory-linked items is returned
+   * to inventory at delete time (matches the user's "give me my stock back"
+   * intent). The package can later be restored via `restorePackage` —
+   * which will re-deduct stock (and may push it negative if other orders
+   * have since consumed it).
+   *
+   * Only the privileged "order deleter" account may call this method.
+   * Returns the soft-deleted package on success along with the number of
+   * inventory items that were returned for context in the confirmation toast.
+   */
+  async deletePackageWithInventoryReturn(
+    id: string,
+  ): Promise<{ success: boolean; error?: string; package?: Package; returnedItems?: number }> {
+    if (!this.canDeleteOrders()) {
+      return { success: false, error: 'You are not permitted to delete orders.' };
+    }
+
+    this._isLoading.set(true);
+    this._error.set(null);
+
+    try {
+      // 1. Load the package + items so we know what stock to return.
+      const fetchResult = await this.getPackage(id);
+      if (!fetchResult.success) {
+        this._error.set(fetchResult.error);
+        return { success: false, error: fetchResult.error };
+      }
+      const pkg = fetchResult.data;
+
+      // 2. Build the list of inventory-linked items to return.
+      const itemsToReturn = (pkg.items ?? [])
+        .filter(item => !!item.inventory_item_id && item.quantity > 0)
+        .map(item => ({
+          inventoryItemId: item.inventory_item_id as string,
+          quantity: item.quantity,
+        }));
+
+      // 3. Return stock first. If the stock return fails we still attempt
+      // the soft delete so the user isn't left with a "ghost" undeletable
+      // order — but we surface the underlying error in the result.
+      let returnError: string | null = null;
+      if (itemsToReturn.length > 0) {
+        try {
+          await this.inventoryService.returnStock(itemsToReturn, pkg.reference);
+        } catch (err) {
+          returnError = err instanceof Error ? err.message : 'Failed to return inventory.';
+          console.error('[PackageService] returnStock failed:', err);
+        }
+      }
+
+      // 4. Soft-delete via the SECURITY DEFINER RPC so the operation is
+      // atomic and authorized server-side.
+      const { data, error } = await this.supabaseService.client
+        .rpc('soft_delete_package', { p_package_id: id });
+
+      if (error) {
+        this._error.set(error.message);
+        return { success: false, error: error.message, package: pkg };
+      }
+
+      // Remove from the live list so the UI updates immediately.
+      this._packages.update(packages => packages.filter(p => p.id !== id));
+
+      const deletedPkg = (Array.isArray(data) ? data[0] : data) as Package | null;
+
+      return {
+        success: true,
+        package: deletedPkg ?? pkg,
+        returnedItems: itemsToReturn.length,
+        error: returnError ?? undefined,
+      };
+    } catch (error) {
+      const result = this.handleError(error);
+      return { success: false, error: result.error };
+    } finally {
+      this._isLoading.set(false);
+    }
+  }
+
+  /**
+   * Restore a previously soft-deleted package and re-deduct stock for any
+   * inventory-linked items. If stock has since been consumed by other
+   * orders the deduction will push inventory negative — this is surfaced
+   * as a warning rather than blocking the restore.
+   *
+   * Only the privileged "order deleter" account may call this method.
+   */
+  async restorePackage(
+    id: string,
+  ): Promise<{ success: boolean; error?: string; package?: Package; reDeductedItems?: number }> {
+    if (!this.canDeleteOrders()) {
+      return { success: false, error: 'You are not permitted to restore orders.' };
+    }
+
+    this._isLoading.set(true);
+    this._error.set(null);
+
+    try {
+      // Load the soft-deleted package including its items so we know what
+      // stock to re-deduct.
+      const { data: pkgRow, error: fetchError } = await this.supabaseService.client
+        .from('packages')
+        .select('*, items:package_items(id, quantity, description, inventory_item_id)')
+        .eq('id', id)
+        .maybeSingle();
+
+      if (fetchError) {
+        this._error.set(fetchError.message);
+        return { success: false, error: fetchError.message };
+      }
+      if (!pkgRow) {
+        return { success: false, error: 'Package not found.' };
+      }
+
+      const pkg = pkgRow as Package;
+      const itemsToReDeduct = (pkg.items ?? [])
+        .filter(item => !!item.inventory_item_id && item.quantity > 0)
+        .map(item => ({
+          inventoryItemId: item.inventory_item_id as string,
+          quantity: item.quantity,
+        }));
+
+      // Restore the row via the SECURITY DEFINER RPC.
+      const { data, error } = await this.supabaseService.client
+        .rpc('restore_package', { p_package_id: id });
+
+      if (error) {
+        this._error.set(error.message);
+        return { success: false, error: error.message, package: pkg };
+      }
+
+      // Re-deduct stock (non-fatal).
+      let deductError: string | null = null;
+      if (itemsToReDeduct.length > 0) {
+        try {
+          await this.inventoryService.deductStock(itemsToReDeduct, pkg.reference);
+        } catch (err) {
+          deductError = err instanceof Error ? err.message : 'Failed to re-deduct inventory.';
+          console.error('[PackageService] deductStock failed during restore:', err);
+        }
+      }
+
+      const restoredPkg = (Array.isArray(data) ? data[0] : data) as Package | null;
+
+      return {
+        success: true,
+        package: restoredPkg ?? pkg,
+        reDeductedItems: itemsToReDeduct.length,
+        error: deductError ?? undefined,
+      };
+    } catch (error) {
+      const result = this.handleError(error);
+      return { success: false, error: result.error };
+    } finally {
+      this._isLoading.set(false);
+    }
+  }
+
+  /**
+   * Load soft-deleted packages for the "Deleted orders" recycle-bin view.
+   * Only the privileged account will see results (RLS enforces this on the
+   * server). The local `packages` signal is NOT updated by this method —
+   * deleted rows are returned as a separate list so they never leak into
+   * the live orders table.
+   */
+  async loadDeletedPackages(): Promise<GetPackagesResult> {
+    if (!this.canDeleteOrders()) {
+      return { success: false, error: 'You are not permitted to view deleted orders.' };
+    }
+
+    try {
+      const { data, error } = await this.supabaseService.client
+        .from('packages')
+        .select('*, items:package_items(id, quantity, description, inventory_item_id)')
+        .not('deleted_at', 'is', null)
+        .order('deleted_at', { ascending: false });
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+      return { success: true, data: (data ?? []) as Package[] };
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
 
   /**
    * Delete a single package by ID via direct Supabase call.

@@ -161,6 +161,15 @@ export interface Package {
   readonly po_number?: string | null;
   /** auth.users.id of the driver currently assigned to this package, if any */
   readonly picked_up_by?: string | null;
+  /**
+   * ISO timestamp the package was soft-deleted. `null` for live orders.
+   * Soft-deleted rows are hidden from the standard order list and most
+   * dashboard queries; only the privileged "order deleter" account can see
+   * them via the dedicated "Deleted orders" view.
+   */
+  readonly deleted_at?: string | null;
+  /** auth.users.id of the account that soft-deleted the package, if any */
+  readonly deleted_by?: string | null;
   readonly items?: readonly PackageItem[];
 }
 

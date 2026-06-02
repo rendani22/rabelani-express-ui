@@ -16,6 +16,7 @@ import {
 } from '../../../../core';
 import { SupabaseService } from '../../../services/supabase.service';
 import { ToastService } from '../../toast/toast.service';
+import { ConfirmDialogComponent } from '../../confirm-dialog/confirm-dialog.component';
 
 /** A single entry in the package status audit log */
 interface StatusHistoryEntry {
@@ -36,7 +37,7 @@ interface TimelineEntry {
 @Component({
   selector: 'app-package-details-panel',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ConfirmDialogComponent],
   template: `
     <!-- Backdrop -->
     @if (isOpen) {
@@ -532,8 +533,7 @@ interface TimelineEntry {
           </div>
 
           <!-- Footer Actions -->
-          <footer class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex-shrink-0 bg-gray-50 dark:bg-gray-900/50 space-y-3">
-            <!-- Admin/Collection: manual status override (forward-only, excludes 'collected') -->
+          <footer class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex-shrink-0 bg-gray-50 dark:bg-gray-900/50 space-y-3">            <!-- Admin/Collection: manual status override (forward-only, excludes 'collected') -->
             @if (canManuallySetStatus(pkg.status) && manualStatusOptions().length > 0) {
               <div>
                 <label
@@ -578,6 +578,20 @@ interface TimelineEntry {
               >
                 Close
               </button>
+              @if (canDeleteOrder()) {
+                <button
+                  type="button"
+                  class="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 disabled:bg-red-300 disabled:cursor-not-allowed rounded-lg transition-colors flex items-center gap-2"
+                  [disabled]="deletingOrder()"
+                  (click)="onRequestDeleteOrder()"
+                  title="Delete this order and return inventory"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3"></path>
+                  </svg>
+                  @if (deletingOrder()) { Deleting… } @else { Delete }
+                </button>
+              }
               @if (pkg.status === 'delivered' || pkg.status === 'collected') {
                 <button
                   type="button"
@@ -619,6 +633,17 @@ interface TimelineEntry {
         </div>
       }
     </aside>
+
+    <!-- Delete-order confirmation dialog -->
+    <app-confirm-dialog
+      [isOpen]="confirmDeleteOpen()"
+      title="Delete order"
+      [message]="deleteConfirmMessage()"
+      confirmLabel="Move to deleted"
+      [danger]="true"
+      (confirmed)="onConfirmDeleteOrder()"
+      (cancelled)="onCancelDeleteOrder()"
+    ></app-confirm-dialog>
   `,
   styles: [`
     :host {
@@ -651,6 +676,63 @@ export class PackageDetailsPanelComponent implements OnChanges {
    * parent (e.g. orders page) can refresh its local list / selection.
    */
   @Output() packageUpdated = new EventEmitter<Package>();
+
+  /**
+   * Emitted when the user confirms deletion of the current order. The parent
+   * is responsible for calling the package service so the orders list and
+   * inventory state can be refreshed together.
+   */
+  @Output() deleteOrder = new EventEmitter<Package>();
+
+  /** True while a delete request is in flight (set by the parent). */
+  @Input() set isDeletingOrder(value: boolean) {
+    this.deletingOrder.set(value);
+  }
+  readonly deletingOrder = signal(false);
+
+  /** Controls the delete-order confirmation dialog. */
+  readonly confirmDeleteOpen = signal(false);
+
+  /**
+   * True when the current user is permitted to delete this order. Mirrors
+   * `PackageService.canDeleteOrders` and requires a package to be loaded.
+   */
+  canDeleteOrder(): boolean {
+    return !!this.package && this.packageService.canDeleteOrders();
+  }
+
+  /** Friendly message shown in the delete confirmation dialog. */
+  deleteConfirmMessage(): string {
+    const pkg = this.package;
+    if (!pkg) return '';
+    const itemCount = (pkg.items ?? []).filter(i => !!i.inventory_item_id).length;
+    const ref = pkg.reference;
+    const stockLine = itemCount > 0
+      ? ` Stock for ${itemCount} inventory item${itemCount === 1 ? '' : 's'} will be returned to inventory.`
+      : '';
+    return (
+      `Move order ${ref} to deleted?${stockLine} ` +
+      `The order is hidden from the active list but kept in the recycle bin and can be restored later.`
+    );
+  }
+
+  /** Open the delete-order confirmation dialog. */
+  onRequestDeleteOrder(): void {
+    if (!this.canDeleteOrder() || this.deletingOrder()) return;
+    this.confirmDeleteOpen.set(true);
+  }
+
+  /** Cancel the delete-order confirmation dialog. */
+  onCancelDeleteOrder(): void {
+    this.confirmDeleteOpen.set(false);
+  }
+
+  /** Emit the delete request to the parent. */
+  onConfirmDeleteOrder(): void {
+    this.confirmDeleteOpen.set(false);
+    if (!this.package || !this.canDeleteOrder()) return;
+    this.deleteOrder.emit(this.package);
+  }
 
   /** Status history loaded from Supabase */
   readonly statusHistory = signal<StatusHistoryEntry[]>([]);

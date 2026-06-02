@@ -1,5 +1,5 @@
 import { ApplicationRef, Component, EnvironmentInjector, OnInit, inject, computed, signal } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { LayoutComponent } from '../../shared/components/layout/layout.component';
 import { TransactionTableComponent, Transaction } from '../../shared/components/transaction/transaction-table/transaction-table.component';
@@ -28,7 +28,8 @@ import { ToastService } from '../../shared/components/toast/toast.service';
     MarkCollectedModalComponent,
     PodDocumentComponent,
     AssignDriverModalComponent,
-    QrCodeComponent
+    QrCodeComponent,
+    RouterLink
   ],
   templateUrl: './orders.html',
   styleUrls: ['./orders.css'],
@@ -72,6 +73,12 @@ export class OrdersComponent implements OnInit {
   assignDriverModalOpen = signal(false);
   packageAwaitingDriver = signal<Package | null>(null);
   isAssigningDriver = signal(false);
+
+  // Order deletion state
+  isDeletingOrder = signal(false);
+
+  /** Whether the currently signed-in account can manage deleted orders. */
+  readonly canDeleteOrders = this.packageService.canDeleteOrders;
 
   // Selection state
   selectedIds = signal<Set<string>>(new Set());
@@ -380,10 +387,15 @@ export class OrdersComponent implements OnInit {
     );
   }
 
-  /** Navigate to completed orders view */
-  onViewCompleted(): void {
-    this.router.navigate(['orders', 'completed']);
-  }
+   /** Navigate to completed orders view */
+   onViewCompleted(): void {
+     this.router.navigate(['orders', 'completed']);
+   }
+
+   /** Navigate to deleted orders view */
+   onViewDeleted(): void {
+     this.router.navigate(['orders', 'deleted']);
+   }
 
   /**
    * Handle transaction row selection.
@@ -696,6 +708,44 @@ export class OrdersComponent implements OnInit {
    */
   async onRefresh(): Promise<void> {
     await this.loadPackages();
+  }
+
+  /**
+   * Handle delete-order request emitted from the details panel.
+   * Deletes the package and returns any inventory-linked stock back to inventory.
+   * Only permitted for accounts allowed by `PackageService.canDeleteOrders`.
+   */
+  async onDeleteOrder(pkg: Package): Promise<void> {
+    if (this.isDeletingOrder()) return;
+    this.isDeletingOrder.set(true);
+    try {
+      const result = await this.packageService.deletePackageWithInventoryReturn(pkg.id);
+
+      if (result.success) {
+        const returned = result.returnedItems ?? 0;
+        const suffix = returned > 0
+          ? ` Stock returned for ${returned} item${returned === 1 ? '' : 's'}.`
+          : '';
+        if (result.error) {
+          // Package was soft-deleted but inventory return had a problem.
+          this.toastService.warning(
+            `Order ${pkg.reference} moved to deleted, but inventory could not be fully restored: ${result.error}`,
+          );
+        } else {
+          this.toastService.success(
+            `Order ${pkg.reference} moved to deleted.${suffix} Open Deleted orders to restore it.`,
+          );
+        }
+        this.onCloseDetailsPanel();
+        await this.loadPackages();
+      } else {
+        this.toastService.error(result.error ?? 'Failed to delete order.');
+      }
+    } catch {
+      this.toastService.error('An unexpected error occurred while deleting the order.');
+    } finally {
+      this.isDeletingOrder.set(false);
+    }
   }
 
   /**

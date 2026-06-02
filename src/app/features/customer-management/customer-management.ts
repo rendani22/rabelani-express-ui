@@ -205,6 +205,7 @@ export class CustomerManagementComponent implements OnInit {
         .from('packages')
         .select('*')
         .eq('receiver_email', email)
+        .is('deleted_at', null)
         .order('created_at', { ascending: false });
       this.receiverPackages.set((data ?? []) as Package[]);
     } catch {

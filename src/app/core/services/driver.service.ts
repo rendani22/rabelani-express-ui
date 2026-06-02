@@ -208,6 +208,7 @@ export class DriverService {
         .select('*')
         .eq('status', PACKAGE_STATUS.IN_TRANSIT)
         .eq('picked_up_by', driver.user_id)
+        .is('deleted_at', null)
         .order('updated_at', { ascending: false });
 
       if (error) {

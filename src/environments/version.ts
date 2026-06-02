@@ -26,15 +26,15 @@ export interface AppVersion {
 }
 
 export const APP_VERSION: AppVersion = {
-  "version": "1.0.0-dev",
-  "semver": "1.0.0",
+  "version": "0.62.0-dev",
+  "semver": "0.62.0",
   "baseTag": null,
-  "commitsSinceBase": 64,
+  "commitsSinceBase": 65,
   "isDirty": true,
-  "hash": "2ee93c2",
-  "fullHash": "2ee93c203a1e6679fdda226a5b0d29278d3c5c10",
+  "hash": "565328c",
+  "fullHash": "565328cfb1358a3c297fd4ceb5a357c1dd55a0aa",
   "branch": "main",
-  "message": "chore(header): comment out Sentry test error button in header for development",
-  "commitDate": "2026-05-25T18:59:50+02:00",
-  "buildDate": "2026-05-27T13:05:40.354Z"
+  "message": "feat(header): add server-side Sentry test functionality for development",
+  "commitDate": "2026-06-02T18:52:48+02:00",
+  "buildDate": "2026-06-02T17:01:10.961Z"
 };

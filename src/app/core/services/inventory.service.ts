@@ -257,6 +257,52 @@ export class InventoryService {
   }
 
   /**
+   * Return stock to inventory for a list of items previously consumed by a
+   * package (e.g. when an order is deleted). Uses an atomic RPC to increment
+   * quantities and logs a `restock` movement annotated with a "Returned from
+   * deleted package <ref>" note. Errors are non-fatal — the caller decides
+   * whether to surface them.
+   */
+  async returnStock(
+    items: Array<{ inventoryItemId: string; quantity: number }>,
+    packageReference?: string,
+  ): Promise<void> {
+    if (!items.length) return;
+
+    const beforeMap = new Map(this._items().map(i => [i.id, i.quantity]));
+
+    // Increment in parallel using the existing atomic RPC with a negative
+    // decrement (i.e. an addition). The RPC performs a straight subtraction
+    // so passing a negative value adds stock.
+    await Promise.all(
+      items.map(({ inventoryItemId, quantity }) =>
+        this.supabase.client.rpc('decrement_inventory_quantity', {
+          item_id: inventoryItemId,
+          decrement_by: -quantity,
+        })
+      )
+    );
+
+    for (const { inventoryItemId, quantity } of items) {
+      const quantityBefore = beforeMap.get(inventoryItemId) ?? 0;
+      const quantityAfter = quantityBefore + quantity;
+      this.logMovement({
+        item_id: inventoryItemId,
+        delta: quantity,
+        quantity_before: quantityBefore,
+        quantity_after: quantityAfter,
+        source: 'restock',
+        reference: packageReference ?? null,
+        note: packageReference
+          ? `Returned from deleted package ${packageReference}`
+          : 'Returned from deleted package',
+      });
+    }
+
+    await this.loadItems();
+  }
+
+  /**
    * Toggle the active status of an inventory item.
    */
   async toggleActive(item: InventoryItem): Promise<InventoryResult<InventoryItem>> {

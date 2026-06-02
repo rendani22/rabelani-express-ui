@@ -358,11 +358,13 @@ export class DashboardService {
       const { count: inTransitCount } = await this.supabaseService.client
         .from('packages')
         .select('id', { count: 'exact', head: true })
-        .eq('status', PACKAGE_STATUS.IN_TRANSIT);
+        .eq('status', PACKAGE_STATUS.IN_TRANSIT)
+        .is('deleted_at', null);
 
       const { count: totalCount } = await this.supabaseService.client
         .from('packages')
-        .select('id', { count: 'exact', head: true });
+        .select('id', { count: 'exact', head: true })
+        .is('deleted_at', null);
 
       this._driverStats.set({
         total: drivers.length,
@@ -424,7 +426,8 @@ export class DashboardService {
       // Load packages with their delivery_location_id, optionally filtered by date
       let pkgQuery = this.supabaseService.client
         .from('packages')
-        .select('delivery_location_id');
+        .select('delivery_location_id')
+        .is('deleted_at', null);
 
       if (dateFrom) {
         pkgQuery = pkgQuery.gte('created_at', dateFrom);
@@ -488,7 +491,8 @@ export class DashboardService {
       let pkgQuery = this.supabaseService.client
         .from('packages')
         .select('id, status, picked_up_by, picked_up_at, received_at, collected_at')
-        .not('picked_up_by', 'is', null);
+        .not('picked_up_by', 'is', null)
+        .is('deleted_at', null);
 
       if (dateFrom) pkgQuery = pkgQuery.gte('created_at', dateFrom);
       if (dateTo) pkgQuery = pkgQuery.lte('created_at', dateTo);
@@ -561,7 +565,8 @@ export class DashboardService {
       // Pull lifecycle timestamps for all in-scope packages
       let q = this.supabaseService.client
         .from('packages')
-        .select('id, reference, status, receiver_email, created_at, updated_at, picked_up_at, received_at, collected_at');
+        .select('id, reference, status, receiver_email, created_at, updated_at, picked_up_at, received_at, collected_at')
+        .is('deleted_at', null);
 
       if (dateFrom) q = q.gte('created_at', dateFrom);
       if (dateTo) q = q.lte('created_at', dateTo);
@@ -713,7 +718,8 @@ export class DashboardService {
       // When no date range, just pull the latest 1000 package_items.
       let query = this.supabaseService.client
         .from('package_items')
-        .select('package_id, quantity, description, inventory_item_id, packages!inner(created_at)')
+        .select('package_id, quantity, description, inventory_item_id, packages!inner(created_at, deleted_at)')
+        .is('packages.deleted_at', null)
         .limit(2000);
 
       if (dateFrom) query = query.gte('packages.created_at', dateFrom);

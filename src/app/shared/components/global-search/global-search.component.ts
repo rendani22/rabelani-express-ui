@@ -144,6 +144,7 @@ export class GlobalSearchComponent implements OnDestroy {
       .from('packages')
       .select('id, reference, receiver_email, status')
       .or(`reference.ilike.%${q}%,receiver_email.ilike.%${q}%`)
+      .is('deleted_at', null)
       .limit(5);
 
     return ((data ?? []) as { id: string; reference: string; receiver_email: string; status: string }[]).map(p => ({

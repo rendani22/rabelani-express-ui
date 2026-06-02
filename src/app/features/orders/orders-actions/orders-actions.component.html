@@ -92,16 +92,29 @@
       </svg>
     </button>
 
-    <!-- View completed orders button -->
-    <button
-      (click)="onViewCompleted()"
-      class="btn hidden sm:inline-flex items-center justify-center px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-900"
-      title="View Completed Orders">
-      <svg class="h-4 w-4 mr-2 text-gray-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-        <path d="M4 3a1 1 0 000 2h12a1 1 0 100-2H4zM3 7a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm1 4a1 1 0 000 2h8a1 1 0 100-2H4z" />
-      </svg>
-      Completed
-    </button>
+     <!-- View completed orders button -->
+     <button
+       (click)="onViewCompleted()"
+       class="btn hidden sm:inline-flex items-center justify-center px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-900"
+       title="View Completed Orders">
+       <svg class="h-4 w-4 mr-2 text-gray-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+         <path d="M4 3a1 1 0 000 2h12a1 1 0 100-2H4zM3 7a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm1 4a1 1 0 000 2h8a1 1 0 100-2H4z" />
+       </svg>
+       Completed
+     </button>
+
+     <!-- View deleted orders button -->
+     @if (canViewDeleted) {
+       <button
+         (click)="onViewDeleted()"
+         class="btn hidden sm:inline-flex items-center justify-center px-3 py-2 bg-white dark:bg-gray-800 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10"
+         title="View Deleted Orders">
+         <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3"></path>
+         </svg>
+         Deleted
+       </button>
+     }
 
     <!-- Add Package button -->
     <button

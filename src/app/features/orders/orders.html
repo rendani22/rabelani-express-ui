@@ -6,10 +6,13 @@
       (searchChange)="onSearch($event)"
       (statusFilterChange)="onStatusFilterChange($event)"
       [showDateFilters]="false"
+      [canViewDeleted]="canDeleteOrders()"
       (addPackageClick)="onAddPackage()"
       (refreshClick)="onRefresh()"
-      (viewCompleted)="onViewCompleted()">
+      (viewCompleted)="onViewCompleted()"
+      (viewDeleted)="onViewDeleted()">
     </app-orders-actions>
+
 
     <!-- View mode toggle removed — always show table -->
 
@@ -163,11 +166,13 @@
   <app-package-details-panel
     [isOpen]="detailsPanelOpen()"
     [package]="selectedPackage()"
+    [isDeletingOrder]="isDeletingOrder()"
     (closePanel)="onCloseDetailsPanel()"
     (updateStatus)="onUpdatePackageStatus($event)"
     (setStatus)="onSetPackageStatus($event)"
     (showQrCode)="showQrCode($event)"
-    (viewPodDocument)="onViewPodDocument($event)">
+    (viewPodDocument)="onViewPodDocument($event)"
+    (deleteOrder)="onDeleteOrder($event)">
   </app-package-details-panel>
 
   <!-- POD Document (printable) -->

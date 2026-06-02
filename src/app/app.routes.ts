@@ -32,6 +32,14 @@ export const routes: Routes = [
     canActivate: [authGuard],
   },
   {
+    path: 'orders/deleted',
+    loadComponent: () =>
+      import('./features/orders/deleted-orders/deleted-orders.component').then(
+        m => m.DeletedOrdersComponent,
+      ),
+    canActivate: [authGuard],
+  },
+  {
     path: 'drivers',
     loadComponent: () => import('./features/drivers/drivers').then(m => m.DriversComponent),
     canActivate: [authGuard],

@@ -25,12 +25,15 @@ export class OrdersActionsComponent implements OnDestroy {
   @Input() title = 'Orders';
   /** Whether to show the date range filters. Default true to preserve existing behaviour. */
   @Input() showDateFilters = true;
+  /** Whether to show the deleted orders button */
+  @Input() canViewDeleted = false;
 
   @Output() searchChange = new EventEmitter<string>();
   @Output() statusFilterChange = new EventEmitter<string>();
   @Output() addPackageClick = new EventEmitter<void>();
   @Output() refreshClick = new EventEmitter<void>();
   @Output() viewCompleted = new EventEmitter<void>();
+  @Output() viewDeleted = new EventEmitter<void>();
   @Output() dateRangeChange = new EventEmitter<{ dateFrom?: string; dateTo?: string }>();
 
   /** Search input value */
@@ -166,6 +169,11 @@ export class OrdersActionsComponent implements OnDestroy {
   /** Handle view completed orders click. */
   onViewCompleted(): void {
     this.viewCompleted.emit();
+  }
+
+  /** Handle view deleted orders click. */
+  onViewDeleted(): void {
+    this.viewDeleted.emit();
   }
 }
 
