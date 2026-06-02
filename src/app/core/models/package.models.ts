@@ -129,6 +129,10 @@ export interface PackageFilters {
   readonly limit?: number;
   readonly dateFrom?: string;
   readonly dateTo?: string;
+  /** 1-based page number. When provided alongside `pageSize`, results are paginated server-side. */
+  readonly page?: number;
+  /** Page size for server-side pagination. */
+  readonly pageSize?: number;
 }
 
 // ============================================================================

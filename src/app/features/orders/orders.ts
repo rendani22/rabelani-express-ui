@@ -4,7 +4,7 @@ import { CommonModule } from '@angular/common';
 import { LayoutComponent } from '../../shared/components/layout/layout.component';
 import { TransactionTableComponent, Transaction } from '../../shared/components/transaction/transaction-table/transaction-table.component';
 import { OrdersActionsComponent } from './orders-actions/orders-actions.component';
-import { PackageService, Package, PACKAGE_STATUS, PackageStatus, SettingsService, MarkCollectedPayload, ReceiverProfile, generatePodPdfBase64, OnboardingTourService } from '../../core';
+import { PackageService, Package, PACKAGE_STATUS, PackageStatus, PackageFilters, SettingsService, MarkCollectedPayload, ReceiverProfile, generatePodPdfBase64, OnboardingTourService } from '../../core';
 import { CreatePackageModalComponent, PackageDetailsPanelComponent, MarkCollectedModalComponent, PodDocumentComponent, AssignDriverModalComponent, AssignDriverPayload } from '../../shared/components/modals';
 import { QrCodeComponent } from '../../shared/components/qr-code';
 // ...existing imports...
@@ -159,29 +159,30 @@ export class OrdersComponent implements OnInit {
   readonly pageSize = signal<number>(10);
   readonly currentPage = signal<number>(1);
 
-  readonly totalPages = computed(() =>
-    Math.max(1, Math.ceil(this.transactions().length / this.pageSize()))
-  );
-
-  readonly pagedTransactions = computed<Transaction[]>(() => {
-    const all = this.transactions();
-    const size = this.pageSize();
-    // Clamp current page within bounds.
-    const page = Math.min(Math.max(1, this.currentPage()), Math.max(1, Math.ceil(all.length / size)));
-    const start = (page - 1) * size;
-    return all.slice(start, start + size);
+  readonly totalPages = computed(() => {
+    const total = this.packageService.totalCount() ?? this.transactions().length;
+    return Math.max(1, Math.ceil(total / this.pageSize()));
   });
 
+  /**
+   * Server-side pagination: `transactions()` already contains only the
+   * current page of results, so we expose them directly instead of
+   * slicing the full array client-side.
+   */
+  readonly pagedTransactions = computed<Transaction[]>(() => this.transactions());
+
   readonly pageRangeStart = computed(() => {
-    if (this.transactions().length === 0) {
+    const total = this.packageService.totalCount() ?? this.transactions().length;
+    if (total === 0) {
       return 0;
     }
     return (this.currentPage() - 1) * this.pageSize() + 1;
   });
 
-  readonly pageRangeEnd = computed(() =>
-    Math.min(this.currentPage() * this.pageSize(), this.transactions().length)
-  );
+  readonly pageRangeEnd = computed(() => {
+    const total = this.packageService.totalCount() ?? this.transactions().length;
+    return Math.min(this.currentPage() * this.pageSize(), total);
+  });
 
   // View mode removed — always use table view
 
@@ -250,14 +251,18 @@ export class OrdersComponent implements OnInit {
 
   /**
    * Load packages from the service with optional filters.
+   * Sends the active page + page size so pagination happens server-side.
    */
   async loadPackages(): Promise<void> {
     const status = this.statusFilter();
     const search = this.searchTerm().trim();
-    const filters: Record<string, string> = {};
-    if (status !== 'all') filters['status'] = status;
-    if (search) filters['search'] = search;
-    await this.packageService.loadPackages(Object.keys(filters).length ? filters : undefined);
+    const filters: PackageFilters = {
+      page: this.currentPage(),
+      pageSize: this.pageSize(),
+      ...(status !== 'all' ? { status } : {}),
+      ...(search ? { search } : {}),
+    };
+    await this.packageService.loadPackages(filters);
     // Refresh display-name map for the newly-loaded packages (background).
     void this.loadReceiversForCurrentPackages();
   }
@@ -856,27 +861,30 @@ export class OrdersComponent implements OnInit {
   // ---------------- Pagination handlers ----------------
 
   /** Go to a specific page (clamped to valid range). */
-  goToPage(page: number): void {
+  async goToPage(page: number): Promise<void> {
     const clamped = Math.min(Math.max(1, page), this.totalPages());
+    if (clamped === this.currentPage()) return;
     this.currentPage.set(clamped);
+    await this.loadPackages();
   }
 
   /** Go to the previous page. */
-  prevPage(): void {
-    this.goToPage(this.currentPage() - 1);
+  async prevPage(): Promise<void> {
+    await this.goToPage(this.currentPage() - 1);
   }
 
   /** Go to the next page. */
-  nextPage(): void {
-    this.goToPage(this.currentPage() + 1);
+  async nextPage(): Promise<void> {
+    await this.goToPage(this.currentPage() + 1);
   }
 
   /** Change the page size and reset to the first page. */
-  onPageSizeChange(event: Event): void {
+  async onPageSizeChange(event: Event): Promise<void> {
     const value = Number((event.target as HTMLSelectElement).value);
-    if (!Number.isNaN(value) && value > 0) {
+    if (!Number.isNaN(value) && value > 0 && value !== this.pageSize()) {
       this.pageSize.set(value);
       this.currentPage.set(1);
+      await this.loadPackages();
     }
   }
 }

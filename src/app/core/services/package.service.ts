@@ -59,6 +59,14 @@ export class PackageService {
   private readonly _packages = signal<readonly Package[]>([]);
   readonly packages = this._packages.asReadonly();
 
+  /**
+   * Total number of packages matching the most recent `loadPackages` query
+   * (ignoring page/pageSize). Used to drive server-side pagination UIs.
+   * `null` means "unknown" — e.g. before the first load.
+   */
+  private readonly _totalCount = signal<number | null>(null);
+  readonly totalCount = this._totalCount.asReadonly();
+
   /** Loading state for async operations */
   private readonly _isLoading = signal(false);
   readonly isLoading = this._isLoading.asReadonly();
@@ -157,7 +165,9 @@ export class PackageService {
     try {
       let query = this.supabaseService.client
         .from('packages')
-        .select('*, items:package_items(id, quantity, description, inventory_item_id)')
+        .select('*, items:package_items(id, quantity, description, inventory_item_id)', {
+          count: 'exact',
+        })
         .order('created_at', { ascending: false });
 
       if (!options?.includeDeleted) {
@@ -220,7 +230,18 @@ export class PackageService {
         query = query.limit(filters.limit);
       }
 
-      const { data, error } = await query;
+      // Server-side pagination: when both page and pageSize are provided,
+      // use PostgREST `.range()` (inclusive bounds) so we only fetch the
+      // current page rather than the entire table.
+      if (filters?.page && filters?.pageSize && filters.pageSize > 0) {
+        const page = Math.max(1, filters.page);
+        const size = filters.pageSize;
+        const from = (page - 1) * size;
+        const to = from + size - 1;
+        query = query.range(from, to);
+      }
+
+      const { data, error, count } = await query;
 
       if (error) {
         this._error.set(error.message);
@@ -229,6 +250,7 @@ export class PackageService {
 
       const packages = (data ?? []) as Package[];
       this._packages.set(packages);
+      this._totalCount.set(count ?? packages.length);
       return { success: true, data: packages };
     } catch (error) {
       return this.handleError(error);
@@ -947,6 +969,7 @@ export class PackageService {
    */
   clearPackages(): void {
     this._packages.set([]);
+    this._totalCount.set(null);
   }
 
   // ============================================================================
