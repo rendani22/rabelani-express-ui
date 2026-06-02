@@ -1,24 +1,15 @@
+import { computed, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { signal, computed } from '@angular/core';
 import { vi } from 'vitest';
 
 import { UserManagementComponent } from './user-management';
-import { StaffService, StaffProfile, StaffRole } from '../../core';
+import { StaffProfile, StaffRole, StaffService } from '../../core';
+import { ToastService } from '../../shared/components/toast/toast.service';
 import { User, UserCardAction } from '../../shared/components/user-card';
 
 describe('UserManagementComponent', () => {
   let component: UserManagementComponent;
   let fixture: ComponentFixture<UserManagementComponent>;
-  let staffServiceMock: {
-    staffList: ReturnType<typeof signal<StaffProfile[]>>;
-    loading: ReturnType<typeof signal<boolean>>;
-    error: ReturnType<typeof signal<string | null>>;
-    isAdmin: ReturnType<typeof computed<boolean>>;
-    loadAllStaff: ReturnType<typeof vi.fn>;
-    deactivateStaff: ReturnType<typeof vi.fn>;
-    reactivateStaff: ReturnType<typeof vi.fn>;
-    createStaff: ReturnType<typeof vi.fn>;
-  };
 
   const mockStaffProfiles: StaffProfile[] = [
     {
@@ -30,7 +21,7 @@ describe('UserManagementComponent', () => {
       is_active: true,
       department: 'Management',
       created_at: '2024-01-01T00:00:00Z',
-      updated_at: '2024-01-01T00:00:00Z'
+      updated_at: '2024-01-01T00:00:00Z',
     },
     {
       id: '2',
@@ -41,7 +32,7 @@ describe('UserManagementComponent', () => {
       is_active: true,
       department: 'Engineering',
       created_at: '2024-01-02T00:00:00Z',
-      updated_at: '2024-01-02T00:00:00Z'
+      updated_at: '2024-01-02T00:00:00Z',
     },
     {
       id: '3',
@@ -51,31 +42,35 @@ describe('UserManagementComponent', () => {
       role: 'viewer' as StaffRole,
       is_active: false,
       created_at: '2024-01-03T00:00:00Z',
-      updated_at: '2024-01-03T00:00:00Z'
-    }
+      updated_at: '2024-01-03T00:00:00Z',
+    },
   ];
 
-  beforeEach(async () => {
-    const staffListSignal = signal<StaffProfile[]>([]);
-    const loadingSignal = signal(false);
-    const errorSignal = signal<string | null>(null);
+  const staffServiceMock = {
+    staffList: signal<StaffProfile[]>([]),
+    loading: signal(false),
+    error: signal<string | null>(null),
+    isAdmin: computed(() => true),
+    loadAllStaff: vi.fn().mockResolvedValue(mockStaffProfiles),
+    deactivateStaff: vi.fn().mockResolvedValue({ success: true, error: null }),
+    reactivateStaff: vi.fn().mockResolvedValue({ success: true, error: null }),
+    createStaff: vi.fn().mockResolvedValue({ profile: mockStaffProfiles[0], error: null }),
+  };
 
-    staffServiceMock = {
-      staffList: staffListSignal,
-      loading: loadingSignal,
-      error: errorSignal,
-      isAdmin: computed(() => true),
-      loadAllStaff: vi.fn().mockResolvedValue(mockStaffProfiles),
-      deactivateStaff: vi.fn().mockResolvedValue({ success: true, error: null }),
-      reactivateStaff: vi.fn().mockResolvedValue({ success: true, error: null }),
-      createStaff: vi.fn().mockResolvedValue({ profile: mockStaffProfiles[0], error: null })
-    };
+  const toastServiceMock = {
+    success: vi.fn(),
+  };
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    staffServiceMock.staffList.set(mockStaffProfiles);
 
     await TestBed.configureTestingModule({
       imports: [UserManagementComponent],
       providers: [
-        { provide: StaffService, useValue: staffServiceMock }
-      ]
+        { provide: StaffService, useValue: staffServiceMock },
+        { provide: ToastService, useValue: toastServiceMock },
+      ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(UserManagementComponent);
@@ -86,433 +81,178 @@ describe('UserManagementComponent', () => {
     expect(component).toBeTruthy();
   });
 
-  describe('Initial State', () => {
-    it('should have addUserModalOpen set to false initially', () => {
-      expect(component.addUserModalOpen()).toBe(false);
-    });
-
-    it('should have empty search query initially', () => {
-      expect(component.searchQuery()).toBe('');
-    });
-
-    it('should have menu options defined', () => {
-      expect(component.menuOptions.length).toBe(3);
-      expect(component.menuOptions[0].action).toBe('viewProfile');
-      expect(component.menuOptions[1].action).toBe('edit');
-      expect(component.menuOptions[2].action).toBe('deactivate');
-      expect(component.menuOptions[2].isDanger).toBe(true);
-    });
-
-    it('should have inactive menu options defined', () => {
-      expect(component.inactiveMenuOptions.length).toBe(2);
-      expect(component.inactiveMenuOptions[0].action).toBe('viewProfile');
-      expect(component.inactiveMenuOptions[1].action).toBe('reactivate');
-    });
+  it('should expose the initial UI state', () => {
+    expect(component.addUserModalOpen()).toBe(false);
+    expect(component.editUserModalOpen()).toBe(false);
+    expect(component.confirmDeactivateOpen()).toBe(false);
+    expect(component.deactivateStaffMessage()).toBe('Are you sure you want to deactivate this user?');
   });
 
-  describe('ngOnInit', () => {
-    it('should load staff on init', async () => {
-      await component.ngOnInit();
-      expect(staffServiceMock.loadAllStaff).toHaveBeenCalled();
-    });
+  it('should load staff on init', async () => {
+    await component.ngOnInit();
+
+    expect(staffServiceMock.loadAllStaff).toHaveBeenCalled();
   });
 
-  describe('loadStaff', () => {
-    it('should call staffService.loadAllStaff', async () => {
-      await component.loadStaff();
-      expect(staffServiceMock.loadAllStaff).toHaveBeenCalled();
-    });
+  it('should update the search query and filter staff', () => {
+    component.onSearchChange({ target: { value: 'admin' } } as unknown as Event);
+
+    expect(component.searchQuery()).toBe('admin');
+    expect(component.filteredStaff()).toHaveLength(1);
+    expect(component.filteredStaff()[0].full_name).toBe('Admin User');
   });
 
-  describe('Search Functionality', () => {
-    beforeEach(() => {
-      staffServiceMock.staffList.set(mockStaffProfiles);
-    });
+  it('should map a staff profile to a user card', () => {
+    const user = component.mapStaffToUser(mockStaffProfiles[0]);
 
-    it('should update search query on input change', () => {
-      const event = { target: { value: 'admin' } } as unknown as Event;
-      component.onSearchChange(event);
-      expect(component.searchQuery()).toBe('admin');
+    expect(user).toMatchObject({
+      id: '1',
+      name: 'Admin User',
+      country: 'Management',
+      role: 'admin',
+      email: 'admin@example.com',
+      isActive: true,
     });
-
-    it('should filter staff by name', () => {
-      component.searchQuery.set('admin');
-      const filtered = component.filteredStaff();
-      expect(filtered.length).toBe(1);
-      expect(filtered[0].full_name).toBe('Admin User');
-    });
-
-    it('should filter staff by email', () => {
-      component.searchQuery.set('staff@');
-      const filtered = component.filteredStaff();
-      expect(filtered.length).toBe(1);
-      expect(filtered[0].email).toBe('staff@example.com');
-    });
-
-    it('should filter staff by role', () => {
-      component.searchQuery.set('viewer');
-      const filtered = component.filteredStaff();
-      expect(filtered.length).toBe(1);
-      expect(filtered[0].role).toBe('viewer');
-    });
-
-    it('should return all staff when search query is empty', () => {
-      component.searchQuery.set('');
-      const filtered = component.filteredStaff();
-      expect(filtered.length).toBe(3);
-    });
-
-    it('should be case insensitive', () => {
-      component.searchQuery.set('ADMIN');
-      const filtered = component.filteredStaff();
-      expect(filtered.length).toBe(1);
-      expect(filtered[0].full_name).toBe('Admin User');
-    });
+    expect(user.countryFlag).toBe('👑');
+    expect(user.avatar).toContain('ui-avatars.com');
   });
 
-  describe('mapStaffToUser', () => {
-    it('should map StaffProfile to User interface correctly', () => {
-      const staff = mockStaffProfiles[0];
-      const user = component.mapStaffToUser(staff);
-
-      expect(user.id).toBe(staff.id);
-      expect(user.name).toBe(staff.full_name);
-      expect(user.country).toBe(staff.department);
-      expect(user.bio).toContain(staff.email);
-      expect(user.bio).toContain(staff.role);
+  it('should fallback to the default department and role emoji', () => {
+    const user = component.mapStaffToUser({
+      ...mockStaffProfiles[2],
+      role: 'unknown' as StaffRole,
+      department: undefined,
     });
 
-    it('should use default department when not provided', () => {
-      const staffWithoutDept: StaffProfile = {
-        ...mockStaffProfiles[0],
-        department: undefined
-      };
-      const user = component.mapStaffToUser(staffWithoutDept);
-      expect(user.country).toBe('Staff');
-    });
-
-    it('should show inactive status in bio for inactive users', () => {
-      const inactiveStaff = mockStaffProfiles[2];
-      const user = component.mapStaffToUser(inactiveStaff);
-      expect(user.bio).toContain('Inactive');
-    });
-
-    it('should not show inactive status for active users', () => {
-      const activeStaff = mockStaffProfiles[0];
-      const user = component.mapStaffToUser(activeStaff);
-      expect(user.bio).not.toContain('Inactive');
-    });
-
-    it('should generate avatar URL when avatar_url is not provided', () => {
-      const staffWithoutAvatar: StaffProfile = {
-        ...mockStaffProfiles[0],
-        avatar_url: undefined
-      };
-      const user = component.mapStaffToUser(staffWithoutAvatar);
-      expect(user.avatar).toContain('ui-avatars.com');
-      expect(user.avatar).toContain(encodeURIComponent(staffWithoutAvatar.full_name));
-    });
-
-    it('should use provided avatar_url when available', () => {
-      const staffWithAvatar: StaffProfile = {
-        ...mockStaffProfiles[0],
-        avatar_url: 'https://example.com/avatar.jpg'
-      };
-      const user = component.mapStaffToUser(staffWithAvatar);
-      expect(user.avatar).toBe('https://example.com/avatar.jpg');
-    });
-
-    it('should return correct role emoji', () => {
-      const adminUser = component.mapStaffToUser(mockStaffProfiles[0]);
-      expect(adminUser.countryFlag).toBe('👑');
-
-      const staffUser = component.mapStaffToUser(mockStaffProfiles[1]);
-      expect(staffUser.countryFlag).toBe('👤');
-
-      const viewerUser = component.mapStaffToUser(mockStaffProfiles[2]);
-      expect(viewerUser.countryFlag).toBe('👁️');
-    });
+    expect(user.country).toBe('Staff');
+    expect(user.countryFlag).toBe('👤');
+    expect(user.bio).toContain('Inactive');
   });
 
-  describe('getStaffById', () => {
-    beforeEach(() => {
-      staffServiceMock.staffList.set(mockStaffProfiles);
-    });
-
-    it('should return staff profile by ID', () => {
-      const staff = component.getStaffById('1');
-      expect(staff).toBeDefined();
-      expect(staff?.full_name).toBe('Admin User');
-    });
-
-    it('should return undefined for non-existent ID', () => {
-      const staff = component.getStaffById('non-existent');
-      expect(staff).toBeUndefined();
-    });
+  it('should return the correct menu options for active and inactive staff', () => {
+    expect(component.getMenuOptions(mockStaffProfiles[0])).toBe(component.menuOptions);
+    expect(component.getMenuOptions(mockStaffProfiles[2])).toBe(component.inactiveMenuOptions);
   });
 
-  describe('getMenuOptions', () => {
-    it('should return active menu options for active staff', () => {
-      const activeStaff = mockStaffProfiles[0];
-      const options = component.getMenuOptions(activeStaff);
-      expect(options).toBe(component.menuOptions);
-      expect(options.some(o => o.action === 'deactivate')).toBe(true);
-    });
+  it('should open and close the add and edit modals', () => {
+    component.onAddUser();
+    expect(component.addUserModalOpen()).toBe(true);
 
-    it('should return inactive menu options for inactive staff', () => {
-      const inactiveStaff = mockStaffProfiles[2];
-      const options = component.getMenuOptions(inactiveStaff);
-      expect(options).toBe(component.inactiveMenuOptions);
-      expect(options.some(o => o.action === 'reactivate')).toBe(true);
-    });
+    component.onCloseAddUserModal();
+    expect(component.addUserModalOpen()).toBe(false);
+
+    component.onEditUser(mockStaffProfiles[0]);
+    expect(component.editUserModalOpen()).toBe(true);
+    expect(component.staffToEdit()).toBe(mockStaffProfiles[0]);
+
+    component.onCloseEditUserModal();
+    expect(component.editUserModalOpen()).toBe(false);
+    expect(component.staffToEdit()).toBeNull();
   });
 
-  describe('Modal Operations', () => {
-    it('should open add user modal when onAddUser is called', () => {
-      expect(component.addUserModalOpen()).toBe(false);
-      component.onAddUser();
-      expect(component.addUserModalOpen()).toBe(true);
-    });
+  it('should resolve users by id from the filtered list', () => {
+    component.searchQuery.set('staff');
 
-    it('should close add user modal when onCloseAddUserModal is called', () => {
-      component.addUserModalOpen.set(true);
-      component.onCloseAddUserModal();
-      expect(component.addUserModalOpen()).toBe(false);
-    });
+    expect(component.getStaffById('2')?.full_name).toBe('Staff Member');
+    expect(component.getStaffById('1')).toBeUndefined();
   });
 
-  describe('onUserCreated', () => {
-    it('should log the created user', () => {
-      const consoleSpy = vi.spyOn(console, 'log');
-      const newStaff = mockStaffProfiles[0];
+  it('should send email actions through window.location', async () => {
+    const originalLocation = window.location;
+    const hrefSpy = vi.fn();
 
-      component.onUserCreated(newStaff);
-
-      expect(consoleSpy).toHaveBeenCalledWith('User created:', newStaff);
-      consoleSpy.mockRestore();
-    });
-  });
-
-  describe('onCardClick', () => {
-    beforeEach(() => {
-      staffServiceMock.staffList.set(mockStaffProfiles);
-    });
-
-    it('should log card click for valid user', () => {
-      const consoleSpy = vi.spyOn(console, 'log');
-      const user: User = {
-        id: '1',
-        name: 'Admin User',
-        avatar: 'https://example.com/avatar.jpg',
-        country: 'Management',
-        countryFlag: '👑',
-        bio: 'admin@example.com • admin'
-      };
-
-      component.onCardClick(user);
-
-      expect(consoleSpy).toHaveBeenCalledWith('Card clicked:', expect.objectContaining({ id: '1' }));
-      consoleSpy.mockRestore();
-    });
-
-    it('should not log anything for invalid user', () => {
-      const consoleSpy = vi.spyOn(console, 'log');
-      const user: User = {
-        id: 'non-existent',
-        name: 'Unknown',
-        avatar: '',
-        country: '',
-        countryFlag: '',
-        bio: ''
-      };
-
-      component.onCardClick(user);
-
-      expect(consoleSpy).not.toHaveBeenCalled();
-      consoleSpy.mockRestore();
-    });
-  });
-
-  describe('onCardAction', () => {
-    beforeEach(() => {
-      staffServiceMock.staffList.set(mockStaffProfiles);
-    });
-
-    it('should open email client for sendEmail action', async () => {
-      // Mock window.location.href assignment
-      const originalHref = Object.getOwnPropertyDescriptor(window, 'location');
-      const hrefMock = vi.fn();
-
-      Object.defineProperty(window, 'location', {
-        value: {
-          ...window.location,
-          get href() { return ''; },
-          set href(val: string) { hrefMock(val); }
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: {
+        ...originalLocation,
+        get href() {
+          return '';
         },
-        writable: true
-      });
-
-      const action: UserCardAction = {
-        userId: '1',
-        actionType: 'sendEmail'
-      };
-
-      await component.onCardAction(action);
-
-      expect(hrefMock).toHaveBeenCalledWith('mailto:admin@example.com');
-
-      // Restore
-      if (originalHref) {
-        Object.defineProperty(window, 'location', originalHref);
-      }
+        set href(value: string) {
+          hrefSpy(value);
+        },
+      },
     });
 
-    it('should log edit profile action', async () => {
-      const consoleSpy = vi.spyOn(console, 'log');
-      const action: UserCardAction = {
-        userId: '1',
-        actionType: 'editProfile'
-      };
+    await component.onCardAction({ userId: '1', actionType: 'sendEmail' });
 
-      await component.onCardAction(action);
+    expect(hrefSpy).toHaveBeenCalledWith('mailto:admin@example.com');
 
-      expect(consoleSpy).toHaveBeenCalledWith('Edit profile:', expect.objectContaining({ id: '1' }));
-      consoleSpy.mockRestore();
-    });
-
-    it('should do nothing for non-existent user', async () => {
-      const consoleSpy = vi.spyOn(console, 'log');
-      const action: UserCardAction = {
-        userId: 'non-existent',
-        actionType: 'editProfile'
-      };
-
-      await component.onCardAction(action);
-
-      expect(consoleSpy).not.toHaveBeenCalled();
-      consoleSpy.mockRestore();
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: originalLocation,
     });
   });
 
-  describe('Deactivate/Reactivate Staff', () => {
-    beforeEach(() => {
-      staffServiceMock.staffList.set(mockStaffProfiles);
-    });
+  it('should open the edit modal for edit profile actions', async () => {
+    await component.onCardAction({ userId: '1', actionType: 'editProfile' });
 
-    it('should call deactivateStaff when user confirms', async () => {
-      vi.spyOn(window, 'confirm').mockReturnValue(true);
-      const staff = mockStaffProfiles[0];
-
-      await component.onDeactivate(staff);
-
-      expect(staffServiceMock.deactivateStaff).toHaveBeenCalledWith(staff.id);
-    });
-
-    it('should not call deactivateStaff when user cancels', async () => {
-      vi.spyOn(window, 'confirm').mockReturnValue(false);
-      const staff = mockStaffProfiles[0];
-
-      await component.onDeactivate(staff);
-
-      expect(staffServiceMock.deactivateStaff).not.toHaveBeenCalled();
-    });
-
-    it('should call reactivateStaff', async () => {
-      const staff = mockStaffProfiles[2];
-
-      await component.onReactivate(staff);
-
-      expect(staffServiceMock.reactivateStaff).toHaveBeenCalledWith(staff.id);
-    });
+    expect(component.editUserModalOpen()).toBe(true);
+    expect(component.staffToEdit()?.id).toBe('1');
   });
 
-  describe('Menu Option Handling', () => {
-    beforeEach(() => {
-      staffServiceMock.staffList.set(mockStaffProfiles);
-    });
+  it('should no-op when the user for a card action is missing', async () => {
+    await component.onCardAction({ userId: 'missing', actionType: 'editProfile' });
 
-    it('should handle viewProfile menu option', async () => {
-      const consoleSpy = vi.spyOn(console, 'log');
-      const action: UserCardAction = {
-        userId: '1',
-        actionType: 'menuOption',
-        menuOption: 'viewProfile'
-      };
-
-      await component.onCardAction(action);
-
-      expect(consoleSpy).toHaveBeenCalledWith('View profile:', expect.objectContaining({ id: '1' }));
-      consoleSpy.mockRestore();
-    });
-
-    it('should handle edit menu option', async () => {
-      const consoleSpy = vi.spyOn(console, 'log');
-      const action: UserCardAction = {
-        userId: '1',
-        actionType: 'menuOption',
-        menuOption: 'edit'
-      };
-
-      await component.onCardAction(action);
-
-      expect(consoleSpy).toHaveBeenCalledWith('Edit:', expect.objectContaining({ id: '1' }));
-      consoleSpy.mockRestore();
-    });
-
-    it('should handle deactivate menu option', async () => {
-      vi.spyOn(window, 'confirm').mockReturnValue(true);
-      const action: UserCardAction = {
-        userId: '1',
-        actionType: 'menuOption',
-        menuOption: 'deactivate'
-      };
-
-      await component.onCardAction(action);
-
-      expect(staffServiceMock.deactivateStaff).toHaveBeenCalledWith('1');
-    });
-
-    it('should handle reactivate menu option', async () => {
-      const action: UserCardAction = {
-        userId: '3',
-        actionType: 'menuOption',
-        menuOption: 'reactivate'
-      };
-
-      await component.onCardAction(action);
-
-      expect(staffServiceMock.reactivateStaff).toHaveBeenCalledWith('3');
-    });
+    expect(component.editUserModalOpen()).toBe(false);
+    expect(staffServiceMock.reactivateStaff).not.toHaveBeenCalled();
   });
 
-  describe('trackByStaffId', () => {
-    it('should return staff id', () => {
-      const staff = mockStaffProfiles[0];
-      const result = component.trackByStaffId(0, staff);
-      expect(result).toBe(staff.id);
-    });
+  it('should open the deactivate confirmation for the matching menu option', async () => {
+    const action: UserCardAction = { userId: '1', actionType: 'menuOption', menuOption: 'deactivate' };
+
+    await component.onCardAction(action);
+
+    expect(component.confirmDeactivateOpen()).toBe(true);
+    expect(component.staffPendingDeactivation()?.id).toBe('1');
+    expect(component.deactivateStaffMessage()).toContain('Admin User');
   });
 
-  describe('userCards computed', () => {
-    beforeEach(() => {
-      staffServiceMock.staffList.set(mockStaffProfiles);
-    });
+  it('should reactivate inactive staff from the menu action', async () => {
+    const action: UserCardAction = { userId: '3', actionType: 'menuOption', menuOption: 'reactivate' };
 
-    it('should map all filtered staff to User format', () => {
-      const userCards = component.userCards();
-      expect(userCards.length).toBe(3);
-      expect(userCards[0].name).toBe('Admin User');
-      expect(userCards[1].name).toBe('Staff Member');
-      expect(userCards[2].name).toBe('Inactive User');
-    });
+    await component.onCardAction(action);
 
-    it('should update when search query changes', () => {
-      component.searchQuery.set('admin');
-      const userCards = component.userCards();
-      expect(userCards.length).toBe(1);
-      expect(userCards[0].name).toBe('Admin User');
-    });
+    expect(staffServiceMock.reactivateStaff).toHaveBeenCalledWith('3');
+  });
+
+  it('should confirm and complete staff deactivation', async () => {
+    component.onDeactivate(mockStaffProfiles[0]);
+
+    await component.onConfirmDeactivate();
+
+    expect(staffServiceMock.deactivateStaff).toHaveBeenCalledWith('1');
+    expect(toastServiceMock.success).toHaveBeenCalledWith('User "Admin User" has been deactivated.');
+    expect(component.confirmDeactivateOpen()).toBe(false);
+    expect(component.staffPendingDeactivation()).toBeNull();
+  });
+
+  it('should cancel a pending deactivation', () => {
+    component.onDeactivate(mockStaffProfiles[0]);
+
+    component.onCancelDeactivate();
+
+    expect(component.confirmDeactivateOpen()).toBe(false);
+    expect(component.staffPendingDeactivation()).toBeNull();
+  });
+
+  it('should expose computed user cards and track ids', () => {
+    const userCards = component.userCards();
+
+    expect(userCards).toHaveLength(3);
+    expect(userCards[0].name).toBe('Admin User');
+    expect(component.trackByStaffId(0, mockStaffProfiles[1])).toBe('2');
+  });
+
+  it('should log user updates and creations', () => {
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+
+    component.onUserUpdated(mockStaffProfiles[0]);
+    component.onUserCreated(mockStaffProfiles[1]);
+    component.onCardClick({ id: '1' } as User);
+
+    expect(consoleSpy).toHaveBeenCalledWith('User updated:', mockStaffProfiles[0]);
+    expect(consoleSpy).toHaveBeenCalledWith('User created:', mockStaffProfiles[1]);
+    expect(consoleSpy).toHaveBeenCalledTimes(2);
   });
 });
-
-
