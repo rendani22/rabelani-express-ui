@@ -121,7 +121,7 @@ export class CompletedOrdersComponent implements OnInit{
             const resp = await fetch(lock.pdfUrl);
             if (resp.ok) {
               const blob = await resp.blob();
-              const filename = lock.podReference ? `POD-${lock.podReference}.pdf` : `POD-${pkg.reference}.pdf`;
+              const filename = `POD-${pkg.reference}${pkg.po_number ? `-${pkg.po_number}` : ''}.pdf`;
               entries.push({ name: filename, data: blob });
               continue;
             }

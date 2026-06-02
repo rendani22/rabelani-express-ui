@@ -1380,9 +1380,8 @@ export class PackageDetailsPanelComponent implements OnChanges {
 
   /** Returns a filename for the POD PDF download. */
   getPodFilename(pkg: Package): string {
-    const ref = this.podStatus()?.podReference ?? pkg.reference;
     const poSuffix = pkg.po_number ? `-${pkg.po_number}` : '';
-    return `POD-${ref}${poSuffix}.pdf`;
+    return `POD-${pkg.reference}${poSuffix}.pdf`;
   }
 
   /**
