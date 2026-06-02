@@ -1,14 +1,15 @@
-import { ApplicationRef, Component, EnvironmentInjector, OnInit, inject, computed, signal } from '@angular/core';
-import { Router, RouterLink } from '@angular/router';
+import { ApplicationRef, ChangeDetectionStrategy, Component, EnvironmentInjector, OnInit, inject, computed, signal } from '@angular/core';
+import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { LayoutComponent } from '../../shared/components/layout/layout.component';
 import { TransactionTableComponent, Transaction } from '../../shared/components/transaction/transaction-table/transaction-table.component';
 import { OrdersActionsComponent } from './orders-actions/orders-actions.component';
-import { PackageService, Package, PACKAGE_STATUS, PackageStatus, SettingsService, MarkCollectedPayload, ReceiverService, ReceiverProfile, generatePodPdfBase64, OnboardingTourService } from '../../core';
+import { PackageService, Package, PACKAGE_STATUS, PackageStatus, SettingsService, MarkCollectedPayload, ReceiverProfile, generatePodPdfBase64, OnboardingTourService } from '../../core';
 import { CreatePackageModalComponent, PackageDetailsPanelComponent, MarkCollectedModalComponent, PodDocumentComponent, AssignDriverModalComponent, AssignDriverPayload } from '../../shared/components/modals';
 import { QrCodeComponent } from '../../shared/components/qr-code';
 // ...existing imports...
 import { ToastService } from '../../shared/components/toast/toast.service';
+import { SupabaseService } from '../../shared/services/supabase.service';
 
 /**
  * Orders page component that displays packages in a transaction table format.
@@ -29,16 +30,16 @@ import { ToastService } from '../../shared/components/toast/toast.service';
     PodDocumentComponent,
     AssignDriverModalComponent,
     QrCodeComponent,
-    RouterLink
   ],
   templateUrl: './orders.html',
   styleUrls: ['./orders.css'],
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class OrdersComponent implements OnInit {
   private readonly packageService = inject(PackageService);
   private readonly settingsService = inject(SettingsService);
   private readonly toastService = inject(ToastService);
-  private readonly receiverService = inject(ReceiverService);
+  private readonly supabaseService = inject(SupabaseService);
   private readonly appRef = inject(ApplicationRef);
   private readonly environmentInjector = inject(EnvironmentInjector);
   private readonly onboardingTour = inject(OnboardingTourService);
@@ -46,6 +47,17 @@ export class OrdersComponent implements OnInit {
 
   /** Map of receiver email (lowercased) → full name for quick lookup. */
   private readonly receiverNamesByEmail = signal<Map<string, string>>(new Map());
+
+  /**
+   * Memoised cache of Package.id → Transaction. Mapping is only re-run for
+   * packages whose `updated_at` (or display name) actually changed, which
+   * avoids re-allocating the entire transactions array every time a
+   * signal upstream of the `transactions` computed fires.
+   */
+  private readonly txCache = new Map<string, { sig: string; tx: Transaction }>();
+
+  /** Current search term — kept locally so it survives status filter changes. */
+  private readonly searchTerm = signal<string>('');
 
   // Modal state
   createPackageModalOpen = false;
@@ -95,7 +107,23 @@ export class OrdersComponent implements OnInit {
   readonly sortDirection = signal<'asc' | 'desc'>('desc');
 
   readonly transactions = computed<Transaction[]>(() => {
-    const txs = this.packageService.packages().map(pkg => this.mapPackageToTransaction(pkg));
+    const pkgs = this.packageService.packages();
+    // Refresh dependency on the name map so display names stay in sync.
+    this.receiverNamesByEmail();
+
+    const txs = new Array<Transaction>(pkgs.length);
+    const seen = new Set<string>();
+    for (let i = 0; i < pkgs.length; i++) {
+      txs[i] = this.getOrBuildTransaction(pkgs[i]);
+      seen.add(pkgs[i].id);
+    }
+    // Evict cached transactions for packages no longer in the list.
+    if (this.txCache.size > seen.size) {
+      for (const id of this.txCache.keys()) {
+        if (!seen.has(id)) this.txCache.delete(id);
+      }
+    }
+
     const field = this.sortField();
     const dir = this.sortDirection();
     if (!field) return txs;
@@ -173,32 +201,51 @@ export class OrdersComponent implements OnInit {
   });
 
   async ngOnInit(): Promise<void> {
-    // Load receivers in parallel so we can resolve names instead of emails.
-    await Promise.all([this.loadReceivers(), this.loadPackages()]);
-    // Debug: log active status filter and number of packages loaded to help
-    // diagnose empty-list issues during development.
-    console.debug('[Orders] statusFilter=', this.statusFilter(), 'packagesLoaded=', this.packageService.packages().length);
+    // Load packages first; receiver names are only used for display, so
+    // fetch them in the background (and scoped to the loaded packages)
+    // instead of pulling the entire `receiver_profiles` table.
+    await this.loadPackages();
+    void this.loadReceiversForCurrentPackages();
     // Auto-launch the orders onboarding tour for first-time users (no-op if
     // already completed). Delayed slightly so the table has rendered.
     setTimeout(() => this.onboardingTour.start('orders'), 700);
   }
 
   /**
-   * Load receiver profiles and build an email → full name map used by
-   * `mapPackageToTransaction` to display names instead of email addresses.
+   * Load receiver profiles whose email appears in the currently-loaded
+   * packages and build an email → full name map. Scoped query avoids
+   * fetching every receiver in the database just to resolve display names.
    */
-  private async loadReceivers(): Promise<void> {
-    const receivers = await this.receiverService.loadAllReceivers();
-    const map = new Map<string, string>();
-    for (const r of receivers as ReceiverProfile[]) {
-      const email = (r.email ?? '').trim().toLowerCase();
-      if (!email) continue;
-      const fullName = `${r.name ?? ''} ${r.surname ?? ''}`.trim();
-      if (fullName) {
-        map.set(email, fullName);
-      }
+  private async loadReceiversForCurrentPackages(): Promise<void> {
+    const emails = new Set<string>();
+    for (const p of this.packageService.packages()) {
+      const e = (p.receiver_email ?? '').trim().toLowerCase();
+      if (e) emails.add(e);
     }
-    this.receiverNamesByEmail.set(map);
+    if (emails.size === 0) {
+      this.receiverNamesByEmail.set(new Map());
+      return;
+    }
+
+    try {
+      const { data } = await this.supabaseService.client
+        .from('receiver_profiles')
+        .select('email,name,surname')
+        .in('email', Array.from(emails));
+
+      const map = new Map<string, string>();
+      for (const r of (data ?? []) as ReceiverProfile[]) {
+        const email = (r.email ?? '').trim().toLowerCase();
+        if (!email) continue;
+        const fullName = `${r.name ?? ''} ${r.surname ?? ''}`.trim();
+        if (fullName) map.set(email, fullName);
+      }
+      // Invalidate the per-package transaction cache so display names refresh.
+      this.txCache.clear();
+      this.receiverNamesByEmail.set(map);
+    } catch {
+      // Non-fatal — fall back to formatted email local-parts.
+    }
   }
 
   /**
@@ -206,40 +253,45 @@ export class OrdersComponent implements OnInit {
    */
   async loadPackages(): Promise<void> {
     const status = this.statusFilter();
-    const filters = status !== 'all' ? { status } : undefined;
-    await this.packageService.loadPackages(filters);
+    const search = this.searchTerm().trim();
+    const filters: Record<string, string> = {};
+    if (status !== 'all') filters['status'] = status;
+    if (search) filters['search'] = search;
+    await this.packageService.loadPackages(Object.keys(filters).length ? filters : undefined);
+    // Refresh display-name map for the newly-loaded packages (background).
+    void this.loadReceiversForCurrentPackages();
   }
 
   /**
-   * Maps a Package entity to a Transaction for table display.
+   * Look up a previously-built Transaction for a package, or build and
+   * cache one if the package is new or has changed since last render.
    */
-  private mapPackageToTransaction(pkg: Package): Transaction {
+  private getOrBuildTransaction(pkg: Package): Transaction {
     const email = (pkg.receiver_email ?? '').trim().toLowerCase();
     const displayName =
       this.receiverNamesByEmail().get(email) ||
-      // Fall back to the local-part of the email (formatted) so we never
-      // expose the raw email address in the table.
       this.formatEmailLocalPart(pkg.receiver_email);
 
-    return {
+    // Cache key: signature changes only when something user-visible changes.
+    const sig = `${pkg.updated_at ?? ''}|${pkg.created_at}|${pkg.status}|${displayName}|${pkg.po_number ?? ''}|${pkg.notes ?? ''}|${pkg.reference}`;
+    const cached = this.txCache.get(pkg.id);
+    if (cached && cached.sig === sig) return cached.tx;
+
+    const tx: Transaction = {
       id: pkg.id,
       reference: pkg.reference,
       orderNumber: pkg.po_number ?? undefined,
       counterparty: displayName,
       counterpartyImage: this.getAvatarUrl(displayName),
-      // Created date shown without time (date-only)
       paymentDate: this.formatDateShort(pkg.created_at),
-      // Keep ISO timestamps so the UI can render relative times while CSV
-      // exports and tooltips use the already-formatted absolute strings.
       paymentDateIso: pkg.created_at,
-      // Show the package.updated_at as the last-updated timestamp when
-      // available; fall back to created_at for packages that haven't been
-      // updated since creation.
       lastUpdated: this.formatDate(pkg.updated_at ?? pkg.created_at),
       lastUpdatedIso: pkg.updated_at ?? pkg.created_at,
       status: this.mapPackageStatusToTransactionStatus(pkg.status),
-      notes: pkg.notes || undefined
+      notes: pkg.notes || undefined,
     };
+    this.txCache.set(pkg.id, { sig, tx });
+    return tx;
   }
 
   /** Convert "first.last@example.com" → "First Last" as a display fallback. */
@@ -253,12 +305,23 @@ export class OrdersComponent implements OnInit {
   }
 
   /**
-   * Gets a placeholder avatar URL based on the receiver's display name.
+   * Build a lightweight inline SVG avatar (initials on a deterministic
+   * colour) as a `data:` URI. Avoids an external HTTP request per row,
+   * which on a 100-row page was the dominant perf cost on first paint.
    */
   private getAvatarUrl(displayName: string): string {
-    // Use UI Avatars service for consistent avatars
-    const name = (displayName || 'Receiver').replace(/[^a-zA-Z ]/g, ' ').trim() || 'Receiver';
-    return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random&size=64`;
+    const safe = (displayName || 'Receiver').replace(/[^a-zA-Z ]/g, ' ').trim() || 'Receiver';
+    const parts = safe.split(/\s+/).filter(Boolean);
+    const initials = ((parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '')).toUpperCase() || 'R';
+
+    // Deterministic colour from name (stable across renders).
+    let hash = 0;
+    for (let i = 0; i < safe.length; i++) hash = (hash * 31 + safe.charCodeAt(i)) | 0;
+    const hue = Math.abs(hash) % 360;
+    const bg = `hsl(${hue}, 60%, 55%)`;
+
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><rect width="64" height="64" rx="32" fill="${bg}"/><text x="50%" y="50%" dy=".35em" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-size="26" font-weight="600" fill="#fff">${initials}</text></svg>`;
+    return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
   }
 
   /**
@@ -320,8 +383,11 @@ export class OrdersComponent implements OnInit {
    * Handle search input from actions component.
    */
   async onSearch(searchTerm: string): Promise<void> {
+    this.searchTerm.set(searchTerm ?? '');
     this.currentPage.set(1);
-    await this.packageService.loadPackages({ search: searchTerm });
+    // `loadPackages()` now combines status + search filters so we don't
+    // accidentally clear the active status when the user types.
+    await this.loadPackages();
   }
 
   /**

@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input, Output, EventEmitter, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Transaction } from '../transaction.model';
 import { ConfirmDialogComponent } from '../../confirm-dialog/confirm-dialog.component';
@@ -51,7 +51,7 @@ export type { Transaction } from '../transaction.model';
           </thead>
           <tbody>
             <tr
-              *ngFor="let transaction of transactions"
+              *ngFor="let transaction of transactions; trackBy: trackById"
               class="transaction-row"
               [class.selected]="_selectedIds().has(transaction.id)"
               (click)="onRowClick(transaction)"
@@ -512,6 +512,8 @@ export type { Transaction } from '../transaction.model';
       background: #1e293b;
     }
   `]
+  ,
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class TransactionTableComponent {
   @Input() transactions: Transaction[] = [];
@@ -592,6 +594,9 @@ export class TransactionTableComponent {
   onRowClick(transaction: Transaction): void {
     this.transactionSelected.emit(transaction);
   }
+
+  /** trackBy fn for the rows *ngFor — keeps DOM nodes stable across updates. */
+  trackById = (_index: number, t: Transaction): string => t.id;
 
   onHeaderClick(field: string): void {
     this.sortChange.emit({ field });
