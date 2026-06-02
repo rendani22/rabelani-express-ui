@@ -26,15 +26,15 @@ export interface AppVersion {
 }
 
 export const APP_VERSION: AppVersion = {
-  "version": "0.60.0-dev",
-  "semver": "0.60.0",
+  "version": "1.0.0-dev",
+  "semver": "1.0.0",
   "baseTag": null,
-  "commitsSinceBase": 63,
+  "commitsSinceBase": 64,
   "isDirty": true,
-  "hash": "215db0b",
-  "fullHash": "215db0b76f10fedc0137e41f134eb902d9b221d3",
+  "hash": "2ee93c2",
+  "fullHash": "2ee93c203a1e6679fdda226a5b0d29278d3c5c10",
   "branch": "main",
-  "message": "feat(orders): add file-system view for completed orders with bulk POD download and ZIP support",
-  "commitDate": "2026-05-24T16:28:10+02:00",
-  "buildDate": "2026-05-24T18:57:30.778Z"
+  "message": "chore(header): comment out Sentry test error button in header for development",
+  "commitDate": "2026-05-25T18:59:50+02:00",
+  "buildDate": "2026-05-27T13:05:40.354Z"
 };

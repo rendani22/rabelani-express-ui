@@ -135,13 +135,14 @@
           <ng-icon *ngIf="darkMode()" name="tablerMoon" size="16"></ng-icon>
         </button>
 
-        <!-- Sentry test error button (development helper) -->
+        <!-- Sentry server-side test button (development helper) -->
 <!--        <button-->
+<!--          *ngIf="isDev"-->
 <!--          type="button"-->
 <!--          class="header-icon-btn"-->
-<!--          title="Throw Sentry test error"-->
-<!--          (click)="testSentry()">-->
-<!--          <span class="sr-only">Throw test error</span>-->
+<!--          title="Trigger server-side Sentry test"-->
+<!--          (click)="testEdgeSentry()">-->
+<!--          <span class="sr-only">Trigger server Sentry test</span>-->
 <!--          ⚠-->
 <!--        </button>-->
 

@@ -12,7 +12,9 @@
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "storybook": "ng run rabelani-express-ui:storybook",
-    "build-storybook": "ng run rabelani-express-ui:build-storybook"
+    "build-storybook": "ng run rabelani-express-ui:build-storybook",
+    "deploy:create-package": "supabase functions deploy create-package ",
+    "deploy:update-package": "supabase functions deploy update-package"
   },
   "prettier": {
     "printWidth": 100,

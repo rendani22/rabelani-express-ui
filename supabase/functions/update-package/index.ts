@@ -6,6 +6,7 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
 import { resolveTemplate, renderEmail, buildCommonVars } from '../_shared/email-templates.ts'
+import { captureException } from '../_shared/sentry.ts'
 
 interface PodPartyPayload {
   name: string
@@ -229,7 +230,15 @@ serve(async (req) => {
     }
 
     // Check if package has a locked POD
-    const lockedPod = existingPackage.pods?.find((p: any) => p.is_locked === true)
+    // PostgREST may embed a related row as an object when there's a single
+    // related record instead of returning an array. Coerce to an array so
+    // `.find` is safe regardless of the shape returned by the DB.
+    const podsArray = existingPackage.pods == null
+      ? []
+      : Array.isArray(existingPackage.pods)
+        ? existingPackage.pods
+        : [existingPackage.pods]
+    const lockedPod = podsArray.find((p: any) => p?.is_locked === true)
     if (lockedPod) {
       // Log the denied attempt
       await adminClient.from('audit_logs').insert({
@@ -1170,6 +1179,26 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Unexpected error:', error)
+    try {
+      // Best-effort: report the exception to Sentry if configured.
+      await captureException(error, {
+        logger: 'update-package',
+        extra: { details: error instanceof Error ? error.stack : String(error) },
+        request: {
+          method: req.method,
+          url: req.url,
+          // Avoid leaking secrets (e.g. full Authorization JWT). Only send
+          // presence indicators or non-sensitive headers.
+          headers: {
+            authorization_present: req.headers.get('authorization') ? 'yes' : 'no',
+            origin: req.headers.get('origin') ?? ''
+          }
+        }
+      })
+    } catch (e) {
+      console.warn('Sentry capture failed:', e)
+    }
+
     return new Response(
       JSON.stringify({
         error: 'Internal server error',

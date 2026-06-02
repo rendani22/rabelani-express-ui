@@ -17,6 +17,8 @@ import {
 } from '@ng-icons/tabler-icons';
 import { ThemeService } from '../../../core';
 import { throwTestError } from '../../../core/utils/sentry.utils';
+import { SupabaseService } from '../../services/supabase.service';
+import { environment } from '../../../../environments/environment';
 import { HeaderService } from './header.service';
 import { HelpLink, HeaderNotification } from './header.models';
 import { DEFAULT_HELP_LINKS } from './header.constants';
@@ -40,6 +42,7 @@ import { DocsModalComponent } from '../modals/docs-modal/docs-modal.component';
 export class HeaderComponent implements OnInit {
   private readonly headerService = inject(HeaderService);
   private readonly themeService = inject(ThemeService);
+  private readonly supabaseService = inject(SupabaseService);
   private readonly router = inject(Router);
 
   @Input() sidebarOpen = false;
@@ -65,6 +68,8 @@ export class HeaderComponent implements OnInit {
   /** Controls the documentation modal */
   readonly docsOpen = signal(false);
 
+  readonly isDev = !environment.production;
+
   ngOnInit(): void {
     void this.headerService.loadNotifications();
     this.headerService.subscribeToRealtime();
@@ -85,6 +90,40 @@ export class HeaderComponent implements OnInit {
   // This bubbles to Angular's global ErrorHandler (and Sentry integration) for testing.
   testSentry(): never {
     return throwTestError();
+  }
+
+  // Calls the create-package Edge Function with malformed JSON to trigger a
+  // server-side error that should be captured by the Edge Function Sentry
+  // reporting added in the backend. Only available in development mode.
+  async testEdgeSentry(): Promise<void> {
+    try {
+      const { data } = await this.supabaseService.client.auth.getSession();
+      const token = data?.session?.access_token;
+      if (!token) {
+        alert('No active session / access token available to authenticate the test request.');
+        return;
+      }
+
+      const functionsUrl = environment.supabase.functionsUrl;
+      const url = `${functionsUrl}/create-package`;
+
+      // Intentionally send malformed JSON so the edge function's req.json() throws
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: '{"receiver_email":"sentry-test@example.com"' // missing closing brace
+      });
+
+      const text = await res.text();
+      // Provide quick feedback to the user — the server should return 500 and Sentry should capture the error.
+      alert(`Edge function responded: ${res.status}\n\n${text}`);
+    } catch (e) {
+      console.error('Edge Sentry test failed:', e);
+      alert('Edge Sentry test failed: ' + (e instanceof Error ? e.message : String(e)));
+    }
   }
 
   openDocs(event: Event): void {

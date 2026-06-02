@@ -5,6 +5,7 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
 import { resolveTemplate, renderEmail, buildCommonVars } from '../_shared/email-templates.ts'
+import { captureException } from '../_shared/sentry.ts'
 
 interface PackageItemRequest {
   quantity: number
@@ -355,6 +356,23 @@ serve(async (req) => {
 
   } catch (error: unknown) {
     console.error('Unexpected error:', error)
+    try {
+      await captureException(error, {
+        logger: 'create-package',
+        extra: { details: error instanceof Error ? error.stack : String(error) },
+        request: {
+          method: req.method,
+          url: req.url,
+          headers: {
+            authorization_present: req.headers.get('authorization') ? 'yes' : 'no',
+            origin: req.headers.get('origin') ?? ''
+          }
+        }
+      })
+    } catch (e) {
+      console.warn('Sentry capture failed:', e)
+    }
+
     const errorMessage = error instanceof Error ? error.message : String(error)
     return new Response(
       JSON.stringify({
