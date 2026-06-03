@@ -31,10 +31,10 @@ export const APP_VERSION: AppVersion = {
   "baseTag": null,
   "commitsSinceBase": 72,
   "isDirty": true,
-  "hash": "c4db2ee",
-  "fullHash": "c4db2ee0f9896574481736acf12694f8a1cac589",
+  "hash": "a8c8b29",
+  "fullHash": "a8c8b2954e9130a3cf981b46d4f3ecc2b9365368",
   "branch": "copilot/add-unit-and-playwright-tests",
-  "message": "test: refresh unit and e2e coverage",
-  "commitDate": "2026-06-02T20:03:29Z",
-  "buildDate": "2026-06-02T20:06:10.796Z"
+  "message": "test(e2e): add Playwright end-to-end coverage for all features",
+  "commitDate": "2026-06-03T22:35:37+02:00",
+  "buildDate": "2026-06-03T20:45:17.586Z"
 };

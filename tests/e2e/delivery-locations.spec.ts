@@ -8,6 +8,6 @@ test.describe('delivery locations (authenticated)', () => {
 
   test('renders delivery locations page', async ({ page }) => {
     await page.goto('/delivery-locations');
-    await expect(page.getByRole('heading', { name: /delivery locations|locations/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /delivery points/i })).toBeVisible();
   });
 });

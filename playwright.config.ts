@@ -6,9 +6,11 @@ export default defineConfig({
   expect: {
     timeout: 5_000,
   },
+  globalSetup: './tests/e2e/global-setup',
   use: {
     baseURL: 'http://127.0.0.1:4200',
     trace: 'on-first-retry',
+    storageState: 'tests/e2e/storageState.json',
   },
   webServer: {
     command: 'npm run start -- --host 127.0.0.1 --port 4200',

@@ -11,3 +11,4 @@ test.describe('orders (authenticated)', () => {
     await expect(page.getByRole('heading', { name: /orders/i })).toBeVisible();
   });
 });
+
