@@ -26,15 +26,15 @@ export interface AppVersion {
 }
 
 export const APP_VERSION: AppVersion = {
-  "version": "0.69.0",
+  "version": "0.69.0-dev",
   "semver": "0.69.0",
   "baseTag": null,
   "commitsSinceBase": 72,
-  "isDirty": false,
-  "hash": "f2d1a00",
-  "fullHash": "f2d1a0059b6e1cd1bdf79148b9a643a6b706b767",
+  "isDirty": true,
+  "hash": "f878550",
+  "fullHash": "f8785502ed87e405d2476320b699c2e5f7e22d8b",
   "branch": "copilot/add-playwright-tests",
-  "message": "feat(pod): add footer stamping to PDF generation with page numbers and PO reference",
-  "commitDate": "2026-06-02T21:50:22+02:00",
-  "buildDate": "2026-06-03T20:15:55.790Z"
+  "message": "Add Playwright config and feature e2e tests",
+  "commitDate": "2026-06-03T20:20:06Z",
+  "buildDate": "2026-06-03T20:24:04.613Z"
 };

@@ -16,6 +16,11 @@ const SESSION = {
 };
 
 async function mockSupabase(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    localStorage.setItem('onboarding-tour-completed-v1', 'true');
+    localStorage.setItem('onboarding-tour-orders-completed-v1', 'true');
+  });
+
   await page.route(`${SUPABASE_URL}/**`, async route => {
     const request = route.request();
     const url = new URL(request.url());
@@ -43,7 +48,8 @@ async function mockSupabase(page: Page): Promise<void> {
 
     if (path.startsWith('/rest/v1/')) {
       const table = path.split('/rest/v1/')[1]?.split('/')[0] ?? '';
-      const wantsObject = (request.headerValue('accept') ?? '').includes('application/vnd.pgrst.object+json');
+      const acceptHeader = (await request.headerValue('accept')) ?? '';
+      const wantsObject = acceptHeader.includes('application/vnd.pgrst.object+json');
 
       let payload: unknown = [];
 
@@ -89,7 +95,7 @@ async function mockSupabase(page: Page): Promise<void> {
 async function login(page: Page): Promise<void> {
   await page.goto('/login');
   await page.getByLabel('Email Address').fill(USER.email);
-  await page.getByLabel('Password').fill('password123');
+  await page.locator('#password').fill('password123');
   await page.getByRole('button', { name: 'Sign In' }).click();
   await expect(page).toHaveURL(/\/dashboard$/);
 }
@@ -114,7 +120,7 @@ test('covers login form behavior', async ({ page }) => {
   await expect(page.locator('#password')).toHaveAttribute('aria-invalid', 'true');
 
   await page.getByLabel('Email Address').fill(USER.email);
-  await page.getByLabel('Password').fill('password123');
+  await page.locator('#password').fill('password123');
   await page.getByRole('button', { name: 'Sign In' }).click();
   await expect(page).toHaveURL(/\/dashboard$/);
 });
@@ -132,7 +138,7 @@ test('covers main navigation features and route actions', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Orders' })).toBeVisible();
   await page.getByRole('button', { name: 'Completed' }).click();
   await expect(page).toHaveURL(/\/orders\/completed$/);
-  await expect(page.getByRole('heading', { name: 'Completed Orders' })).toBeVisible();
+  await expect(page.locator('h1', { hasText: 'Completed Orders' })).toBeVisible();
 
   await page.getByRole('link', { name: 'Drivers' }).click();
   await expect(page.getByRole('heading', { name: 'Driver Management' })).toBeVisible();
@@ -165,8 +171,8 @@ test('covers additional feature pages and core interactions', async ({ page }) =
 
   await page.goto('/settings');
   await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
-  await page.getByRole('button', { name: 'Dark' }).click();
-  await page.getByRole('button', { name: 'Light' }).click();
+  await page.getByRole('button', { name: 'Dark', exact: true }).click();
+  await page.getByRole('button', { name: 'Light', exact: true }).click();
   await page.getByRole('button', { name: 'Save Settings' }).click();
   await expect(page.getByText('Saved!')).toBeVisible();
 
@@ -189,7 +195,7 @@ test('covers additional feature pages and core interactions', async ({ page }) =
   await expect(page.getByRole('heading', { name: 'Deleted orders' })).toBeVisible();
 
   await page.goto('/orders/completed');
-  await expect(page.getByRole('heading', { name: 'Completed Orders' })).toBeVisible();
+  await expect(page.locator('h1', { hasText: 'Completed Orders' })).toBeVisible();
   await page.getByRole('button', { name: 'Clear' }).click();
 
   await page.goto('/settings');
