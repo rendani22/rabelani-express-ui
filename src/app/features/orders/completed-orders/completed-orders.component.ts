@@ -122,7 +122,7 @@ export class CompletedOrdersComponent implements OnInit{
             const resp = await fetch(lock.pdfUrl);
             if (resp.ok) {
               const blob = await resp.blob();
-              const filename = `POD-${pkg.reference}${pkg.po_number ? `-${pkg.po_number}` : ''}.pdf`;
+              const filename = `${pkg.po_number}-${pkg.reference ? `-${pkg.reference}` : ''}.pdf`;
               entries.push({ name: filename, data: blob });
               continue;
             }
