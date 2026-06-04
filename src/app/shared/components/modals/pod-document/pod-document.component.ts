@@ -108,8 +108,8 @@ export class PodDocumentComponent implements OnChanges {
 
       // Filename always uses package reference to ensure consistency:
       // POD-<package_reference>[-<po_number>].pdf
-      const poSuffix = pkg.po_number ? `-${pkg.po_number}` : '';
-      const filename = `POD-${pkg.reference}${poSuffix}.pdf`;
+      const poSuffix = pkg.po_number ? `${pkg.po_number}` : '';
+      const filename = `${poSuffix}-${pkg.reference}.pdf`;
 
       await (html2pdf as (...args: unknown[]) => {
         set: (opts: unknown) => {
