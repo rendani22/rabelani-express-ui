@@ -25,6 +25,7 @@ export class LayoutComponent {
     { icon: 'layout-dashboard', label: 'Dashboard', routerLink: '/dashboard' },
     { icon: 'shopping-cart', label: 'Orders', routerLink: '/orders' },
     { icon: 'orders', label: 'Inventory', routerLink: '/inventory' },
+    { icon: 'clipboard-list', label: 'Purchase Orders', routerLink: '/purchase-orders' },
     { icon: 'truck', label: 'Drivers', routerLink: '/drivers' },
     { icon: 'users', label: 'Customers', routerLink: '/customers' },
     { icon: 'users', label: 'Users', routerLink: '/user-management' },
