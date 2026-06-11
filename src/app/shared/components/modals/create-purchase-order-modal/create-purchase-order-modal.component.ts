@@ -50,10 +50,6 @@ export class CreatePurchaseOrderModalComponent {
     return this.form.controls.items;
   }
 
-  constructor() {
-    this.addLine();
-  }
-
   addLine(): void {
     this.itemsArray.push(
       this.fb.nonNullable.group({
@@ -126,7 +122,6 @@ export class CreatePurchaseOrderModalComponent {
   onClose(): void {
     this.form.reset();
     this.itemsArray.clear();
-    this.addLine();
     this.errorMessage.set(null);
     this.closeModal.emit();
   }

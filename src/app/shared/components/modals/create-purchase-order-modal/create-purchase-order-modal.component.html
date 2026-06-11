@@ -173,35 +173,34 @@
               <p class="text-xs mt-2 text-red-500" role="alert">{{ error }}</p>
             }
           </div>
+
+          <footer class="px-5 py-4 -mx-5 -mb-4 border-t border-gray-200 dark:border-gray-700/60">
+            <div class="flex flex-wrap justify-end gap-3">
+              <button
+                type="button"
+                class="px-4 py-2 text-sm font-medium rounded-lg border transition-colors
+                       bg-white dark:bg-gray-800
+                       border-gray-200 dark:border-gray-700/60
+                       text-gray-700 dark:text-gray-300
+                       hover:bg-gray-50 dark:hover:bg-gray-700/50
+                       focus:outline-none focus:ring-2 focus:ring-violet-500"
+                (click)="onClose()"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                class="px-4 py-2 text-sm font-medium rounded-lg transition-colors
+                       bg-violet-500 hover:bg-violet-600
+                       text-white
+                       focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800"
+              >
+                Create PO
+              </button>
+            </div>
+          </footer>
         </form>
       </div>
-
-      <footer class="px-5 py-4 border-t border-gray-200 dark:border-gray-700/60">
-        <div class="flex flex-wrap justify-end gap-3">
-          <button
-            type="button"
-            class="px-4 py-2 text-sm font-medium rounded-lg border transition-colors
-                   bg-white dark:bg-gray-800
-                   border-gray-200 dark:border-gray-700/60
-                   text-gray-700 dark:text-gray-300
-                   hover:bg-gray-50 dark:hover:bg-gray-700/50
-                   focus:outline-none focus:ring-2 focus:ring-violet-500"
-            (click)="onClose()"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            class="px-4 py-2 text-sm font-medium rounded-lg transition-colors
-                   bg-violet-500 hover:bg-violet-600
-                   text-white
-                   focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800"
-            (click)="onSubmit()"
-          >
-            Create PO
-          </button>
-        </div>
-      </footer>
     </div>
   </div>
 }
