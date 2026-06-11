@@ -130,10 +130,15 @@ export class PurchaseOrdersService {
 
       const inventoryMap = new Map<string, InventoryItem>();
       if (inventoryItemIds.length > 0) {
-        const { data: invItems } = await this.supabase.client
+        const { data: invItems, error: inventoryError } = await this.supabase.client
           .from('inventory_items')
           .select('*')
           .in('id', inventoryItemIds);
+
+        if (inventoryError) {
+          this.error.set(inventoryError.message);
+          return;
+        }
 
         for (const item of (invItems ?? []) as InventoryItem[]) {
           inventoryMap.set(item.id, item);
@@ -141,12 +146,17 @@ export class PurchaseOrdersService {
       }
 
       const packagesByPoNumber = new Map<string, Package[]>();
-      const { data: rawPackages } = await this.supabase.client
+      const { data: rawPackages, error: packagesError } = await this.supabase.client
         .from('packages')
         .select('*, items:package_items(id, quantity, description, inventory_item_id)')
         .in('po_number', poNumbers)
         .is('deleted_at', null)
         .order('created_at', { ascending: false });
+
+      if (packagesError) {
+        this.error.set(packagesError.message);
+        return;
+      }
 
       for (const pkg of (rawPackages ?? []) as Package[]) {
         const poNumber = pkg.po_number;

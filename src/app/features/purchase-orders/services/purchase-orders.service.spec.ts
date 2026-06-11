@@ -142,6 +142,104 @@ describe('Purchase order contracts', () => {
     });
   });
 
+  it('sets error and aborts when inventory_items query fails', async () => {
+    const purchaseOrdersResponse = {
+      data: [
+        {
+          id: 'po-id-1',
+          po_number: 'PO-1',
+          status: 'draft',
+          created_at: '2026-06-11T10:00:00.000Z',
+          updated_at: '2026-06-11T11:00:00.000Z',
+          items: [{ id: 'poi-1', inventory_item_id: 'inv-1', ordered_quantity: 5, balances: [] }],
+        },
+      ],
+      error: null,
+    };
+    const packagesOrder = vi.fn();
+
+    from.mockImplementation((table: string) => {
+      if (table === 'purchase_orders') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          order: vi.fn().mockResolvedValue(purchaseOrdersResponse),
+        };
+      }
+
+      if (table === 'inventory_items') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          in: vi.fn().mockResolvedValue({ data: null, error: { message: 'Inventory load failed' } }),
+        };
+      }
+
+      if (table === 'packages') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          in: vi.fn().mockReturnThis(),
+          is: vi.fn().mockReturnThis(),
+          order: packagesOrder.mockResolvedValue({ data: [], error: null }),
+        };
+      }
+
+      throw new Error(`Unexpected table ${table}`);
+    });
+
+    await service.load();
+
+    expect(service.error()).toBe('Inventory load failed');
+    expect(service.filteredPurchaseOrders()).toHaveLength(0);
+    expect(packagesOrder).not.toHaveBeenCalled();
+  });
+
+  it('sets error and aborts when packages query fails', async () => {
+    const purchaseOrdersResponse = {
+      data: [
+        {
+          id: 'po-id-1',
+          po_number: 'PO-1',
+          status: 'draft',
+          created_at: '2026-06-11T10:00:00.000Z',
+          updated_at: '2026-06-11T11:00:00.000Z',
+          items: [{ id: 'poi-1', inventory_item_id: 'inv-1', ordered_quantity: 5, balances: [] }],
+        },
+      ],
+      error: null,
+    };
+
+    from.mockImplementation((table: string) => {
+      if (table === 'purchase_orders') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          order: vi.fn().mockResolvedValue(purchaseOrdersResponse),
+        };
+      }
+
+      if (table === 'inventory_items') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          in: vi.fn().mockResolvedValue({ data: [{ id: 'inv-1', name: 'Widget', sku: 'W1' }], error: null }),
+        };
+      }
+
+      if (table === 'packages') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          in: vi.fn().mockReturnThis(),
+          is: vi.fn().mockReturnThis(),
+          order: vi.fn().mockResolvedValue({ data: null, error: { message: 'Packages load failed' } }),
+        };
+      }
+
+      throw new Error(`Unexpected table ${table}`);
+    });
+
+    await service.load();
+
+    expect(service.error()).toBe('Packages load failed');
+    expect(service.filteredPurchaseOrders()).toHaveLength(0);
+  });
+
   it('computes remaining quantity from ordered and allocated totals', () => {
     expect(computeRemainingQuantity(10, 4)).toBe(6);
     expect(computeRemainingQuantity(5, 8)).toBe(0);

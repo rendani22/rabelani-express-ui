@@ -16,6 +16,10 @@ export interface PurchaseOrderCrudResult {
   readonly error?: string;
 }
 
+interface AtomicCreatePurchaseOrderRpcResponse {
+  readonly purchase_order_id: string;
+}
+
 @Injectable()
 export class PurchaseOrderCrudService {
   private readonly supabase = inject(SupabaseService);
@@ -37,33 +41,20 @@ export class PurchaseOrderCrudService {
       return { success: false, error: 'At least one PO line is required' };
     }
 
-    const { data: createdOrder, error: orderError } = await this.supabase.client
-      .from('purchase_orders')
-      .insert({ po_number: poNumber, status: 'draft' })
-      .select('id')
-      .single();
+    const { data, error } = await this.supabase.client.rpc('create_purchase_order_with_items', {
+      p_po_number: poNumber,
+      p_items: items.map(item => ({
+        inventory_item_id: item.inventoryItemId,
+        ordered_quantity: item.orderedQuantity,
+      })),
+    }).single();
 
-    if (orderError || !createdOrder) {
-      return { success: false, error: orderError?.message ?? 'Failed to create purchase order' };
+    if (error) {
+      return { success: false, error: error.message };
     }
 
-    const rows = items.map(item => ({
-      purchase_order_id: createdOrder.id,
-      inventory_item_id: item.inventoryItemId,
-      ordered_quantity: item.orderedQuantity,
-    }));
-
-    const { error: itemsError } = await this.supabase.client
-      .from('purchase_order_items')
-      .insert(rows);
-
-    if (itemsError) {
-      await this.supabase.client
-        .from('purchase_orders')
-        .delete()
-        .eq('id', createdOrder.id);
-
-      return { success: false, error: itemsError.message };
+    if (!(data as AtomicCreatePurchaseOrderRpcResponse | null)?.purchase_order_id) {
+      return { success: false, error: 'Failed to create purchase order' };
     }
 
     return { success: true };
