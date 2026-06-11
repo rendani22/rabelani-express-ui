@@ -264,6 +264,8 @@ END;
 $$;
 
 REVOKE ALL ON FUNCTION public.create_package_with_items_and_allocations(text, text, uuid, text, uuid, text, jsonb, jsonb) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.create_package_with_items_and_allocations(text, text, uuid, text, uuid, text, jsonb, jsonb) FROM authenticated;
+REVOKE EXECUTE ON FUNCTION public.create_package_with_items_and_allocations(text, text, uuid, text, uuid, text, jsonb, jsonb) FROM anon;
 GRANT EXECUTE ON FUNCTION public.create_package_with_items_and_allocations(text, text, uuid, text, uuid, text, jsonb, jsonb) TO service_role;
 
 -- Restrict internal helper RPC exposure.
