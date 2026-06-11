@@ -6,6 +6,7 @@ import {
   PurchaseOrder,
   PurchaseOrderStats,
   PurchaseOrderInventoryRef,
+  computeRemainingQuantity,
   PurchaseOrderFilters,
 } from '../purchase-orders.models';
 
@@ -95,7 +96,12 @@ export class PurchaseOrdersService {
           items:purchase_order_items(
             id,
             inventory_item_id,
-            ordered_quantity
+            ordered_quantity,
+            balances:purchase_order_item_balances(
+              ordered_quantity,
+              allocated_quantity,
+              remaining_quantity
+            )
           )
         `)
         .order('created_at', { ascending: false });
@@ -111,7 +117,6 @@ export class PurchaseOrdersService {
         return;
       }
 
-      const poIds = orders.map(order => order.id);
       const poNumbers = orders.map(order => order.po_number);
       const inventoryItemIds = Array.from(
         new Set(
@@ -135,18 +140,6 @@ export class PurchaseOrdersService {
         }
       }
 
-      const balancesByItemId = new Map<string, PurchaseOrderItemBalanceRow>();
-      const { data: balanceRows } = await this.supabase.client
-        .from('purchase_order_item_balances')
-        .select(
-          'purchase_order_item_id,purchase_order_id,inventory_item_id,ordered_quantity,allocated_quantity,remaining_quantity'
-        )
-        .in('purchase_order_id', poIds);
-
-      for (const balance of (balanceRows ?? []) as PurchaseOrderItemBalanceRow[]) {
-        balancesByItemId.set(balance.purchase_order_item_id, balance);
-      }
-
       const packagesByPoNumber = new Map<string, Package[]>();
       const { data: rawPackages } = await this.supabase.client
         .from('packages')
@@ -167,17 +160,37 @@ export class PurchaseOrdersService {
       this._allPurchaseOrders.set(
         orders.map(order => {
           const packages = packagesByPoNumber.get(order.po_number) ?? [];
-          const refsByInventory = new Map<string, { qty: number; packageIds: Set<string> }>();
+          const refsByInventory = new Map<
+            string,
+            {
+              orderedQty: number;
+              allocatedQty: number;
+              remainingQty: number;
+              packageIds: Set<string>;
+            }
+          >();
 
           for (const item of order.items ?? []) {
             if (!item.inventory_item_id) continue;
-            const balance = balancesByItemId.get(item.id);
-            const quantity = balance ? Number(balance.ordered_quantity) : Number(item.ordered_quantity);
+            const balance = item.balances?.[0];
+            const orderedQuantity = balance
+              ? Number(balance.ordered_quantity)
+              : Number(item.ordered_quantity);
+            const allocatedQuantity = balance ? Number(balance.allocated_quantity) : 0;
+            const remainingQuantity = balance
+              ? balance.remaining_quantity === null || balance.remaining_quantity === undefined
+                ? computeRemainingQuantity(orderedQuantity, allocatedQuantity)
+                : Number(balance.remaining_quantity)
+              : orderedQuantity;
             const agg = refsByInventory.get(item.inventory_item_id) ?? {
-              qty: 0,
+              orderedQty: 0,
+              allocatedQty: 0,
+              remainingQty: 0,
               packageIds: new Set<string>(),
             };
-            agg.qty += quantity;
+            agg.orderedQty += orderedQuantity;
+            agg.allocatedQty += allocatedQuantity;
+            agg.remainingQty += Math.max(0, remainingQuantity);
 
             for (const pkg of packages) {
               const hasMatch = (pkg.items ?? []).some(
@@ -193,7 +206,10 @@ export class PurchaseOrdersService {
             ([inventoryItemId, value]) => ({
               inventoryItemId,
               item: inventoryMap.get(inventoryItemId) ?? null,
-              totalQuantity: value.qty,
+              totalQuantity: value.orderedQty,
+              orderedQuantity: value.orderedQty,
+              allocatedQuantity: value.allocatedQty,
+              remainingQuantity: value.remainingQty,
               packageCount: value.packageIds.size,
             })
           );
@@ -247,15 +263,13 @@ interface PurchaseOrderItemRow {
   readonly id: string;
   readonly inventory_item_id: string;
   readonly ordered_quantity: number | string;
+  readonly balances?: readonly PurchaseOrderItemBalanceNestedRow[];
 }
 
-interface PurchaseOrderItemBalanceRow {
-  readonly purchase_order_item_id: string;
-  readonly purchase_order_id: string;
-  readonly inventory_item_id: string;
+interface PurchaseOrderItemBalanceNestedRow {
   readonly ordered_quantity: number | string;
   readonly allocated_quantity: number | string;
-  readonly remaining_quantity: number | string;
+  readonly remaining_quantity?: number | string | null;
 }
 
 function mapPurchaseOrderStatus(status: string): PurchaseOrder['derivedStatus'] {

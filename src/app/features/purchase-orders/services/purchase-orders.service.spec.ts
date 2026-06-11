@@ -33,6 +33,7 @@ describe('Purchase order contracts', () => {
   });
 
   it('loads purchase orders from purchase_orders table instead of grouping packages by po_number', async () => {
+    const purchaseOrdersSelect = vi.fn().mockReturnThis();
     const purchaseOrdersResponse = {
       data: [
         {
@@ -46,21 +47,15 @@ describe('Purchase order contracts', () => {
               id: 'poi-1',
               inventory_item_id: 'inv-1',
               ordered_quantity: 5,
+              balances: [
+                {
+                  ordered_quantity: 5,
+                  allocated_quantity: 2,
+                  remaining_quantity: 3,
+                },
+              ],
             },
           ],
-        },
-      ],
-      error: null,
-    };
-    const balancesResponse = {
-      data: [
-        {
-          purchase_order_item_id: 'poi-1',
-          purchase_order_id: 'po-id-1',
-          inventory_item_id: 'inv-1',
-          ordered_quantity: 5,
-          allocated_quantity: 2,
-          remaining_quantity: 3,
         },
       ],
       error: null,
@@ -104,15 +99,8 @@ describe('Purchase order contracts', () => {
     from.mockImplementation((table: string) => {
       if (table === 'purchase_orders') {
         return {
-          select: vi.fn().mockReturnThis(),
+          select: purchaseOrdersSelect,
           order: vi.fn().mockResolvedValue(purchaseOrdersResponse),
-        };
-      }
-
-      if (table === 'purchase_order_item_balances') {
-        return {
-          select: vi.fn().mockReturnThis(),
-          in: vi.fn().mockResolvedValue(balancesResponse),
         };
       }
 
@@ -138,11 +126,19 @@ describe('Purchase order contracts', () => {
     await service.load();
 
     expect(from).toHaveBeenNthCalledWith(1, 'purchase_orders');
+    expect(purchaseOrdersSelect).toHaveBeenCalledWith(expect.stringContaining('balances:purchase_order_item_balances'));
     expect(service.filteredPurchaseOrders()).toHaveLength(1);
     expect(service.filteredPurchaseOrders()[0]).toMatchObject({
       poNumber: 'PO-1',
       derivedStatus: 'draft',
       totalItems: 5,
+      inventoryRefs: [
+        {
+          orderedQuantity: 5,
+          allocatedQuantity: 2,
+          remainingQuantity: 3,
+        },
+      ],
     });
   });
 

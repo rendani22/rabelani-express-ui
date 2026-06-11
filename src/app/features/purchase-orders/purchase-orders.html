@@ -334,8 +334,24 @@
                                   <span class="text-xs text-gray-400 dark:text-gray-500">{{ ref.item!.sku }}</span>
                                 }
                               </div>
-                              <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                                <span>Qty: <strong class="text-gray-700 dark:text-gray-300">{{ ref.totalQuantity }}</strong> {{ ref.item?.unit ?? '' }}</span>
+                              <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 flex-wrap">
+                                <span>
+                                  Ordered:
+                                  <strong class="text-gray-700 dark:text-gray-300">{{ ref.orderedQuantity }}</strong>
+                                  {{ ref.item?.unit ?? '' }}
+                                </span>
+                                <span>·</span>
+                                <span>
+                                  Allocated:
+                                  <strong class="text-gray-700 dark:text-gray-300">{{ ref.allocatedQuantity }}</strong>
+                                  {{ ref.item?.unit ?? '' }}
+                                </span>
+                                <span>·</span>
+                                <span>
+                                  Remaining:
+                                  <strong class="text-gray-700 dark:text-gray-300">{{ ref.remainingQuantity }}</strong>
+                                  {{ ref.item?.unit ?? '' }}
+                                </span>
                                 @if (ref.item?.category) {
                                   <span>·</span>
                                   <span>{{ ref.item!.category }}</span>

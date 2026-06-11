@@ -64,6 +64,9 @@ export interface PurchaseOrderInventoryRef {
   readonly item: InventoryItem | null;
   /** Total quantity across all packages that reference this inventory item */
   readonly totalQuantity: number;
+  readonly orderedQuantity: number;
+  readonly allocatedQuantity: number;
+  readonly remainingQuantity: number;
   /** Number of packages referencing this item */
   readonly packageCount: number;
 }
