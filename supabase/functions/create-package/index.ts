@@ -18,10 +18,17 @@ interface PackageItemRequest {
   inventory_item_id?: string | null
 }
 
+interface PurchaseOrderAllocationRequest {
+  purchase_order_item_id: string
+  item_index: number
+  quantity: number
+}
+
 interface CreatePackageRequest {
   receiver_email: string
   notes?: string
   items?: PackageItemRequest[]
+  po_allocations?: PurchaseOrderAllocationRequest[]
   delivery_location_id?: string
   po_number?: string
   status?: string
@@ -52,6 +59,102 @@ function buildCorsHeaders(origin: string | null) {
     'Access-Control-Allow-Credentials': 'true',
     'Access-Control-Max-Age': '86400'
   }
+}
+
+function validatePoAllocations(
+  allocations: CreatePackageRequest['po_allocations'],
+  itemCount: number
+): string | null {
+  if (allocations === undefined) return null
+  if (!Array.isArray(allocations)) {
+    return 'Invalid purchase order allocations payload: po_allocations must be an array'
+  }
+
+  for (const allocation of allocations) {
+    if (!allocation || typeof allocation !== 'object') {
+      return 'Invalid purchase order allocations payload: each allocation must be an object'
+    }
+
+    if (typeof allocation.purchase_order_item_id !== 'string' || !allocation.purchase_order_item_id.trim()) {
+      return 'Invalid purchase order allocations payload: purchase_order_item_id is required'
+    }
+
+    if (!Number.isInteger(allocation.item_index) || allocation.item_index < 0 || allocation.item_index >= itemCount) {
+      return 'Invalid purchase order allocations payload: item_index is out of bounds'
+    }
+
+    if (typeof allocation.quantity !== 'number' || !Number.isFinite(allocation.quantity) || allocation.quantity <= 0) {
+      return 'Invalid purchase order allocations payload: quantity must be greater than 0'
+    }
+  }
+
+  return null
+}
+
+function buildPoRequestedQuantities(
+  allocations: PurchaseOrderAllocationRequest[]
+): Map<string, number> {
+  const requestedByPoItemId = new Map<string, number>()
+
+  for (const allocation of allocations) {
+    const itemId = allocation.purchase_order_item_id.trim()
+    const current = requestedByPoItemId.get(itemId) ?? 0
+    requestedByPoItemId.set(itemId, current + allocation.quantity)
+  }
+
+  return requestedByPoItemId
+}
+
+type PoBalanceValidationError = {
+  status: number
+  error: string
+  details?: string
+}
+
+async function validatePoRemainingQuantities(
+  adminClient: ReturnType<typeof createClient>,
+  requestedByPoItemId: Map<string, number>
+): Promise<PoBalanceValidationError | null> {
+  const poItemIds = Array.from(requestedByPoItemId.keys())
+  if (poItemIds.length === 0) return null
+
+  const { data: poBalanceRows, error: poBalanceError } = await adminClient
+    .from('purchase_order_item_balances')
+    .select('purchase_order_item_id, remaining_quantity')
+    .in('purchase_order_item_id', poItemIds)
+
+  if (poBalanceError) {
+    return {
+      status: 500,
+      error: 'Failed to validate purchase order allocations',
+      details: poBalanceError.message
+    }
+  }
+
+  const remainingByPoItemId = new Map<string, number>()
+  for (const row of poBalanceRows ?? []) {
+    const typedRow = row as { purchase_order_item_id: string; remaining_quantity: number | string | null }
+    remainingByPoItemId.set(typedRow.purchase_order_item_id, Number(typedRow.remaining_quantity ?? 0))
+  }
+
+  for (const [poItemId, requestedQuantity] of requestedByPoItemId.entries()) {
+    if (!remainingByPoItemId.has(poItemId)) {
+      return {
+        status: 400,
+        error: `Purchase order item '${poItemId}' not found in balances`
+      }
+    }
+
+    const remainingQuantity = remainingByPoItemId.get(poItemId) ?? 0
+    if (requestedQuantity > remainingQuantity) {
+      return {
+        status: 400,
+        error: `Selected quantity exceeds remaining purchase order quantity for item '${poItemId}' (requested: ${requestedQuantity}, remaining: ${remainingQuantity})`
+      }
+    }
+  }
+
+  return null
 }
 
 serve(async (req) => {
@@ -121,7 +224,7 @@ serve(async (req) => {
 
     // Parse request body
     const body: CreatePackageRequest = await req.json()
-    const { receiver_email, notes, items, delivery_location_id, po_number } = body
+    const { receiver_email, notes, items, po_allocations, delivery_location_id, po_number } = body
 
     if (!receiver_email) {
       return new Response(
@@ -139,6 +242,16 @@ serve(async (req) => {
       )
     }
 
+    const poAllocationValidationError = validatePoAllocations(po_allocations, items?.length ?? 0)
+    if (poAllocationValidationError) {
+      return new Response(
+        JSON.stringify({ error: poAllocationValidationError }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    const poAllocations = po_allocations ?? []
+
     // Admin client for operations
     const adminClient = createClient(supabaseUrl, supabaseServiceKey, {
       auth: { autoRefreshToken: false, persistSession: false }
@@ -148,6 +261,20 @@ serve(async (req) => {
     const initialStatus = (typeof (body as any).status === 'string' && (body as any).status?.trim())
       ? (body as any).status.trim().toLowerCase()
       : 'pending'
+
+    if (poAllocations.length > 0) {
+      const requestedByPoItemId = buildPoRequestedQuantities(poAllocations)
+      const poAllocationError = await validatePoRemainingQuantities(adminClient, requestedByPoItemId)
+      if (poAllocationError) {
+        return new Response(
+          JSON.stringify({
+            error: poAllocationError.error,
+            ...(poAllocationError.details ? { details: poAllocationError.details } : {})
+          }),
+          { status: poAllocationError.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+    }
 
     // Create package (reference is auto-generated by trigger)
     const { data: newPackage, error: packageError } = await adminClient
@@ -176,10 +303,14 @@ serve(async (req) => {
 
     // Insert package items if provided
     let packageItems: PackageItemResponse[] = []
+    const packageItemIdByItemIndex = new Map<number, string>()
     if (items && items.length > 0) {
-      const itemsToInsert = items
-        .filter(item => item.description?.trim() && item.quantity > 0)
-        .map(item => ({
+      const validItems = items
+        .map((item, itemIndex) => ({ item, itemIndex }))
+        .filter(({ item }) => item.description?.trim() && item.quantity > 0)
+
+      const itemsToInsert = validItems
+        .map(({ item }) => ({
           package_id: newPackage.id,
           quantity: item.quantity,
           description: item.description.trim(),
@@ -197,7 +328,57 @@ serve(async (req) => {
           // Don't fail the entire request, package was created successfully
         } else if (insertedItems) {
           packageItems = insertedItems
+          for (let i = 0; i < insertedItems.length; i += 1) {
+            const originalItemIndex = validItems[i]?.itemIndex
+            if (originalItemIndex !== undefined) {
+              packageItemIdByItemIndex.set(originalItemIndex, insertedItems[i].id)
+            }
+          }
         }
+      }
+    }
+
+    if (poAllocations.length > 0) {
+      const requestedByPoItemId = buildPoRequestedQuantities(poAllocations)
+      const poAllocationError = await validatePoRemainingQuantities(adminClient, requestedByPoItemId)
+      if (poAllocationError) {
+        return new Response(
+          JSON.stringify({
+            error: poAllocationError.error,
+            ...(poAllocationError.details ? { details: poAllocationError.details } : {})
+          }),
+          { status: poAllocationError.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      const missingAllocation = poAllocations.find((allocation) => !packageItemIdByItemIndex.has(allocation.item_index))
+      if (missingAllocation) {
+        return new Response(
+          JSON.stringify({
+            error: `Purchase order allocation references a package item that was not inserted (item_index: ${missingAllocation.item_index})`
+          }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      const allocationRows = poAllocations.map((allocation) => ({
+        purchase_order_item_id: allocation.purchase_order_item_id.trim(),
+        package_item_id: packageItemIdByItemIndex.get(allocation.item_index)!,
+        allocated_quantity: allocation.quantity
+      }))
+
+      const { error: allocationError } = await adminClient
+        .from('purchase_order_item_allocations')
+        .insert(allocationRows)
+
+      if (allocationError) {
+        return new Response(
+          JSON.stringify({
+            error: 'Failed to persist purchase order allocations',
+            details: allocationError.message
+          }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
       }
     }
 
