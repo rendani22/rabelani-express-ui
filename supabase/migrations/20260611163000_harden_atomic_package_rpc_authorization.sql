@@ -265,3 +265,8 @@ $$;
 
 REVOKE ALL ON FUNCTION public.create_package_with_items_and_allocations(text, text, uuid, text, uuid, text, jsonb, jsonb) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.create_package_with_items_and_allocations(text, text, uuid, text, uuid, text, jsonb, jsonb) TO service_role;
+
+-- Restrict internal helper RPC exposure.
+REVOKE EXECUTE ON FUNCTION public.allocate_purchase_order_item_allocations(jsonb) FROM authenticated;
+REVOKE ALL ON FUNCTION public.allocate_purchase_order_item_allocations(jsonb) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.allocate_purchase_order_item_allocations(jsonb) TO service_role;

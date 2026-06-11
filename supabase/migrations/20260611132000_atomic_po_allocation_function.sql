@@ -117,5 +117,4 @@ END;
 $$;
 
 REVOKE ALL ON FUNCTION public.allocate_purchase_order_item_allocations(jsonb) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.allocate_purchase_order_item_allocations(jsonb) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.allocate_purchase_order_item_allocations(jsonb) TO service_role;
