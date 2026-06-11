@@ -28,6 +28,18 @@ CREATE TABLE IF NOT EXISTS public.purchase_order_item_allocations (
   CONSTRAINT purchase_order_item_allocations_unique UNIQUE (purchase_order_item_id, package_item_id)
 );
 
+CREATE INDEX IF NOT EXISTS purchase_order_items_purchase_order_id_idx
+  ON public.purchase_order_items (purchase_order_id);
+
+CREATE INDEX IF NOT EXISTS purchase_order_items_inventory_item_id_idx
+  ON public.purchase_order_items (inventory_item_id);
+
+CREATE INDEX IF NOT EXISTS purchase_order_item_allocations_purchase_order_item_id_idx
+  ON public.purchase_order_item_allocations (purchase_order_item_id);
+
+CREATE INDEX IF NOT EXISTS purchase_order_item_allocations_package_item_id_idx
+  ON public.purchase_order_item_allocations (package_item_id);
+
 CREATE OR REPLACE VIEW public.purchase_order_item_balances AS
 SELECT
   poi.id AS purchase_order_item_id,
