@@ -64,6 +64,7 @@ export class CreatePackageModalComponent {
   private readonly destroyRef = inject(DestroyRef);
   private readonly toastService = inject(ToastService);
   private readonly confirmService = inject(ConfirmService);
+  private poLookupRequestSequence = 0;
 
   // =========================================================================
   // Inputs & Outputs
@@ -266,6 +267,7 @@ export class CreatePackageModalComponent {
    */
   async onPoLookup(): Promise<void> {
     const poNumber = this.form.controls.poNumber.value.trim();
+    const requestSequence = ++this.poLookupRequestSequence;
     if (!poNumber) {
       this.poLookupState.set('idle');
       this.poLines.set([]);
@@ -280,9 +282,12 @@ export class CreatePackageModalComponent {
     try {
       result = await this.packageService.getPurchaseOrderByNumber(poNumber);
     } catch {
+      if (!this.isActivePoLookupResponse(requestSequence, poNumber)) return;
       this.poLookupState.set('not_found');
       return;
     }
+
+    if (!this.isActivePoLookupResponse(requestSequence, poNumber)) return;
 
     if (!result.success) {
       this.poLookupState.set('not_found');
@@ -891,6 +896,16 @@ export class CreatePackageModalComponent {
   }
 
   /**
+   * Guards state mutations so stale PO lookup responses are ignored.
+   */
+  private isActivePoLookupResponse(requestSequence: number, poNumber: string): boolean {
+    return (
+      requestSequence === this.poLookupRequestSequence
+      && this.form.controls.poNumber.value.trim() === poNumber
+    );
+  }
+
+  /**
    * Deducts inventory stock for all form items that have an inventoryItemId selected.
    * Non-fatal: errors do not prevent package creation from succeeding.
    */
@@ -1377,5 +1392,4 @@ export class CreatePackageModalComponent {
     printWindow.document.close();
   }
 }
-
 

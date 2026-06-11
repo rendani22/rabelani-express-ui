@@ -169,4 +169,40 @@ describe('CreatePackageModalComponent', () => {
     ]);
     expect(request.po_allocations).toBeUndefined();
   });
+
+  it('ignores stale PO lookup responses after poNumber changes', async () => {
+    let resolveLookup: ((value: Awaited<ReturnType<PackageService['getPurchaseOrderByNumber']>>) => void) | null = null;
+    packageServiceMock.getPurchaseOrderByNumber.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveLookup = resolve;
+        }),
+    );
+
+    component.form.controls.poNumber.setValue('PO-1001');
+    const lookupPromise = component.onPoLookup();
+    component.form.controls.poNumber.setValue('PO-2002');
+
+    resolveLookup?.({
+      success: true,
+      data: {
+        poNumber: 'PO-1001',
+        items: [
+          {
+            purchaseOrderItemId: 'poi-1',
+            purchaseOrderId: 'po-1',
+            inventoryItemId: 'inv-1',
+            orderedQuantity: 10,
+            allocatedQuantity: 4,
+            remainingQuantity: 6,
+          },
+        ],
+      },
+    });
+
+    await lookupPromise;
+
+    expect(component.poLookupState()).toBe('idle');
+    expect(component.poLines()).toEqual([]);
+  });
 });
