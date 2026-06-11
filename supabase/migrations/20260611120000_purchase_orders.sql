@@ -28,6 +28,127 @@ CREATE TABLE IF NOT EXISTS public.purchase_order_item_allocations (
   CONSTRAINT purchase_order_item_allocations_unique UNIQUE (purchase_order_item_id, package_item_id)
 );
 
+ALTER TABLE public.purchase_orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.purchase_order_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.purchase_order_item_allocations ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "purchase_orders_select_authenticated" ON public.purchase_orders;
+CREATE POLICY "purchase_orders_select_authenticated"
+  ON public.purchase_orders
+  FOR SELECT
+  TO authenticated
+  USING (true);
+
+DROP POLICY IF EXISTS "purchase_orders_mutate_warehouse_admin" ON public.purchase_orders;
+CREATE POLICY "purchase_orders_mutate_warehouse_admin"
+  ON public.purchase_orders
+  FOR ALL
+  TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM public.staff_profiles sp
+      WHERE sp.user_id = auth.uid()
+        AND sp.is_active
+        AND sp.role = ANY (ARRAY['warehouse'::public.staff_role, 'admin'::public.staff_role])
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM public.staff_profiles sp
+      WHERE sp.user_id = auth.uid()
+        AND sp.is_active
+        AND sp.role = ANY (ARRAY['warehouse'::public.staff_role, 'admin'::public.staff_role])
+    )
+  );
+
+DROP POLICY IF EXISTS "purchase_orders_service_role_all" ON public.purchase_orders;
+CREATE POLICY "purchase_orders_service_role_all"
+  ON public.purchase_orders
+  FOR ALL
+  TO service_role
+  USING (true)
+  WITH CHECK (true);
+
+DROP POLICY IF EXISTS "purchase_order_items_select_authenticated" ON public.purchase_order_items;
+CREATE POLICY "purchase_order_items_select_authenticated"
+  ON public.purchase_order_items
+  FOR SELECT
+  TO authenticated
+  USING (true);
+
+DROP POLICY IF EXISTS "purchase_order_items_mutate_warehouse_admin" ON public.purchase_order_items;
+CREATE POLICY "purchase_order_items_mutate_warehouse_admin"
+  ON public.purchase_order_items
+  FOR ALL
+  TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM public.staff_profiles sp
+      WHERE sp.user_id = auth.uid()
+        AND sp.is_active
+        AND sp.role = ANY (ARRAY['warehouse'::public.staff_role, 'admin'::public.staff_role])
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM public.staff_profiles sp
+      WHERE sp.user_id = auth.uid()
+        AND sp.is_active
+        AND sp.role = ANY (ARRAY['warehouse'::public.staff_role, 'admin'::public.staff_role])
+    )
+  );
+
+DROP POLICY IF EXISTS "purchase_order_items_service_role_all" ON public.purchase_order_items;
+CREATE POLICY "purchase_order_items_service_role_all"
+  ON public.purchase_order_items
+  FOR ALL
+  TO service_role
+  USING (true)
+  WITH CHECK (true);
+
+DROP POLICY IF EXISTS "purchase_order_item_allocations_select_authenticated" ON public.purchase_order_item_allocations;
+CREATE POLICY "purchase_order_item_allocations_select_authenticated"
+  ON public.purchase_order_item_allocations
+  FOR SELECT
+  TO authenticated
+  USING (true);
+
+DROP POLICY IF EXISTS "purchase_order_item_allocations_mutate_warehouse_admin" ON public.purchase_order_item_allocations;
+CREATE POLICY "purchase_order_item_allocations_mutate_warehouse_admin"
+  ON public.purchase_order_item_allocations
+  FOR ALL
+  TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM public.staff_profiles sp
+      WHERE sp.user_id = auth.uid()
+        AND sp.is_active
+        AND sp.role = ANY (ARRAY['warehouse'::public.staff_role, 'admin'::public.staff_role])
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM public.staff_profiles sp
+      WHERE sp.user_id = auth.uid()
+        AND sp.is_active
+        AND sp.role = ANY (ARRAY['warehouse'::public.staff_role, 'admin'::public.staff_role])
+    )
+  );
+
+DROP POLICY IF EXISTS "purchase_order_item_allocations_service_role_all" ON public.purchase_order_item_allocations;
+CREATE POLICY "purchase_order_item_allocations_service_role_all"
+  ON public.purchase_order_item_allocations
+  FOR ALL
+  TO service_role
+  USING (true)
+  WITH CHECK (true);
+
 CREATE INDEX IF NOT EXISTS purchase_order_items_purchase_order_id_idx
   ON public.purchase_order_items (purchase_order_id);
 
