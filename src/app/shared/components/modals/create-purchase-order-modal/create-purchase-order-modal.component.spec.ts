@@ -30,6 +30,28 @@ describe('CreatePurchaseOrderModalComponent', () => {
     expect(component.form.controls.items.errors?.['minlength']).toBeTruthy();
   });
 
+  it('treats whitespace-only poNumber as invalid', () => {
+    component.form.controls.poNumber.setValue('   ');
+    component.addLine();
+    const line = component.itemsArray.at(0);
+    line.controls.inventoryItemId.setValue('inv-1');
+    line.controls.orderedQuantity.setValue(1);
+
+    expect(component.form.valid).toBe(false);
+    expect(component.form.controls.poNumber.errors?.['required']).toBeTruthy();
+  });
+
+  it('treats whitespace-only inventoryItemId as invalid', () => {
+    component.form.controls.poNumber.setValue('PO-123');
+    component.addLine();
+    const line = component.itemsArray.at(0);
+    line.controls.inventoryItemId.setValue('   ');
+    line.controls.orderedQuantity.setValue(1);
+
+    expect(component.form.valid).toBe(false);
+    expect(line.controls.inventoryItemId.errors?.['required']).toBeTruthy();
+  });
+
   it('adds and removes lines', () => {
     const initialCount = component.itemsArray.length;
 

@@ -1,11 +1,14 @@
 import { ChangeDetectionStrategy, Component, inject, input, output, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import {
+  AbstractControl,
   FormArray,
   FormBuilder,
   FormControl,
   FormGroup,
   ReactiveFormsModule,
+  ValidationErrors,
+  ValidatorFn,
   Validators,
 } from '@angular/forms';
 
@@ -23,6 +26,14 @@ type PurchaseOrderLineFormGroup = FormGroup<{
   inventoryItemId: FormControl<string>;
   orderedQuantity: FormControl<number>;
 }>;
+
+const trimRequired: ValidatorFn = (control: AbstractControl): ValidationErrors | null => {
+  const value = control.value;
+  if (typeof value === 'string' && value.trim().length === 0) {
+    return { required: true };
+  }
+  return null;
+};
 
 @Component({
   selector: 'app-create-purchase-order-modal',
@@ -42,7 +53,7 @@ export class CreatePurchaseOrderModalComponent {
   readonly errorMessage = signal<string | null>(null);
 
   readonly form = this.fb.nonNullable.group({
-    poNumber: this.fb.nonNullable.control('', [Validators.required]),
+    poNumber: this.fb.nonNullable.control('', [Validators.required, trimRequired]),
     items: this.fb.array<PurchaseOrderLineFormGroup>([], [Validators.required, Validators.minLength(1)]),
   });
 
@@ -53,7 +64,7 @@ export class CreatePurchaseOrderModalComponent {
   addLine(): void {
     this.itemsArray.push(
       this.fb.nonNullable.group({
-        inventoryItemId: ['', [Validators.required]],
+        inventoryItemId: ['', [Validators.required, trimRequired]],
         orderedQuantity: [1, [Validators.required, Validators.min(1)]],
       })
     );
