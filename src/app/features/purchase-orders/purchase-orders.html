@@ -14,14 +14,23 @@
           </div>
         </div>
       </div>
-      <button
-        type="button"
-        class="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-        (click)="onRefresh()"
-        [disabled]="isLoading()">
-        <ng-icon name="tablerRefresh" size="16" [class.animate-spin]="isLoading()"></ng-icon>
-        Refresh
-      </button>
+      <div class="flex items-center gap-2">
+        <button
+          type="button"
+          class="flex items-center gap-2 px-4 py-2 bg-violet-600 text-white rounded-lg text-sm hover:bg-violet-700 transition-colors"
+          (click)="onOpenCreatePo()">
+          <ng-icon name="tablerFileInvoice" size="16"></ng-icon>
+          Create PO
+        </button>
+        <button
+          type="button"
+          class="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+          (click)="onRefresh()"
+          [disabled]="isLoading()">
+          <ng-icon name="tablerRefresh" size="16" [class.animate-spin]="isLoading()"></ng-icon>
+          Refresh
+        </button>
+      </div>
     </div>
 
     <!-- ── Stats cards ── -->
@@ -154,7 +163,7 @@
             @if (searchTerm || activeStatusFilter() !== 'all') {
               Try adjusting your search or filters.
             } @else {
-              Purchase orders appear here when packages are created with a PO number. Add a PO number when creating a new order.
+              Purchase orders appear here once created. Use Create PO to add your first purchase order.
             }
           </p>
           @if (searchTerm || activeStatusFilter() !== 'all') {
@@ -377,4 +386,10 @@
     }
 
   </div>
+
+  <app-create-purchase-order-modal
+    [isOpen]="createPoModalOpen()"
+    (closeModal)="onCloseCreatePo()"
+    (created)="onPurchaseOrderCreated($event)">
+  </app-create-purchase-order-modal>
 </app-layout>

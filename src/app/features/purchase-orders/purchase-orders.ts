@@ -3,7 +3,6 @@ import {
   OnInit,
   inject,
   signal,
-  computed,
   ChangeDetectionStrategy,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -31,23 +30,30 @@ import {
 
 import { LayoutComponent } from '../../shared/components/layout/layout.component';
 import { PurchaseOrdersService } from './services/purchase-orders.service';
+import { PurchaseOrderCrudService } from './services/purchase-order-crud.service';
 import {
   PurchaseOrder,
   PurchaseOrderStatus,
   PurchaseOrderFilters,
 } from './purchase-orders.models';
 import { Package, PACKAGE_STATUS } from '../../core/models/package.models';
+import {
+  CreatePurchaseOrderModalComponent,
+  CreatePurchaseOrderRequest,
+} from '../../shared/components/modals';
+import { ToastService } from '../../shared/components/toast/toast.service';
 
 @Component({
   selector: 'app-purchase-orders',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  providers: [PurchaseOrdersService],
+  providers: [PurchaseOrdersService, PurchaseOrderCrudService],
   imports: [
     CommonModule,
     FormsModule,
     LayoutComponent,
     NgIcon,
+    CreatePurchaseOrderModalComponent,
   ],
   viewProviders: [
     provideIcons({
@@ -74,6 +80,8 @@ import { Package, PACKAGE_STATUS } from '../../core/models/package.models';
 })
 export class PurchaseOrdersComponent implements OnInit {
   private readonly service = inject(PurchaseOrdersService);
+  private readonly purchaseOrderCrud = inject(PurchaseOrderCrudService);
+  private readonly toastService = inject(ToastService);
   private readonly router = inject(Router);
 
   // Exposed service state for the template
@@ -90,6 +98,8 @@ export class PurchaseOrdersComponent implements OnInit {
 
   /** Active status tab */
   activeStatusFilter = signal<PurchaseOrderFilters['status']>('all');
+  readonly createPoModalOpen = signal(false);
+  readonly isCreatingPo = signal(false);
 
   readonly statusTabs: Array<{ key: PurchaseOrderFilters['status']; label: string }> = [
     { key: 'all', label: 'All' },
@@ -139,6 +149,36 @@ export class PurchaseOrdersComponent implements OnInit {
   }
 
   async onRefresh(): Promise<void> {
+    await this.service.load();
+  }
+
+  onOpenCreatePo(): void {
+    this.createPoModalOpen.set(true);
+  }
+
+  onCloseCreatePo(): void {
+    if (this.isCreatingPo()) return;
+    this.createPoModalOpen.set(false);
+  }
+
+  async onPurchaseOrderCreated(request: CreatePurchaseOrderRequest): Promise<void> {
+    this.isCreatingPo.set(true);
+    const result = await this.purchaseOrderCrud.createPurchaseOrder({
+      poNumber: request.poNumber,
+      items: request.items.map(item => ({
+        inventoryItemId: item.inventoryItemId,
+        orderedQuantity: item.orderedQuantity,
+      })),
+    });
+    this.isCreatingPo.set(false);
+
+    if (!result.success) {
+      this.toastService.error(result.error ?? 'Failed to create purchase order.');
+      return;
+    }
+
+    this.toastService.success(`Purchase order ${request.poNumber} created successfully.`);
+    this.createPoModalOpen.set(false);
     await this.service.load();
   }
 

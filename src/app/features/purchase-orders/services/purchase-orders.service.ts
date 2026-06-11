@@ -1,6 +1,5 @@
 import { Injectable, inject, signal, computed } from '@angular/core';
 import { SupabaseService } from '../../../shared/services/supabase.service';
-import { InventoryService } from '../../../core/services/inventory.service';
 import { Package } from '../../../core/models/package.models';
 import { InventoryItem } from '../../../core/models/inventory.models';
 import {
@@ -8,19 +7,17 @@ import {
   PurchaseOrderStats,
   PurchaseOrderInventoryRef,
   PurchaseOrderFilters,
-  derivePurchaseOrderStatus,
 } from '../purchase-orders.models';
 
 /**
  * Feature-local service for the Purchase Orders section.
  *
- * Loads all packages that have a `po_number`, groups them by PO, then
- * resolves the linked inventory items via `package_items.inventory_item_id`.
+ * Loads first-class purchase orders and items from `purchase_orders`, then
+ * hydrates linked inventory and package context for display/search behavior.
  */
 @Injectable()
 export class PurchaseOrdersService {
   private readonly supabase = inject(SupabaseService);
-  private readonly inventoryService = inject(InventoryService);
 
   // ============================================================================
   // State
@@ -87,99 +84,136 @@ export class PurchaseOrdersService {
     this.error.set(null);
 
     try {
-      // 1. Load all packages that have a po_number, with their items
-      const { data: rawPackages, error: pkgError } = await this.supabase.client
-        .from('packages')
-        .select('*, items:package_items(id, quantity, description, inventory_item_id)')
-        .not('po_number', 'is', null)
-        .is('deleted_at', null)
+      const { data: rawOrders, error: ordersError } = await this.supabase.client
+        .from('purchase_orders')
+        .select(`
+          id,
+          po_number,
+          status,
+          created_at,
+          updated_at,
+          items:purchase_order_items(
+            id,
+            inventory_item_id,
+            ordered_quantity
+          )
+        `)
         .order('created_at', { ascending: false });
 
-      if (pkgError) {
-        this.error.set(pkgError.message);
+      if (ordersError) {
+        this.error.set(ordersError.message);
         return;
       }
 
-      const packages = (rawPackages ?? []) as Package[];
+      const orders = (rawOrders ?? []) as PurchaseOrderRow[];
+      if (orders.length === 0) {
+        this._allPurchaseOrders.set([]);
+        return;
+      }
 
-      // 2. Collect all unique inventory_item_ids across all package items
+      const poIds = orders.map(order => order.id);
+      const poNumbers = orders.map(order => order.po_number);
       const inventoryItemIds = Array.from(
         new Set(
-          packages.flatMap(pkg =>
-            (pkg.items ?? [])
+          orders.flatMap(order =>
+            (order.items ?? [])
               .map(item => item.inventory_item_id)
               .filter((id): id is string => !!id)
           )
         )
       );
 
-      // 3. Fetch referenced inventory items in one query
-      let inventoryMap = new Map<string, InventoryItem>();
+      const inventoryMap = new Map<string, InventoryItem>();
       if (inventoryItemIds.length > 0) {
         const { data: invItems } = await this.supabase.client
           .from('inventory_items')
           .select('*')
           .in('id', inventoryItemIds);
 
-        inventoryMap = new Map(
-          (invItems ?? []).map((item: InventoryItem) => [item.id, item])
-        );
-      }
-
-      // 4. Group packages by po_number
-      const groupMap = new Map<string, Package[]>();
-      for (const pkg of packages) {
-        const po = pkg.po_number!;
-        if (!groupMap.has(po)) groupMap.set(po, []);
-        groupMap.get(po)!.push(pkg);
-      }
-
-      // 5. Build PurchaseOrder objects
-      const purchaseOrders: PurchaseOrder[] = [];
-      for (const [poNumber, pkgs] of groupMap.entries()) {
-        // Build inventory refs: aggregate by inventory_item_id
-        const refMap = new Map<string, { qty: number; pkgCount: number }>();
-        for (const pkg of pkgs) {
-          for (const item of pkg.items ?? []) {
-            if (!item.inventory_item_id) continue;
-            const existing = refMap.get(item.inventory_item_id) ?? { qty: 0, pkgCount: 0 };
-            refMap.set(item.inventory_item_id, {
-              qty: existing.qty + item.quantity,
-              pkgCount: existing.pkgCount + 1,
-            });
-          }
+        for (const item of (invItems ?? []) as InventoryItem[]) {
+          inventoryMap.set(item.id, item);
         }
-
-        const inventoryRefs: PurchaseOrderInventoryRef[] = Array.from(refMap.entries()).map(
-          ([id, agg]) => ({
-            inventoryItemId: id,
-            item: inventoryMap.get(id) ?? null,
-            totalQuantity: agg.qty,
-            packageCount: agg.pkgCount,
-          })
-        );
-
-        const allDates = pkgs.map(p => p.created_at).sort();
-        const allUpdated = pkgs.map(p => p.updated_at ?? p.created_at).sort();
-        const totalItems = pkgs.reduce((s, p) => s + (p.items ?? []).length, 0);
-
-        purchaseOrders.push({
-          poNumber,
-          packages: pkgs,
-          inventoryRefs,
-          createdAt: allDates[0],
-          updatedAt: allUpdated[allUpdated.length - 1],
-          derivedStatus: derivePurchaseOrderStatus(pkgs),
-          totalItems,
-        });
       }
 
-      // Sort by most recent first
-      purchaseOrders.sort(
-        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      );
+      const balancesByItemId = new Map<string, PurchaseOrderItemBalanceRow>();
+      const { data: balanceRows } = await this.supabase.client
+        .from('purchase_order_item_balances')
+        .select(
+          'purchase_order_item_id,purchase_order_id,inventory_item_id,ordered_quantity,allocated_quantity,remaining_quantity'
+        )
+        .in('purchase_order_id', poIds);
 
-      this._allPurchaseOrders.set(purchaseOrders);
+      for (const balance of (balanceRows ?? []) as PurchaseOrderItemBalanceRow[]) {
+        balancesByItemId.set(balance.purchase_order_item_id, balance);
+      }
+
+      const packagesByPoNumber = new Map<string, Package[]>();
+      const { data: rawPackages } = await this.supabase.client
+        .from('packages')
+        .select('*, items:package_items(id, quantity, description, inventory_item_id)')
+        .in('po_number', poNumbers)
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false });
+
+      for (const pkg of (rawPackages ?? []) as Package[]) {
+        const poNumber = pkg.po_number;
+        if (!poNumber) continue;
+        if (!packagesByPoNumber.has(poNumber)) {
+          packagesByPoNumber.set(poNumber, []);
+        }
+        packagesByPoNumber.get(poNumber)!.push(pkg);
+      }
+
+      this._allPurchaseOrders.set(
+        orders.map(order => {
+          const packages = packagesByPoNumber.get(order.po_number) ?? [];
+          const refsByInventory = new Map<string, { qty: number; packageIds: Set<string> }>();
+
+          for (const item of order.items ?? []) {
+            if (!item.inventory_item_id) continue;
+            const balance = balancesByItemId.get(item.id);
+            const quantity = balance ? Number(balance.ordered_quantity) : Number(item.ordered_quantity);
+            const agg = refsByInventory.get(item.inventory_item_id) ?? {
+              qty: 0,
+              packageIds: new Set<string>(),
+            };
+            agg.qty += quantity;
+
+            for (const pkg of packages) {
+              const hasMatch = (pkg.items ?? []).some(
+                pkgItem => pkgItem.inventory_item_id === item.inventory_item_id
+              );
+              if (hasMatch) agg.packageIds.add(pkg.id);
+            }
+
+            refsByInventory.set(item.inventory_item_id, agg);
+          }
+
+          const inventoryRefs: PurchaseOrderInventoryRef[] = Array.from(refsByInventory.entries()).map(
+            ([inventoryItemId, value]) => ({
+              inventoryItemId,
+              item: inventoryMap.get(inventoryItemId) ?? null,
+              totalQuantity: value.qty,
+              packageCount: value.packageIds.size,
+            })
+          );
+
+          const totalItems = (order.items ?? []).reduce(
+            (sum, item) => sum + Number(item.ordered_quantity),
+            0
+          );
+
+          return {
+            poNumber: order.po_number,
+            packages,
+            inventoryRefs,
+            createdAt: order.created_at,
+            updatedAt: order.updated_at,
+            derivedStatus: mapPurchaseOrderStatus(order.status),
+            totalItems,
+          };
+        })
+      );
     } catch (err) {
       this.error.set(err instanceof Error ? err.message : 'Failed to load purchase orders');
     } finally {
@@ -197,5 +231,40 @@ export class PurchaseOrdersService {
 
   setStatusFilter(status: PurchaseOrderFilters['status']): void {
     this.filters.update(f => ({ ...f, status }));
+  }
+}
+
+interface PurchaseOrderRow {
+  readonly id: string;
+  readonly po_number: string;
+  readonly status: string;
+  readonly created_at: string;
+  readonly updated_at: string;
+  readonly items?: readonly PurchaseOrderItemRow[];
+}
+
+interface PurchaseOrderItemRow {
+  readonly id: string;
+  readonly inventory_item_id: string;
+  readonly ordered_quantity: number | string;
+}
+
+interface PurchaseOrderItemBalanceRow {
+  readonly purchase_order_item_id: string;
+  readonly purchase_order_id: string;
+  readonly inventory_item_id: string;
+  readonly ordered_quantity: number | string;
+  readonly allocated_quantity: number | string;
+  readonly remaining_quantity: number | string;
+}
+
+function mapPurchaseOrderStatus(status: string): PurchaseOrder['derivedStatus'] {
+  switch (status) {
+    case 'completed':
+    case 'in_progress':
+    case 'draft':
+      return status;
+    default:
+      return 'mixed';
   }
 }
