@@ -18,6 +18,7 @@ import {
   PackageActionResult,
   GetPackageResult,
   GetPackagesResult,
+  GetPurchaseOrderByNumberResult,
   CreatePackageSuccessResponse,
   UpdatePackageSuccessResponse,
   PackageActionSuccessResponse,
@@ -27,6 +28,7 @@ import {
   isPackageActionSuccess,
   isApiError,
   EDGE_FUNCTIONS,
+  PurchaseOrderItemBalanceSummary,
 } from '../models/package.models';
 
 /**
@@ -338,6 +340,69 @@ export class PackageService {
       }
 
       return { success: true, data: data as Package };
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * Looks up purchase-order balances by PO number for PO-aware create-order flows.
+   *
+   * @param poNumber - Purchase order number to search for
+   */
+  async getPurchaseOrderByNumber(poNumber: string): Promise<GetPurchaseOrderByNumberResult> {
+    try {
+      const trimmed = poNumber.trim();
+      if (!trimmed) {
+        return { success: false, error: 'PO number is required' };
+      }
+
+      const { data, error } = await this.supabaseService.client
+        .from('purchase_order_item_balances')
+        .select(
+          'purchase_order_item_id,purchase_order_id,inventory_item_id,ordered_quantity,allocated_quantity,remaining_quantity,purchase_orders!inner(po_number)'
+        )
+        .eq('purchase_orders.po_number', trimmed);
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      const items: PurchaseOrderItemBalanceSummary[] = (data ?? []).map((row) => {
+        const typedRow = row as {
+          purchase_order_item_id: string;
+          purchase_order_id: string;
+          inventory_item_id: string;
+          ordered_quantity: number | string;
+          allocated_quantity: number | string;
+          remaining_quantity: number | string | null;
+        };
+
+        const orderedQuantity = Number(typedRow.ordered_quantity);
+        const allocatedQuantity = Number(typedRow.allocated_quantity);
+        const computedRemaining = Math.max(0, orderedQuantity - allocatedQuantity);
+        const remainingQuantity =
+          typedRow.remaining_quantity === null || typedRow.remaining_quantity === undefined
+            ? computedRemaining
+            : Math.max(0, Number(typedRow.remaining_quantity));
+
+        return {
+          purchaseOrderItemId: typedRow.purchase_order_item_id,
+          purchaseOrderId: typedRow.purchase_order_id,
+          inventoryItemId: typedRow.inventory_item_id,
+          orderedQuantity,
+          allocatedQuantity,
+          remainingQuantity,
+        };
+      });
+
+      return {
+        success: true,
+        data: {
+          poNumber: trimmed,
+          items,
+        },
+      };
     } catch (error) {
       return this.handleError(error);
     }

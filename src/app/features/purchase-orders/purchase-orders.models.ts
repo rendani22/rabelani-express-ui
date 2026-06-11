@@ -11,6 +11,53 @@ import { InventoryItem } from '../../core/models/inventory.models';
 // Core entity
 // ============================================================================
 
+/** Raw PO item balance row returned from Supabase */
+export interface PurchaseOrderItemBalanceDto {
+  readonly purchase_order_item_id: string;
+  readonly purchase_order_id: string;
+  readonly inventory_item_id: string;
+  readonly ordered_quantity: number | string;
+  readonly allocated_quantity: number | string;
+  readonly remaining_quantity?: number | string | null;
+}
+
+/** Remaining quantity model used by PO-aware order creation UI */
+export interface PurchaseOrderItemBalance {
+  readonly purchaseOrderItemId: string;
+  readonly purchaseOrderId: string;
+  readonly inventoryItemId: string;
+  readonly orderedQuantity: number;
+  readonly allocatedQuantity: number;
+  readonly remainingQuantity: number;
+}
+
+export function computeRemainingQuantity(ordered: number, allocated: number): number {
+  return Math.max(0, ordered - allocated);
+}
+
+export function toPurchaseOrderItemBalance(
+  dto: PurchaseOrderItemBalanceDto
+): PurchaseOrderItemBalance {
+  const orderedQuantity = Number(dto.ordered_quantity);
+  const allocatedQuantity = Number(dto.allocated_quantity);
+  const remainingFromDto =
+    dto.remaining_quantity === null || dto.remaining_quantity === undefined
+      ? null
+      : Number(dto.remaining_quantity);
+
+  return {
+    purchaseOrderItemId: dto.purchase_order_item_id,
+    purchaseOrderId: dto.purchase_order_id,
+    inventoryItemId: dto.inventory_item_id,
+    orderedQuantity,
+    allocatedQuantity,
+    remainingQuantity:
+      remainingFromDto === null
+        ? computeRemainingQuantity(orderedQuantity, allocatedQuantity)
+        : Math.max(0, remainingFromDto),
+  };
+}
+
 /** An inventory item reference found inside a PO's package items */
 export interface PurchaseOrderInventoryRef {
   readonly inventoryItemId: string;

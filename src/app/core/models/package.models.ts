@@ -46,6 +46,13 @@ export interface PackageItemRequest {
   readonly inventory_item_id?: string | null;
 }
 
+/** PO allocation linked to one package item row in the create request */
+export interface PurchaseOrderAllocationRequest {
+  readonly purchase_order_item_id: string;
+  readonly item_index: number;
+  readonly quantity: number;
+}
+
 /** Request payload for creating a new package */
 export interface CreatePackageRequest {
   readonly receiver_email: string;
@@ -55,6 +62,7 @@ export interface CreatePackageRequest {
   readonly items?: readonly PackageItemRequest[];
   readonly delivery_location_id?: string;
   readonly po_number?: string;
+  readonly po_allocations?: readonly PurchaseOrderAllocationRequest[];
 }
 
 /** Proof-of-delivery party (receiver or witness) captured when marking collected */
@@ -366,6 +374,25 @@ export type GetPackageResult = PackageServiceResult<Package>;
 
 /** Result type for package list fetch */
 export type GetPackagesResult = PackageServiceResult<readonly Package[]>;
+
+/** PO item balance payload used by PO lookup in create-order flows */
+export interface PurchaseOrderItemBalanceSummary {
+  readonly purchaseOrderItemId: string;
+  readonly purchaseOrderId: string;
+  readonly inventoryItemId: string;
+  readonly orderedQuantity: number;
+  readonly allocatedQuantity: number;
+  readonly remainingQuantity: number;
+}
+
+/** Lookup response payload for PO number searches */
+export interface PurchaseOrderLookupData {
+  readonly poNumber: string;
+  readonly items: readonly PurchaseOrderItemBalanceSummary[];
+}
+
+/** Result type for PO lookup by number */
+export type GetPurchaseOrderByNumberResult = PackageServiceResult<PurchaseOrderLookupData>;
 
 // ============================================================================
 // Status Workflow Helpers
