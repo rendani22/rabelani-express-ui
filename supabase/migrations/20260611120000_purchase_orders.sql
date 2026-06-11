@@ -42,3 +42,19 @@ LEFT JOIN public.purchase_order_item_allocations poa
 GROUP BY poi.id;
 
 GRANT SELECT ON public.purchase_order_item_balances TO authenticated;
+
+DO $$
+BEGIN
+  IF to_regclass('public.purchase_orders') IS NULL THEN
+    RAISE EXCEPTION 'Missing required table: public.purchase_orders';
+  END IF;
+
+  IF to_regclass('public.purchase_order_items') IS NULL THEN
+    RAISE EXCEPTION 'Missing required table: public.purchase_order_items';
+  END IF;
+
+  IF to_regclass('public.purchase_order_item_allocations') IS NULL THEN
+    RAISE EXCEPTION 'Missing required table: public.purchase_order_item_allocations';
+  END IF;
+END;
+$$;
