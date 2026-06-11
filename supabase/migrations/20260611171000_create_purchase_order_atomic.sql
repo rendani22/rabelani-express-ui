@@ -21,7 +21,7 @@ BEGIN
   normalized_po_number := btrim(COALESCE(p_po_number, ''));
   payload_items := COALESCE(p_items, '[]'::jsonb);
 
-  IF caller_role <> 'service_role' THEN
+  IF COALESCE(caller_role, '') <> 'service_role' THEN
     IF caller_uid IS NULL THEN
       RAISE EXCEPTION 'Authentication required'
         USING DETAIL = 'No authenticated user context was found';
