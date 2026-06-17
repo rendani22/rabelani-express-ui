@@ -35,13 +35,17 @@ import {
   PurchaseOrder,
   PurchaseOrderStatus,
   PurchaseOrderFilters,
+  computeInventoryProgress,
 } from './purchase-orders.models';
-import { Package, PACKAGE_STATUS } from '../../core/models/package.models';
+import { Package, PACKAGE_STATUS } from '../../core';
 import {
   CreatePurchaseOrderModalComponent,
   CreatePurchaseOrderRequest,
+  EditPurchaseOrderModalComponent,
+  PurchaseOrderEditFormValue,
+  UpdatePurchaseOrderRequest,
 } from '../../shared/components/modals';
-import { ToastService } from '../../shared/components/toast/toast.service';
+import { ToastService } from '../../shared/components/toast';
 
 @Component({
   selector: 'app-purchase-orders',
@@ -54,6 +58,7 @@ import { ToastService } from '../../shared/components/toast/toast.service';
     LayoutComponent,
     NgIcon,
     CreatePurchaseOrderModalComponent,
+    EditPurchaseOrderModalComponent,
   ],
   viewProviders: [
     provideIcons({
@@ -100,6 +105,11 @@ export class PurchaseOrdersComponent implements OnInit {
   activeStatusFilter = signal<PurchaseOrderFilters['status']>('all');
   readonly createPoModalOpen = signal(false);
   readonly isCreatingPo = signal(false);
+  readonly editPoModalOpen = signal(false);
+  readonly selectedPoForEdit = signal<PurchaseOrderEditFormValue | null>(null);
+  readonly isUpdatingPo = signal(false);
+  readonly isOpeningEditPo = signal(false);
+  private editPoOpenRequestToken = 0;
 
   readonly statusTabs: Array<{ key: PurchaseOrderFilters['status']; label: string }> = [
     { key: 'all', label: 'All' },
@@ -182,6 +192,105 @@ export class PurchaseOrdersComponent implements OnInit {
     await this.service.load();
   }
 
+  canEdit(po: PurchaseOrder): boolean {
+    return po.source === 'purchase_order' && po.derivedStatus !== 'completed';
+  }
+
+  async onOpenEditPo(po: PurchaseOrder): Promise<void> {
+    if (!this.canEdit(po) || this.isOpeningEditPo()) return;
+
+    const requestToken = ++this.editPoOpenRequestToken;
+    this.isOpeningEditPo.set(true);
+
+    try {
+      const client = (this.purchaseOrderCrud as unknown as {
+        supabase: {
+          client: {
+            from: (table: string) => {
+              select: (query: string) => {
+                eq: (column: string, value: string) => {
+                  maybeSingle: () => Promise<{ data: { id: string } | null; error: { message: string } | null }>;
+                };
+              };
+            };
+          };
+        };
+      }).supabase.client;
+
+      const { data, error } = await client
+        .from('purchase_orders')
+        .select('id')
+        .eq('po_number', po.poNumber)
+        .maybeSingle();
+
+      if (requestToken !== this.editPoOpenRequestToken) return;
+
+      if (error) {
+        this.toastService.error(error.message || 'Failed to load purchase order for editing.');
+        return;
+      }
+
+      if (!data?.id) {
+        this.toastService.error('Purchase order not found.');
+        return;
+      }
+
+      const editResult = await this.purchaseOrderCrud.getPurchaseOrderForEdit(data.id);
+      if (requestToken !== this.editPoOpenRequestToken) return;
+      if (!editResult.success) {
+        this.toastService.error(editResult.error || 'Failed to load purchase order for editing.');
+        return;
+      }
+
+      this.selectedPoForEdit.set(editResult.data);
+      this.editPoModalOpen.set(true);
+    } catch {
+      if (requestToken !== this.editPoOpenRequestToken) return;
+      this.toastService.error('Failed to load purchase order for editing.');
+    } finally {
+      if (requestToken === this.editPoOpenRequestToken) {
+        this.isOpeningEditPo.set(false);
+      }
+    }
+  }
+
+  onCloseEditPo(): void {
+    if (this.isUpdatingPo()) return;
+    this.closeEditPoModal();
+  }
+
+  private closeEditPoModal(): void {
+    this.editPoModalOpen.set(false);
+    this.selectedPoForEdit.set(null);
+  }
+
+  async onPurchaseOrderUpdated(request: UpdatePurchaseOrderRequest): Promise<void> {
+    this.isUpdatingPo.set(true);
+    try {
+      const result = await this.purchaseOrderCrud.updatePurchaseOrder({
+        purchaseOrderId: request.purchaseOrderId,
+        poNumber: request.poNumber,
+        items: request.items.map(item => ({
+          purchaseOrderItemId: item.purchaseOrderItemId,
+          orderedQuantity: item.orderedQuantity,
+        })),
+      });
+
+      if (!result.success) {
+        this.toastService.error(result.error ?? 'Failed to update purchase order.');
+        return;
+      }
+
+      this.toastService.success(`Purchase order ${request.poNumber} updated successfully.`);
+      this.closeEditPoModal();
+      await this.service.load();
+    } catch {
+      this.toastService.error('Failed to update purchase order.');
+    } finally {
+      this.isUpdatingPo.set(false);
+    }
+  }
+
   /** Navigate to the Orders page pre-filtered to this PO */
   goToOrders(poNumber: string): void {
     this.router.navigate(['/orders'], { queryParams: { search: poNumber } });
@@ -260,6 +369,20 @@ export class PurchaseOrdersComponent implements OnInit {
       month: 'short',
       day: 'numeric',
     });
+  }
+
+  showCompletion(po: PurchaseOrder): boolean {
+    return po.source === 'purchase_order'
+      ? po.inventoryRefs.length > 0 || po.totalItems > 0
+      : po.packages.length > 0;
+  }
+
+  completionLabel(po: PurchaseOrder): string {
+    return po.source === 'purchase_order' ? 'allocated' : 'complete';
+  }
+
+  inventoryProgress(po: PurchaseOrder) {
+    return computeInventoryProgress(po.inventoryRefs);
   }
 
   trackByPoNumber(_: number, po: PurchaseOrder): string {

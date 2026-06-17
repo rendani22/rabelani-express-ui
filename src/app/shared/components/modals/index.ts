@@ -37,6 +37,9 @@ export * from './create-package-modal/create-package-modal.component';
 // Create Purchase Order Modal
 export * from './create-purchase-order-modal/create-purchase-order-modal.component';
 
+// Edit Purchase Order Modal
+export * from './edit-purchase-order-modal/edit-purchase-order-modal.component';
+
 // Package Details Panel
 export * from './package-details-panel/package-details-panel.component';
 

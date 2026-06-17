@@ -105,32 +105,90 @@
               @for (line of itemsArray.controls; track $index; let i = $index) {
                 <div [formGroupName]="i" class="p-3 rounded-lg border border-gray-200 dark:border-gray-700/60 bg-gray-50 dark:bg-gray-800/30">
                   <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 items-start">
-                    <div class="sm:col-span-7">
-                      <label [for]="'inventoryItemId-' + i" class="block text-xs font-medium mb-1 text-gray-600 dark:text-gray-300">
-                        Inventory Item ID
-                      </label>
-                      <input
-                        [id]="'inventoryItemId-' + i"
-                        type="text"
-                        formControlName="inventoryItemId"
-                        placeholder="inv-001"
-                        class="w-full px-3 py-2 rounded-lg border text-sm shadow-sm transition-colors
-                               bg-white dark:bg-gray-800/30
-                               border-gray-200 dark:border-gray-700/60
-                               text-gray-800 dark:text-gray-100
-                               placeholder:text-gray-400 dark:placeholder:text-gray-500
-                               hover:border-gray-300 dark:hover:border-gray-600
-                               focus:border-violet-500 dark:focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
-                        [class.border-red-400]="getLineFieldError(i, 'inventoryItemId')"
-                      />
-                      @if (getLineFieldError(i, 'inventoryItemId'); as error) {
-                        <p class="text-xs mt-1 text-red-500" role="alert">{{ error }}</p>
+                    <div class="sm:col-span-7 relative">
+                      @if (!line.get('inventoryItemId')?.value) {
+                        <!-- Search/dropdown for unselected items -->
+                        <label [for]="'inventorySearch-' + i" class="block text-xs font-medium mb-1 text-gray-600 dark:text-gray-300">
+                          Select Inventory Item
+                        </label>
+                        <input
+                          [id]="'inventorySearch-' + i"
+                          type="text"
+                          [value]="inventorySearch()"
+                          (input)="inventorySearch.set($any($event.target).value)"
+                          placeholder="Search by name, SKU, or ID…"
+                          class="w-full px-3 py-2 rounded-lg border text-sm shadow-sm transition-colors
+                                 bg-white dark:bg-gray-800/30
+                                 border-gray-200 dark:border-gray-700/60
+                                 text-gray-800 dark:text-gray-100
+                                 placeholder:text-gray-400 dark:placeholder:text-gray-500
+                                 hover:border-gray-300 dark:hover:border-gray-600
+                                 focus:border-violet-500 dark:focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                          [class.border-red-400]="getLineFieldError(i, 'inventoryItemId')"
+                        />
+
+                        <!-- Dropdown list of filtered inventory items -->
+                        @if (inventorySearch()) {
+                          <div class="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700/60 rounded-lg shadow-lg z-50 max-h-48 overflow-y-auto">
+                            @if (filteredInventoryItems().length > 0) {
+                              @for (item of filteredInventoryItems(); track item.id) {
+                                <button
+                                  type="button"
+                                  (click)="selectInventoryItem(item.id, i)"
+                                  class="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors border-b border-gray-100 dark:border-gray-700 last:border-0">
+                                  <div class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ item.name }}</div>
+                                  <div class="text-xs text-gray-600 dark:text-gray-400">
+                                    @if (item.sku) {
+                                      <span>SKU: {{ item.sku }}</span>
+                                      <span class="mx-1">·</span>
+                                    }
+                                    <span>
+                                      Stock:
+                                      <strong [class]="item.quantity <= 0 ? 'text-red-500' : 'text-gray-700 dark:text-gray-300'">
+                                        {{ item.quantity }}
+                                      </strong>
+                                      {{ item.unit }}
+                                    </span>
+                                  </div>
+                                </button>
+                              }
+                            } @else {
+                              <div class="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">No matching items</div>
+                            }
+                          </div>
+                        }
+
+                        @if (getLineFieldError(i, 'inventoryItemId'); as error) {
+                          <p class="text-xs mt-1 text-red-500" role="alert">{{ error }}</p>
+                        }
+                      } @else {
+                        <!-- Selected item display -->
+                        <label class="block text-xs font-medium mb-1 text-gray-600 dark:text-gray-300">
+                          Inventory Item
+                        </label>
+                        <div class="flex items-center justify-between px-3 py-2 rounded-lg bg-white dark:bg-gray-800/30 border border-gray-200 dark:border-gray-700/60">
+                          <div class="flex-1">
+                            <div class="text-sm font-medium text-gray-900 dark:text-gray-100">
+                              {{ getSelectedItemName((line.get('inventoryItemId')?.value || '')) }}
+                            </div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400">
+                              Stock: {{ itemDetails().get((line.get('inventoryItemId')?.value || ''))?.quantity ?? 0 }} {{ itemDetails().get((line.get('inventoryItemId')?.value || ''))?.unit ?? '' }}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            (click)="line.get('inventoryItemId')?.setValue('')"
+                            class="ml-2 px-2 py-1 text-xs text-gray-500 hover:text-red-500 transition-colors"
+                          >
+                            Change
+                          </button>
+                        </div>
                       }
                     </div>
 
                     <div class="sm:col-span-3">
                       <label [for]="'orderedQuantity-' + i" class="block text-xs font-medium mb-1 text-gray-600 dark:text-gray-300">
-                        Quantity
+                        Ordered Qty
                       </label>
                       <input
                         [id]="'orderedQuantity-' + i"

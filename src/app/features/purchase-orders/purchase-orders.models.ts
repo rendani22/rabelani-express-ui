@@ -4,8 +4,7 @@
  * the `package_items.inventory_item_id` column.
  */
 
-import { Package, PackageStatus } from '../../core/models/package.models';
-import { InventoryItem } from '../../core/models/inventory.models';
+import { InventoryItem, Package, PackageStatus } from '../../core';
 
 // ============================================================================
 // Core entity
@@ -71,21 +70,8 @@ export interface PurchaseOrderInventoryRef {
   readonly packageCount: number;
 }
 
-/** A Purchase Order: a logical grouping of packages that share a PO number */
-export interface PurchaseOrder {
-  readonly poNumber: string;
-  readonly packages: readonly Package[];
-  readonly inventoryRefs: readonly PurchaseOrderInventoryRef[];
-  /** Earliest created_at among the packages */
-  readonly createdAt: string;
-  /** Latest updated_at among the packages */
-  readonly updatedAt: string;
-  readonly derivedStatus: PurchaseOrderStatus;
-  readonly totalItems: number;
-}
-
 // ============================================================================
-// Status derivation
+// Status derivation  (must be declared before progress helpers below)
 // ============================================================================
 
 /**
@@ -121,6 +107,155 @@ export function derivePurchaseOrderStatus(packages: readonly Package[]): Purchas
   const hasActive = statuses.some(s => ACTIVE_STATUSES.has(s));
   if (hasActive) return 'in_progress';
   return 'mixed';
+}
+
+// ============================================================================
+// Progress / completion
+// ============================================================================
+
+/**
+ * Breakdown of linked orders by lifecycle bucket.
+ * Used to power the progress bar and status counts in the UI.
+ */
+export interface PurchaseOrderOrderBreakdown {
+  readonly total: number;
+  /** Packages in a terminal state (collected / delivered / returned) */
+  readonly terminal: number;
+  /** Packages actively in-flight (pending → ready_for_collection) */
+  readonly active: number;
+  readonly draft: number;
+}
+
+export interface PurchaseOrderInventoryProgress {
+  readonly orderedQuantity: number;
+  readonly allocatedQuantity: number;
+  readonly remainingQuantity: number;
+}
+
+export function computeInventoryProgress(
+  inventoryRefs: readonly PurchaseOrderInventoryRef[]
+): PurchaseOrderInventoryProgress {
+  return inventoryRefs.reduce<PurchaseOrderInventoryProgress>(
+    (totals, ref) => ({
+      orderedQuantity: totals.orderedQuantity + Number(ref.orderedQuantity || 0),
+      allocatedQuantity: totals.allocatedQuantity + Number(ref.allocatedQuantity || 0),
+      remainingQuantity: totals.remainingQuantity + Number(ref.remainingQuantity || 0),
+    }),
+    {
+      orderedQuantity: 0,
+      allocatedQuantity: 0,
+      remainingQuantity: 0,
+    }
+  );
+}
+
+/**
+ * Returns the percentage of ordered inventory that has been allocated.
+ * Returns 0 when there is no ordered quantity.
+ */
+export function computeInventoryCompletionPercentage(
+  inventoryRefs: readonly PurchaseOrderInventoryRef[]
+): number {
+  const progress = computeInventoryProgress(inventoryRefs);
+  if (progress.orderedQuantity <= 0) return 0;
+
+  const allocatedQuantity = Math.min(
+    Math.max(progress.allocatedQuantity, 0),
+    progress.orderedQuantity
+  );
+
+  return Math.round((allocatedQuantity / progress.orderedQuantity) * 100);
+}
+
+/**
+ * Completion for first-class purchase orders created from the PO UI.
+ * Progress is based on quantities that have reached delivered/collected states.
+ */
+export function computePurchaseOrderCreatedCompletionPercentage(
+  inventoryRefs: readonly PurchaseOrderInventoryRef[],
+  packages: readonly Package[]
+): number {
+  const orderedQuantity = inventoryRefs.reduce((sum, ref) => sum + Number(ref.orderedQuantity || 0), 0);
+  if (orderedQuantity <= 0) return 0;
+
+  const trackedInventoryItemIds = new Set(
+    inventoryRefs.map(ref => ref.inventoryItemId).filter((id): id is string => !!id)
+  );
+
+  const completedQuantity = packages.reduce((sum, pkg) => {
+    if (pkg.status !== 'delivered' && pkg.status !== 'collected') return sum;
+
+    return (
+      sum +
+      (pkg.items ?? []).reduce((itemSum, item) => {
+        if (!item.inventory_item_id || !trackedInventoryItemIds.has(item.inventory_item_id)) {
+          return itemSum;
+        }
+        return itemSum + (Number(item.quantity) || 0);
+      }, 0)
+    );
+  }, 0);
+
+  const clampedCompletedQuantity = Math.min(Math.max(completedQuantity, 0), orderedQuantity);
+  return Math.round((clampedCompletedQuantity / orderedQuantity) * 100);
+}
+
+/**
+ * Returns the percentage of linked packages that are in a terminal state.
+ * Returns 0 when there are no packages.
+ */
+export function computeCompletionPercentage(packages: readonly Package[]): number {
+  if (packages.length === 0) return 0;
+  const terminal = packages.filter(p => TERMINAL_STATUSES.has(p.status)).length;
+  return Math.round((terminal / packages.length) * 100);
+}
+
+/** Buckets linked packages into terminal / active / draft counts. */
+export function computeOrderBreakdown(packages: readonly Package[]): PurchaseOrderOrderBreakdown {
+  return {
+    total: packages.length,
+    terminal: packages.filter(p => TERMINAL_STATUSES.has(p.status)).length,
+    active: packages.filter(p => ACTIVE_STATUSES.has(p.status)).length,
+    draft: packages.filter(p => p.status === 'draft').length,
+  };
+}
+
+// ============================================================================
+// PurchaseOrder entity
+// ============================================================================
+
+/**
+ * Indicates how the PO was created:
+ * - `'purchase_order'` – created explicitly via the Purchase Orders UI (has a record in `purchase_orders` table)
+ * - `'order'` – a `po_number` was set on packages when the order was created, but no explicit PO record exists
+ */
+export type PurchaseOrderSource = 'purchase_order' | 'order';
+
+/** A Purchase Order: a logical grouping of packages that share a PO number */
+export interface PurchaseOrder {
+  readonly poNumber: string;
+  readonly packages: readonly Package[];
+  readonly inventoryRefs: readonly PurchaseOrderInventoryRef[];
+  /** Earliest created_at among the packages */
+  readonly createdAt: string;
+  /** Latest updated_at among the packages */
+  readonly updatedAt: string;
+  /**
+   * Derived from linked package statuses — NOT the raw DB `status` column.
+   * Recomputed on every `load()` call so it stays in sync with order updates.
+   */
+  readonly derivedStatus: PurchaseOrderStatus;
+  readonly totalItems: number;
+  /**
+   * 0–100 integer completion value:
+   * - `purchase_order` source: collected/delivered inventory quantity vs ordered quantity
+   * - `order` source: linked package status completion
+   */
+  readonly completionPercentage: number;
+  /** Bucket counts used to render the progress breakdown. */
+  readonly orderBreakdown: PurchaseOrderOrderBreakdown;
+  /** How this PO entry was created — either from the PO form or inferred from an order's po_number. */
+  readonly source: PurchaseOrderSource;
 }
 
 // ============================================================================

@@ -1,0 +1,139 @@
+@if (isOpen()) {
+  <div class="fixed inset-0 bg-gray-900/30 z-50 transition-opacity" (click)="onClose()" aria-hidden="true"></div>
+}
+
+@if (isOpen()) {
+  <div
+    class="fixed inset-0 z-50 overflow-hidden flex items-center justify-center px-4 sm:px-6"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="edit-po-modal-title"
+    (click)="onClose()"
+  >
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl overflow-auto max-w-2xl w-full max-h-[90vh]" (click)="$event.stopPropagation()">
+      <header class="px-5 py-4 border-b border-gray-200 dark:border-gray-700/60">
+        <div class="flex justify-between items-center">
+          <div>
+            <h2 id="edit-po-modal-title" class="font-semibold text-gray-800 dark:text-gray-100">Edit Purchase Order</h2>
+            <p class="text-sm text-gray-500 dark:text-gray-400">Update PO number and ordered quantities</p>
+          </div>
+          <button
+            type="button"
+            class="text-gray-400 hover:text-gray-500 dark:text-gray-500 dark:hover:text-gray-400 p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500"
+            (click)="onClose()"
+            aria-label="Close modal"
+          >
+            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+              <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <div class="px-5 py-4">
+        @if (errorMessage(); as message) {
+          <div class="mb-4 p-3 rounded-lg bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20" role="alert">
+            <span class="text-sm font-medium text-red-700 dark:text-red-400">{{ message }}</span>
+          </div>
+        }
+
+        <form [formGroup]="form" (ngSubmit)="onSubmit()" class="space-y-4">
+          <div>
+            <label for="editPoNumber" class="block text-sm font-medium mb-1.5 text-gray-700 dark:text-gray-300">
+              PO Number <span class="text-red-500" aria-hidden="true">*</span>
+            </label>
+            <input
+              id="editPoNumber"
+              type="text"
+              formControlName="poNumber"
+              class="w-full px-3 py-2.5 rounded-lg border text-sm shadow-sm transition-colors
+                     bg-white dark:bg-gray-800/30
+                     border-gray-200 dark:border-gray-700/60
+                     text-gray-800 dark:text-gray-100
+                     hover:border-gray-300 dark:hover:border-gray-600
+                     focus:border-violet-500 dark:focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+              [class.border-red-400]="getFieldError('poNumber')"
+            />
+            @if (getFieldError('poNumber'); as error) {
+              <p class="text-xs mt-1 text-red-500" role="alert">{{ error }}</p>
+            }
+          </div>
+
+          <div formArrayName="items" class="space-y-3">
+            @for (line of itemsArray.controls; track $index; let i = $index) {
+              <div [formGroupName]="i" class="p-3 rounded-lg border border-gray-200 dark:border-gray-700/60 bg-gray-50 dark:bg-gray-800/30">
+                <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+                  <div class="sm:col-span-6">
+                    <label class="block text-xs font-medium mb-1 text-gray-600 dark:text-gray-300">Inventory Item</label>
+                    <input
+                      type="text"
+                      formControlName="inventoryItemId"
+                      readonly
+                      class="w-full px-3 py-2 rounded-lg border text-sm bg-gray-100 dark:bg-gray-700/40 border-gray-200 dark:border-gray-700/60 text-gray-700 dark:text-gray-200"
+                    />
+                  </div>
+
+                  <div class="sm:col-span-3">
+                    <label class="block text-xs font-medium mb-1 text-gray-600 dark:text-gray-300">Min allowed</label>
+                    <input
+                      type="number"
+                      formControlName="minAllowedQuantity"
+                      readonly
+                      class="w-full px-3 py-2 rounded-lg border text-sm bg-gray-100 dark:bg-gray-700/40 border-gray-200 dark:border-gray-700/60 text-gray-700 dark:text-gray-200"
+                    />
+                  </div>
+
+                  <div class="sm:col-span-3">
+                    <label [for]="'orderedQuantity-' + i" class="block text-xs font-medium mb-1 text-gray-600 dark:text-gray-300">Ordered Qty</label>
+                    <input
+                      [id]="'orderedQuantity-' + i"
+                      type="number"
+                      [attr.min]="line.controls.minAllowedQuantity.value"
+                      formControlName="orderedQuantity"
+                      class="w-full px-3 py-2 rounded-lg border text-sm shadow-sm transition-colors
+                             bg-white dark:bg-gray-800/30
+                             border-gray-200 dark:border-gray-700/60
+                             text-gray-800 dark:text-gray-100
+                             hover:border-gray-300 dark:hover:border-gray-600
+                             focus:border-violet-500 dark:focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                      [class.border-red-400]="getLineFieldError(i)"
+                    />
+                    @if (getLineFieldError(i); as error) {
+                      <p class="text-xs mt-1 text-red-500" role="alert">{{ error }}</p>
+                    }
+                  </div>
+                </div>
+              </div>
+            }
+          </div>
+
+          <footer class="px-5 py-4 -mx-5 -mb-4 border-t border-gray-200 dark:border-gray-700/60">
+            <div class="flex flex-wrap justify-end gap-3">
+              <button
+                type="button"
+                class="px-4 py-2 text-sm font-medium rounded-lg border transition-colors
+                       bg-white dark:bg-gray-800
+                       border-gray-200 dark:border-gray-700/60
+                       text-gray-700 dark:text-gray-300
+                       hover:bg-gray-50 dark:hover:bg-gray-700/50
+                       focus:outline-none focus:ring-2 focus:ring-violet-500"
+                (click)="onClose()"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                class="px-4 py-2 text-sm font-medium rounded-lg transition-colors
+                       bg-violet-500 hover:bg-violet-600
+                       text-white
+                       focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800"
+              >
+                Save Changes
+              </button>
+            </div>
+          </footer>
+        </form>
+      </div>
+    </div>
+  </div>
+}

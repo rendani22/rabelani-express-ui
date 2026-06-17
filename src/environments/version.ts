@@ -26,15 +26,15 @@ export interface AppVersion {
 }
 
 export const APP_VERSION: AppVersion = {
-  "version": "0.69.0-dev",
-  "semver": "0.69.0",
+  "version": "0.76.1-dev",
+  "semver": "0.76.1",
   "baseTag": null,
-  "commitsSinceBase": 72,
+  "commitsSinceBase": 93,
   "isDirty": true,
-  "hash": "a4288da",
-  "fullHash": "a4288daacce6a21821a465d0712928673cdc2b1f",
+  "hash": "7c29e15",
+  "fullHash": "7c29e15b8489020acddf33521635b2d13bb79e82",
   "branch": "copilot/add-purchase-order-section",
-  "message": "Change PDF filename format for POD documents",
-  "commitDate": "2026-06-04T10:01:33+02:00",
-  "buildDate": "2026-06-10T10:19:48.600Z"
+  "message": "docs: add PO update design spec",
+  "commitDate": "2026-06-17T20:02:13+02:00",
+  "buildDate": "2026-06-17T19:50:06.667Z"
 };

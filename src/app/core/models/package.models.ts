@@ -391,6 +391,37 @@ export interface PurchaseOrderLookupData {
   readonly items: readonly PurchaseOrderItemBalanceSummary[];
 }
 
+/** Effective balance for a PO line when combining allocation data with existing order usage */
+export interface PurchaseOrderLineBalance {
+  readonly allocatedQuantity: number;
+  readonly remainingQuantity: number;
+}
+
+/**
+ * Computes the effective allocated/remaining quantities for a PO line.
+ * Uses the larger of:
+ * - DB allocation totals (purchase_order_item_allocations)
+ * - Existing order usage for the same inventory item
+ *
+ * This keeps PO lookup accurate for historical orders that may not have
+ * allocation rows but already consumed PO quantities.
+ */
+export function computePurchaseOrderLineBalance(
+  orderedQuantity: number,
+  allocatedQuantity: number,
+  consumedQuantity: number
+): PurchaseOrderLineBalance {
+  const ordered = Math.max(0, Number(orderedQuantity) || 0);
+  const allocated = Math.max(0, Number(allocatedQuantity) || 0);
+  const consumed = Math.max(0, Number(consumedQuantity) || 0);
+  const effectiveAllocated = Math.min(ordered, Math.max(allocated, consumed));
+
+  return {
+    allocatedQuantity: effectiveAllocated,
+    remainingQuantity: Math.max(0, ordered - effectiveAllocated),
+  };
+}
+
 /** Result type for PO lookup by number */
 export type GetPurchaseOrderByNumberResult = PackageServiceResult<PurchaseOrderLookupData>;
 

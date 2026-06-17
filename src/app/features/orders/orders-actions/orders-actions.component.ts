@@ -27,6 +27,12 @@ export class OrdersActionsComponent implements OnDestroy {
   @Input() showDateFilters = true;
   /** Whether to show the deleted orders button */
   @Input() canViewDeleted = false;
+  @Input() set initialSearchTerm(value: string) {
+    this.searchTerm.set(value ?? '');
+  }
+  @Input() set initialStatus(value: string) {
+    this.selectedStatus.set(value || 'all');
+  }
 
   @Output() searchChange = new EventEmitter<string>();
   @Output() statusFilterChange = new EventEmitter<string>();

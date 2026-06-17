@@ -29,6 +29,7 @@ import {
   isApiError,
   EDGE_FUNCTIONS,
   PurchaseOrderItemBalanceSummary,
+  computePurchaseOrderLineBalance,
 } from '../models/package.models';
 
 /**
@@ -198,6 +199,12 @@ export class PackageService {
             .or(`name.ilike.%${escaped}%,surname.ilike.%${escaped}%`)
             .limit(200);
 
+          const { data: packageItemMatches } = await this.supabaseService.client
+            .from('package_items')
+            .select('package_id')
+            .ilike('description', `%${escaped}%`)
+            .limit(200);
+
           const emails = Array.from(
             new Set(
               (receiverMatches ?? [])
@@ -205,8 +212,16 @@ export class PackageService {
                 .filter((e): e is string => !!e)
             )
           );
+          const packageIds = Array.from(
+            new Set(
+              (packageItemMatches ?? [])
+                .map(r => (r as { package_id: string | null }).package_id)
+                .filter((id): id is string => !!id)
+            )
+          );
 
           const orParts = [
+            `reference.ilike.%${escaped}%`,
             `po_number.ilike.%${escaped}%`,
             `receiver_email.ilike.%${escaped}%`,
           ];
@@ -214,6 +229,10 @@ export class PackageService {
             // Quote emails to be safe inside PostgREST `in` list
             const list = emails.map(e => `"${e.replace(/"/g, '\\"')}"`).join(',');
             orParts.push(`receiver_email.in.(${list})`);
+          }
+          if (packageIds.length > 0) {
+            const list = packageIds.map(id => `"${id.replace(/"/g, '\\"')}"`).join(',');
+            orParts.push(`id.in.(${list})`);
           }
 
           query = query.or(orParts.join(','));
@@ -360,12 +379,36 @@ export class PackageService {
       const { data, error } = await this.supabaseService.client
         .from('purchase_order_item_balances')
         .select(
-          'purchase_order_item_id,purchase_order_id,inventory_item_id,ordered_quantity,allocated_quantity,remaining_quantity,purchase_orders!inner(po_number)'
+          'purchase_order_item_id,purchase_order_id,inventory_item_id,ordered_quantity,allocated_quantity,purchase_orders!inner(po_number)'
         )
         .eq('purchase_orders.po_number', trimmed);
 
       if (error) {
         return { success: false, error: error.message };
+      }
+
+      const consumedByInventoryItemId = new Map<string, number>();
+      const { data: packageRows, error: packageRowsError } = await this.supabaseService.client
+        .from('packages')
+        .select('items:package_items(quantity, inventory_item_id)')
+        .eq('po_number', trimmed)
+        .is('deleted_at', null);
+
+      if (packageRowsError) {
+        return { success: false, error: packageRowsError.message };
+      }
+
+      for (const pkg of (packageRows ?? []) as Array<{
+        items?: Array<{ quantity: number | string; inventory_item_id?: string | null }>;
+      }>) {
+        for (const item of pkg.items ?? []) {
+          if (!item.inventory_item_id) continue;
+          const current = consumedByInventoryItemId.get(item.inventory_item_id) ?? 0;
+          consumedByInventoryItemId.set(
+            item.inventory_item_id,
+            current + (Number(item.quantity) || 0)
+          );
+        }
       }
 
       const items: PurchaseOrderItemBalanceSummary[] = (data ?? []).map((row) => {
@@ -375,24 +418,24 @@ export class PackageService {
           inventory_item_id: string;
           ordered_quantity: number | string;
           allocated_quantity: number | string;
-          remaining_quantity: number | string | null;
         };
 
         const orderedQuantity = Number(typedRow.ordered_quantity);
         const allocatedQuantity = Number(typedRow.allocated_quantity);
-        const computedRemaining = Math.max(0, orderedQuantity - allocatedQuantity);
-        const remainingQuantity =
-          typedRow.remaining_quantity === null || typedRow.remaining_quantity === undefined
-            ? computedRemaining
-            : Math.max(0, Number(typedRow.remaining_quantity));
+        const consumedQuantity = consumedByInventoryItemId.get(typedRow.inventory_item_id) ?? 0;
+        const lineBalance = computePurchaseOrderLineBalance(
+          orderedQuantity,
+          allocatedQuantity,
+          consumedQuantity
+        );
 
         return {
           purchaseOrderItemId: typedRow.purchase_order_item_id,
           purchaseOrderId: typedRow.purchase_order_id,
           inventoryItemId: typedRow.inventory_item_id,
           orderedQuantity,
-          allocatedQuantity,
-          remainingQuantity,
+          allocatedQuantity: lineBalance.allocatedQuantity,
+          remainingQuantity: lineBalance.remainingQuantity,
         };
       });
 
@@ -1136,4 +1179,3 @@ export class PackageService {
     return this.errorResult(message);
   }
 }
-

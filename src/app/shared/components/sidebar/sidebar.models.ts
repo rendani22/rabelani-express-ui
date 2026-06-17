@@ -19,5 +19,6 @@ export interface NavItem {
 
   /** Whether the navigation item is coming soon (disabled with badge) */
   comingSoon?: boolean;
+
 }
 

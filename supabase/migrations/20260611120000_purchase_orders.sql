@@ -174,6 +174,9 @@ LEFT JOIN public.purchase_order_item_allocations poa
   ON poa.purchase_order_item_id = poi.id
 GROUP BY poi.id;
 
+-- PostgREST relationship hint: link this view's purchase_order_item_id to purchase_order_items.id
+COMMENT ON VIEW public.purchase_order_item_balances IS 'purchase_order_items.id->purchase_order_item_balances.purchase_order_item_id';
+
 GRANT SELECT ON public.purchase_order_item_balances TO authenticated;
 
 DO $$

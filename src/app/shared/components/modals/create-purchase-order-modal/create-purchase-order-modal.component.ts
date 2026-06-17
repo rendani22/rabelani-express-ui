@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject, input, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, input, output, signal, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import {
   AbstractControl,
@@ -11,6 +11,7 @@ import {
   ValidatorFn,
   Validators,
 } from '@angular/forms';
+import { InventoryService, InventoryItem } from '../../../../core';
 
 export interface CreatePurchaseOrderLine {
   readonly inventoryItemId: string;
@@ -45,12 +46,15 @@ const trimRequired: ValidatorFn = (control: AbstractControl): ValidationErrors |
 })
 export class CreatePurchaseOrderModalComponent {
   private readonly fb = inject(FormBuilder);
+  private readonly inventoryService = inject(InventoryService);
 
   readonly isOpen = input(false);
   readonly closeModal = output<void>();
   readonly created = output<CreatePurchaseOrderRequest>();
 
   readonly errorMessage = signal<string | null>(null);
+  readonly inventoryItems = this.inventoryService.items;
+  readonly inventorySearch = signal('');
 
   readonly form = this.fb.nonNullable.group({
     poNumber: this.fb.nonNullable.control('', [Validators.required, trimRequired]),
@@ -59,6 +63,52 @@ export class CreatePurchaseOrderModalComponent {
 
   get itemsArray(): FormArray<PurchaseOrderLineFormGroup> {
     return this.form.controls.items;
+  }
+
+  /** IDs of inventory items already selected in the PO */
+  private readonly selectedItemIds = computed(() => {
+    return new Set(this.itemsArray.value.map(item => item.inventoryItemId).filter(Boolean));
+  });
+
+  /** Filtered inventory items based on search + excluding already-selected items */
+  readonly filteredInventoryItems = computed(() => {
+    const search = this.inventorySearch().toLowerCase();
+    const selected = this.selectedItemIds();
+
+    return this.inventoryItems().filter(item => {
+      // Exclude already-selected items
+      if (selected.has(item.id)) return false;
+
+      // Filter by search
+      if (!search) return true;
+      const needle = search;
+      return (
+        item.name.toLowerCase().includes(needle) ||
+        (item.sku ?? '').toLowerCase().includes(needle) ||
+        item.id.toLowerCase().includes(needle)
+      );
+    });
+  });
+
+  /** Track selected item details for display in form lines */
+  readonly itemDetails = computed(() => {
+    const map = new Map<string, InventoryItem>();
+    for (const item of this.inventoryItems()) {
+      map.set(item.id, item);
+    }
+    return map;
+  });
+
+  constructor() {
+    effect(() => {
+      if (this.isOpen()) {
+        // Load inventory items each time the modal opens so the list is fresh
+        this.inventoryService.loadItems();
+      } else {
+        // Reset search when modal closes
+        this.inventorySearch.set('');
+      }
+    });
   }
 
   addLine(): void {
@@ -78,6 +128,14 @@ export class CreatePurchaseOrderModalComponent {
     this.itemsArray.updateValueAndValidity();
   }
 
+  selectInventoryItem(itemId: string, lineIndex: number): void {
+    const line = this.itemsArray.at(lineIndex);
+    if (line) {
+      line.get('inventoryItemId')?.setValue(itemId);
+      this.inventorySearch.set('');
+    }
+  }
+
   getFieldError(fieldName: 'poNumber'): string | null {
     const control = this.form.controls[fieldName];
     if (!control.touched || !control.errors) return null;
@@ -94,7 +152,7 @@ export class CreatePurchaseOrderModalComponent {
     if (!control.touched || !control.errors) return null;
 
     if (control.errors['required']) {
-      return field === 'inventoryItemId' ? 'Inventory item ID is required' : 'Ordered quantity is required';
+      return field === 'inventoryItemId' ? 'Inventory item is required' : 'Ordered quantity is required';
     }
     if (control.errors['min']) return 'Ordered quantity must be at least 1';
     return null;
@@ -109,6 +167,11 @@ export class CreatePurchaseOrderModalComponent {
     }
 
     return null;
+  }
+
+  getSelectedItemName(itemId: string): string {
+    const item = this.itemDetails().get(itemId);
+    return item ? `${item.name}${item.sku ? ` (${item.sku})` : ''}` : 'Unknown Item';
   }
 
   async onSubmit(): Promise<void> {
@@ -134,6 +197,7 @@ export class CreatePurchaseOrderModalComponent {
     this.form.reset();
     this.itemsArray.clear();
     this.errorMessage.set(null);
+    this.inventorySearch.set('');
     this.closeModal.emit();
   }
 }

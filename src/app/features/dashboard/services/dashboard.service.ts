@@ -154,6 +154,8 @@ export interface TopShippedItem {
   packageCount: number;
   /** Optional inventory item id, when linked. */
   inventoryItemId: string | null;
+  /** Matching package ids for deep-linking into Orders. */
+  packageIds: string[];
 }
 
 /**
@@ -751,6 +753,7 @@ export class DashboardService {
           totalQuantity: b.qty,
           packageCount: b.pkgIds.size,
           inventoryItemId: b.invId,
+          packageIds: Array.from(b.pkgIds),
         }))
         .sort((a, b) => b.totalQuantity - a.totalQuantity)
         .slice(0, 8);

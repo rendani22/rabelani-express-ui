@@ -1,13 +1,16 @@
 import { Injectable, inject, signal, computed } from '@angular/core';
 import { SupabaseService } from '../../../shared/services/supabase.service';
-import { Package } from '../../../core/models/package.models';
-import { InventoryItem } from '../../../core/models/inventory.models';
+import { InventoryItem, Package } from '../../../core';
 import {
   PurchaseOrder,
   PurchaseOrderStats,
   PurchaseOrderInventoryRef,
-  computeRemainingQuantity,
+  derivePurchaseOrderStatus,
+  computeCompletionPercentage,
+  computeOrderBreakdown,
   PurchaseOrderFilters,
+  PurchaseOrderSource,
+  computePurchaseOrderCreatedCompletionPercentage,
 } from '../purchase-orders.models';
 
 /**
@@ -96,12 +99,7 @@ export class PurchaseOrdersService {
           items:purchase_order_items(
             id,
             inventory_item_id,
-            ordered_quantity,
-            balances:purchase_order_item_balances(
-              ordered_quantity,
-              allocated_quantity,
-              remaining_quantity
-            )
+            ordered_quantity
           )
         `)
         .order('created_at', { ascending: false });
@@ -112,21 +110,34 @@ export class PurchaseOrdersService {
       }
 
       const orders = (rawOrders ?? []) as PurchaseOrderRow[];
-      if (orders.length === 0) {
-        this._allPurchaseOrders.set([]);
-        return;
-      }
-
       const poNumbers = orders.map(order => order.po_number);
-      const inventoryItemIds = Array.from(
-        new Set(
-          orders.flatMap(order =>
-            (order.items ?? [])
-              .map(item => item.inventory_item_id)
-              .filter((id): id is string => !!id)
-          )
-        )
-      );
+
+       // Load allocations per PO item to compute remaining quantities
+       const allItemIds = orders.flatMap(order => (order.items ?? []).map(i => i.id));
+       const allocationsByPoItemId = new Map<string, number>();
+       if (allItemIds.length > 0) {
+         const { data: allocations, error: allocError } = await this.supabase.client
+           .from('purchase_order_item_allocations')
+           .select('purchase_order_item_id, allocated_quantity')
+           .in('purchase_order_item_id', allItemIds);
+
+         if (!allocError && allocations) {
+           for (const alloc of allocations) {
+             const current = allocationsByPoItemId.get(alloc.purchase_order_item_id) ?? 0;
+             allocationsByPoItemId.set(alloc.purchase_order_item_id, current + (Number(alloc.allocated_quantity) || 0));
+           }
+         }
+       }
+
+       const inventoryItemIds = Array.from(
+         new Set(
+           orders.flatMap(order =>
+             (order.items ?? [])
+               .map(item => item.inventory_item_id)
+               .filter((id): id is string => !!id)
+           )
+         )
+       );
 
       const inventoryMap = new Map<string, InventoryItem>();
       if (inventoryItemIds.length > 0) {
@@ -146,25 +157,57 @@ export class PurchaseOrdersService {
       }
 
       const packagesByPoNumber = new Map<string, Package[]>();
-      const { data: rawPackages, error: packagesError } = await this.supabase.client
+
+      // Load packages linked to first-class POs
+      if (poNumbers.length > 0) {
+        const { data: rawPackages, error: packagesError } = await this.supabase.client
+          .from('packages')
+          .select('*, items:package_items(id, quantity, description, inventory_item_id)')
+          .in('po_number', poNumbers)
+          .is('deleted_at', null)
+          .order('created_at', { ascending: false });
+
+        if (packagesError) {
+          this.error.set(packagesError.message);
+          return;
+        }
+
+        for (const pkg of (rawPackages ?? []) as Package[]) {
+          const poNumber = pkg.po_number;
+          if (!poNumber) continue;
+          if (!packagesByPoNumber.has(poNumber)) {
+            packagesByPoNumber.set(poNumber, []);
+          }
+          packagesByPoNumber.get(poNumber)!.push(pkg);
+        }
+      }
+
+      // ── Load order-created POs ──────────────────────────────────────────────
+      // Packages may have a po_number set when created from an order, without a
+      // corresponding record in the `purchase_orders` table. Fetch those and
+      // synthesise PO entries from them.
+      let orderPkgQuery = this.supabase.client
         .from('packages')
         .select('*, items:package_items(id, quantity, description, inventory_item_id)')
-        .in('po_number', poNumbers)
+        .not('po_number', 'is', null)
         .is('deleted_at', null)
         .order('created_at', { ascending: false });
 
-      if (packagesError) {
-        this.error.set(packagesError.message);
-        return;
+      if (poNumbers.length > 0) {
+        orderPkgQuery = orderPkgQuery.not('po_number', 'in', `(${poNumbers.map(n => `"${n}"`).join(',')})`) as typeof orderPkgQuery;
       }
 
-      for (const pkg of (rawPackages ?? []) as Package[]) {
-        const poNumber = pkg.po_number;
-        if (!poNumber) continue;
-        if (!packagesByPoNumber.has(poNumber)) {
-          packagesByPoNumber.set(poNumber, []);
+      const { data: rawOrderPackages, error: orderPackagesError } = await orderPkgQuery;
+
+      if (!orderPackagesError && rawOrderPackages) {
+        for (const pkg of rawOrderPackages as Package[]) {
+          const poNumber = pkg.po_number;
+          if (!poNumber) continue;
+          if (!packagesByPoNumber.has(poNumber)) {
+            packagesByPoNumber.set(poNumber, []);
+          }
+          packagesByPoNumber.get(poNumber)!.push(pkg);
         }
-        packagesByPoNumber.get(poNumber)!.push(pkg);
       }
 
       this._allPurchaseOrders.set(
@@ -180,27 +223,20 @@ export class PurchaseOrdersService {
             }
           >();
 
-          for (const item of order.items ?? []) {
-            if (!item.inventory_item_id) continue;
-            const balance = item.balances?.[0];
-            const orderedQuantity = balance
-              ? Number(balance.ordered_quantity)
-              : Number(item.ordered_quantity);
-            const allocatedQuantity = balance ? Number(balance.allocated_quantity) : 0;
-            const remainingQuantity = balance
-              ? balance.remaining_quantity === null || balance.remaining_quantity === undefined
-                ? computeRemainingQuantity(orderedQuantity, allocatedQuantity)
-                : Number(balance.remaining_quantity)
-              : orderedQuantity;
-            const agg = refsByInventory.get(item.inventory_item_id) ?? {
-              orderedQty: 0,
-              allocatedQty: 0,
-              remainingQty: 0,
-              packageIds: new Set<string>(),
-            };
-            agg.orderedQty += orderedQuantity;
-            agg.allocatedQty += allocatedQuantity;
-            agg.remainingQty += Math.max(0, remainingQuantity);
+           for (const item of order.items ?? []) {
+             if (!item.inventory_item_id) continue;
+             const orderedQuantity = Number(item.ordered_quantity);
+             const allocatedQuantity = allocationsByPoItemId.get(item.id) ?? 0;
+             const remainingQuantity = Math.max(0, orderedQuantity - allocatedQuantity);
+             const agg = refsByInventory.get(item.inventory_item_id) ?? {
+               orderedQty: 0,
+               allocatedQty: 0,
+               remainingQty: 0,
+               packageIds: new Set<string>(),
+             };
+             agg.orderedQty += orderedQuantity;
+             agg.allocatedQty += allocatedQuantity;
+             agg.remainingQty += remainingQuantity;
 
             for (const pkg of packages) {
               const hasMatch = (pkg.items ?? []).some(
@@ -235,11 +271,109 @@ export class PurchaseOrdersService {
             inventoryRefs,
             createdAt: order.created_at,
             updatedAt: order.updated_at,
-            derivedStatus: mapPurchaseOrderStatus(order.status),
+            derivedStatus: derivePurchaseOrderStatus(packages),
             totalItems,
+            completionPercentage: computePurchaseOrderCreatedCompletionPercentage(
+              inventoryRefs,
+              packages
+            ),
+            orderBreakdown: computeOrderBreakdown(packages),
+            source: 'purchase_order' as PurchaseOrderSource,
           };
         })
       );
+
+      // ── Append order-created POs ────────────────────────────────────────────
+      // Collect all po_numbers that are NOT in the purchase_orders table
+      const orderOnlyPoNumbers = Array.from(packagesByPoNumber.keys()).filter(
+        poNum => !poNumbers.includes(poNum)
+      );
+
+      if (orderOnlyPoNumbers.length > 0) {
+        // Gather any inventory item ids referenced by these packages
+        const orderOnlyInvIds = Array.from(
+          new Set(
+            orderOnlyPoNumbers.flatMap(poNum =>
+              (packagesByPoNumber.get(poNum) ?? []).flatMap(pkg =>
+                (pkg.items ?? [])
+                  .map(i => i.inventory_item_id)
+                  .filter((id): id is string => !!id)
+              )
+            )
+          )
+        ).filter(id => !inventoryMap.has(id));
+
+        if (orderOnlyInvIds.length > 0) {
+          const { data: extraItems } = await this.supabase.client
+            .from('inventory_items')
+            .select('*')
+            .in('id', orderOnlyInvIds);
+
+          for (const item of (extraItems ?? []) as InventoryItem[]) {
+            inventoryMap.set(item.id, item);
+          }
+        }
+
+        const syntheticPOs: PurchaseOrder[] = orderOnlyPoNumbers.map(poNum => {
+          const packages = packagesByPoNumber.get(poNum) ?? [];
+
+          // Build inventory refs from package items (no ordered/allocated metadata available)
+          const invRefMap = new Map<string, { qty: number; packageIds: Set<string> }>();
+          for (const pkg of packages) {
+            for (const pkgItem of pkg.items ?? []) {
+              if (!pkgItem.inventory_item_id) continue;
+              const agg = invRefMap.get(pkgItem.inventory_item_id) ?? {
+                qty: 0,
+                packageIds: new Set<string>(),
+              };
+              agg.qty += Number(pkgItem.quantity) || 0;
+              agg.packageIds.add(pkg.id);
+              invRefMap.set(pkgItem.inventory_item_id, agg);
+            }
+          }
+
+          const inventoryRefs: PurchaseOrderInventoryRef[] = Array.from(invRefMap.entries()).map(
+            ([inventoryItemId, value]) => ({
+              inventoryItemId,
+              item: inventoryMap.get(inventoryItemId) ?? null,
+              totalQuantity: value.qty,
+              orderedQuantity: value.qty,
+              allocatedQuantity: value.qty,
+              remainingQuantity: 0,
+              packageCount: value.packageIds.size,
+            })
+          );
+
+          const totalItems = packages.reduce(
+            (sum, pkg) =>
+              sum + (pkg.items ?? []).reduce((s, i) => s + (Number(i.quantity) || 0), 0),
+            0
+          );
+
+          const dates = packages.map(p => p.created_at).sort();
+          const updatedDates = packages.map(p => p.updated_at ?? p.created_at).sort();
+
+          return {
+            poNumber: poNum,
+            packages,
+            inventoryRefs,
+            createdAt: dates[0] ?? new Date().toISOString(),
+            updatedAt: updatedDates[updatedDates.length - 1] ?? new Date().toISOString(),
+            derivedStatus: derivePurchaseOrderStatus(packages),
+            totalItems,
+            completionPercentage: computeCompletionPercentage(packages),
+            orderBreakdown: computeOrderBreakdown(packages),
+            source: 'order' as PurchaseOrderSource,
+          };
+        });
+
+        this._allPurchaseOrders.update(existing => [
+          ...existing,
+          ...syntheticPOs.sort(
+            (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          ),
+        ]);
+      }
     } catch (err) {
       this.error.set(err instanceof Error ? err.message : 'Failed to load purchase orders');
     } finally {
@@ -280,15 +414,4 @@ interface PurchaseOrderItemBalanceNestedRow {
   readonly ordered_quantity: number | string;
   readonly allocated_quantity: number | string;
   readonly remaining_quantity?: number | string | null;
-}
-
-function mapPurchaseOrderStatus(status: string): PurchaseOrder['derivedStatus'] {
-  switch (status) {
-    case 'completed':
-    case 'in_progress':
-    case 'draft':
-      return status;
-    default:
-      return 'mixed';
-  }
 }

@@ -204,6 +204,12 @@
                   <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {{ statusClass(po.derivedStatus) }}">
                     {{ statusLabel(po.derivedStatus) }}
                   </span>
+                  @if (po.source === 'order') {
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
+                      <ng-icon name="tablerShoppingCart" size="10"></ng-icon>
+                      From Order
+                    </span>
+                  }
                 </div>
                 <div class="flex flex-wrap items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
                   <span class="flex items-center gap-1">
@@ -221,6 +227,25 @@
                     Created {{ formatDate(po.createdAt) }}
                   </span>
                 </div>
+                <!-- Completion progress bar -->
+                @if (showCompletion(po)) {
+                  <div class="mt-1.5 flex items-center gap-2">
+                    <div class="flex-1 h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden max-w-[120px]">
+                      <div
+                        class="h-full rounded-full transition-all duration-500"
+                        [class]="po.completionPercentage === 100
+                          ? 'bg-emerald-500'
+                          : po.completionPercentage > 0
+                            ? 'bg-blue-500'
+                            : 'bg-gray-300 dark:bg-gray-600'"
+                        [style.width.%]="po.completionPercentage">
+                      </div>
+                    </div>
+                    <span class="text-xs text-gray-500 dark:text-gray-400 tabular-nums shrink-0">
+                      {{ po.completionPercentage }}% {{ completionLabel(po) }}
+                    </span>
+                  </div>
+                }
               </div>
 
               <!-- Package status mini-badges -->
@@ -382,14 +407,74 @@
                   <span>Last updated: <strong class="text-gray-700 dark:text-gray-300">{{ formatDate(po.updatedAt) }}</strong></span>
                   <span>·</span>
                   <span>{{ po.totalItems }} item{{ po.totalItems !== 1 ? 's' : '' }} total</span>
+                  @if (showCompletion(po)) {
+                    <span>·</span>
+                    @if (po.source === 'purchase_order') {
+                      <span class="flex items-center gap-2">
+                        <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400">
+                          <ng-icon name="tablerCheck" size="11"></ng-icon>
+                          {{ inventoryProgress(po).allocatedQuantity }} allocated
+                        </span>
+                        @if (inventoryProgress(po).remainingQuantity > 0) {
+                          <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400">
+                            <ng-icon name="tablerClock" size="11"></ng-icon>
+                            {{ inventoryProgress(po).remainingQuantity }} remaining
+                          </span>
+                        }
+                      </span>
+                    } @else {
+                      <!-- Order breakdown counts -->
+                      <span class="flex items-center gap-2">
+                        @if (po.orderBreakdown.terminal > 0) {
+                          <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400">
+                            <ng-icon name="tablerCheck" size="11"></ng-icon>
+                            {{ po.orderBreakdown.terminal }} completed
+                          </span>
+                        }
+                        @if (po.orderBreakdown.active > 0) {
+                          <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400">
+                            <ng-icon name="tablerClock" size="11"></ng-icon>
+                            {{ po.orderBreakdown.active }} active
+                          </span>
+                        }
+                        @if (po.orderBreakdown.draft > 0) {
+                          <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
+                            {{ po.orderBreakdown.draft }} draft
+                          </span>
+                        }
+                      </span>
+                    }
+                    <!-- Full progress bar in footer -->
+                    <span class="flex items-center gap-1.5 ml-1">
+                      <div class="w-24 h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                        <div
+                          class="h-full rounded-full transition-all duration-500"
+                          [class]="po.completionPercentage === 100 ? 'bg-emerald-500' : 'bg-blue-500'"
+                          [style.width.%]="po.completionPercentage">
+                        </div>
+                      </div>
+                      <strong class="text-gray-700 dark:text-gray-300 tabular-nums">{{ po.completionPercentage }}%</strong>
+                    </span>
+                  }
                   <div class="ml-auto">
-                    <button
-                      type="button"
-                      class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-violet-600 hover:bg-violet-700 text-white rounded-lg transition-colors"
-                      (click)="goToOrders(po.poNumber)">
-                      <ng-icon name="tablerExternalLink" size="12"></ng-icon>
-                      Open in Orders
-                    </button>
+                    <div class="flex items-center gap-2">
+                      @if (canEdit(po)) {
+                        <button
+                          type="button"
+                          class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                          [disabled]="isOpeningEditPo()"
+                          (click)="onOpenEditPo(po)">
+                          Edit
+                        </button>
+                      }
+                      <button
+                        type="button"
+                        class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-violet-600 hover:bg-violet-700 text-white rounded-lg transition-colors"
+                        (click)="goToOrders(po.poNumber)">
+                        <ng-icon name="tablerExternalLink" size="12"></ng-icon>
+                        Open in Orders
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -408,4 +493,11 @@
     (closeModal)="onCloseCreatePo()"
     (created)="onPurchaseOrderCreated($event)">
   </app-create-purchase-order-modal>
+
+  <app-edit-purchase-order-modal
+    [isOpen]="editPoModalOpen()"
+    [purchaseOrder]="selectedPoForEdit()"
+    (closeModal)="onCloseEditPo()"
+    (updated)="onPurchaseOrderUpdated($event)">
+  </app-edit-purchase-order-modal>
 </app-layout>
