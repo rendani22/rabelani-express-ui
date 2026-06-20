@@ -195,6 +195,22 @@ alter table "public"."package_status_history" enable row level security;
 alter table "public"."packages" enable row level security;
 
 
+CREATE OR REPLACE FUNCTION public.generate_pod_reference()
+ RETURNS text
+ LANGUAGE plpgsql
+AS $function$
+DECLARE
+  year_part TEXT;
+  seq_part TEXT;
+BEGIN
+  year_part := EXTRACT(YEAR FROM CURRENT_DATE)::TEXT;
+  seq_part := LPAD(nextval('pod_reference_seq')::TEXT, 4, '0');
+  RETURN 'POD-' || year_part || '-' || seq_part;
+END;
+$function$
+;
+
+
   create table "public"."pods" (
     "id" uuid not null default gen_random_uuid(),
     "pod_reference" text not null default public.generate_pod_reference(),
@@ -1104,21 +1120,6 @@ BEGIN
     END LOOP;
 
     RETURN new_reference;
-END;
-$function$
-;
-
-CREATE OR REPLACE FUNCTION public.generate_pod_reference()
- RETURNS text
- LANGUAGE plpgsql
-AS $function$
-DECLARE
-  year_part TEXT;
-  seq_part TEXT;
-BEGIN
-  year_part := EXTRACT(YEAR FROM CURRENT_DATE)::TEXT;
-  seq_part := LPAD(nextval('pod_reference_seq')::TEXT, 4, '0');
-  RETURN 'POD-' || year_part || '-' || seq_part;
 END;
 $function$
 ;

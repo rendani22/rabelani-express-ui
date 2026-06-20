@@ -1,13 +1,13 @@
 export const environment = {
   production: false,
   supabase: {
-    url: 'https://udsigrijzqgmtmkilluv.supabase.co',
-    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVkc2lncmlqenFnbXRta2lsbHV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg5MzU3MjQsImV4cCI6MjA4NDUxMTcyNH0.N9nlgm4oTtboTv4oyxa3wEfGM3A_BcGv1glPLCnF3d4',
-    functionsUrl: 'https://udsigrijzqgmtmkilluv.supabase.co/functions/v1'
+    url: 'http://127.0.0.1:54321',
+    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0',
+    functionsUrl: 'http://127.0.0.1:54321/functions/v1'
   },
   // Sentry configuration - leave dsn empty for local/dev unless you want to capture dev errors
   sentry: {
-    dsn: 'https://85727d583c28765c78595a52696d74fb@o4509984646823936.ingest.de.sentry.io/4511446249111632',
+    dsn: '',
     tracesSampleRate: 0
   }
 };

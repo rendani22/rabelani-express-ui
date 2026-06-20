@@ -26,15 +26,15 @@ export interface AppVersion {
 }
 
 export const APP_VERSION: AppVersion = {
-  "version": "0.77.0",
-  "semver": "0.77.0",
+  "version": "0.78.0-dev",
+  "semver": "0.78.0",
   "baseTag": null,
-  "commitsSinceBase": 94,
-  "isDirty": false,
-  "hash": "8f3d488",
-  "fullHash": "8f3d488409e6fbb54848fe1f819f5aa289827be9",
+  "commitsSinceBase": 95,
+  "isDirty": true,
+  "hash": "4b6d09c",
+  "fullHash": "4b6d09c445648e189561fea95dcdaf3de33d7c0a",
   "branch": "copilot/add-purchase-order-section",
-  "message": "feat: add purchase order update feature and fix PO completion calculation",
-  "commitDate": "2026-06-17T23:15:17+02:00",
-  "buildDate": "2026-06-20T07:38:54.373Z"
+  "message": "feat: implement authorization checks for updating purchase orders",
+  "commitDate": "2026-06-20T10:37:08+02:00",
+  "buildDate": "2026-06-20T08:39:35.860Z"
 };
