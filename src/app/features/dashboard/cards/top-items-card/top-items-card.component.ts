@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TopShippedItem } from '../../services/dashboard.service';
 
@@ -34,6 +34,22 @@ import { TopShippedItem } from '../../services/dashboard.service';
                       · linked to inventory
                     }
                   </div>
+                  <div class="mt-1 flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      class="text-xs font-medium text-violet-500 hover:text-violet-600"
+                      (click)="ordersClick.emit(it)">
+                      View orders →
+                    </button>
+                    @if (it.inventoryItemId) {
+                      <button
+                        type="button"
+                        class="text-xs font-medium text-indigo-500 hover:text-indigo-600"
+                        (click)="inventoryClick.emit(it)">
+                        View inventory →
+                      </button>
+                    }
+                  </div>
                 </div>
                 <div class="flex items-center gap-2 flex-shrink-0">
                   <div class="w-16 bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 hidden sm:block">
@@ -59,6 +75,8 @@ import { TopShippedItem } from '../../services/dashboard.service';
 export class TopItemsCardComponent {
   @Input() title = 'Top Items Shipped';
   @Input() items: TopShippedItem[] = [];
+  @Output() readonly ordersClick = new EventEmitter<TopShippedItem>();
+  @Output() readonly inventoryClick = new EventEmitter<TopShippedItem>();
 
   private readonly rankClasses = [
     'bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-400',

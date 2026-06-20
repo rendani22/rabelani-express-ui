@@ -20,6 +20,7 @@ import {
   tablerLogout,
   tablerBox,
   tablerMapPin,
+  tablerClipboardList,
 } from '@ng-icons/tabler-icons';
 
 /**
@@ -58,6 +59,7 @@ import {
       tablerLogout,
       tablerBox,
       tablerMapPin,
+      tablerClipboardList,
     }),
   ],
   templateUrl: './nav-item.component.html',
@@ -100,6 +102,7 @@ export class NavItemComponent {
     'log-out': 'tablerLogout',
     orders: 'tablerBox',
     'map-pin': 'tablerMapPin',
+    'clipboard-list': 'tablerClipboardList',
   };
 
   /** Get the Tabler icon name for the current icon */

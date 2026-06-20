@@ -7,7 +7,7 @@ import { DashboardActionsComponent } from './dashboard-actions/dashboard-actions
 import { CreatePackageModalComponent } from '../../shared/components/modals';
 import { Package } from '../../core';
 import { OnboardingTourService } from '../../core';
-import { DashboardService, PackageActivity } from './services/dashboard.service';
+import { DashboardService, TopShippedItem } from './services/dashboard.service';
 import { StuckPackage } from './services/dashboard.service';
 import { PackageStatsCardComponent, StatItem } from './cards/package-stats-card/package-stats-card.component';
 import { PackageStatusChartComponent } from './cards/package-status-chart/package-status-chart.component';
@@ -134,7 +134,34 @@ export class Dashboard implements OnInit {
     this.router.navigate(['/orders'], { queryParams: { id: stuck.id } });
   }
 
-  onViewInventory(): void {
-    this.router.navigate(['/inventory']);
+  onTopShippedItemOrdersClick(item: TopShippedItem): void {
+    const queryParams: Record<string, string> = {
+      search: item.description,
+    };
+
+    if (item.packageIds.length === 1) {
+      queryParams['id'] = item.packageIds[0];
+    }
+
+    this.router.navigate(['/orders'], { queryParams });
+  }
+
+  onTopShippedItemInventoryClick(item: TopShippedItem): void {
+    if (!item.inventoryItemId) {
+      return;
+    }
+
+    this.onViewInventory({ id: item.inventoryItemId, name: item.description });
+  }
+
+  onViewInventory(item?: { id: string; name: string }): void {
+    this.router.navigate(['/inventory'], {
+      queryParams: item
+        ? {
+            id: item.id,
+            search: item.name,
+          }
+        : undefined,
+    });
   }
 }

@@ -46,6 +46,13 @@ export interface PackageItemRequest {
   readonly inventory_item_id?: string | null;
 }
 
+/** PO allocation linked to one package item row in the create request */
+export interface PurchaseOrderAllocationRequest {
+  readonly purchase_order_item_id: string;
+  readonly item_index: number;
+  readonly quantity: number;
+}
+
 /** Request payload for creating a new package */
 export interface CreatePackageRequest {
   readonly receiver_email: string;
@@ -55,6 +62,7 @@ export interface CreatePackageRequest {
   readonly items?: readonly PackageItemRequest[];
   readonly delivery_location_id?: string;
   readonly po_number?: string;
+  readonly po_allocations?: readonly PurchaseOrderAllocationRequest[];
 }
 
 /** Proof-of-delivery party (receiver or witness) captured when marking collected */
@@ -366,6 +374,56 @@ export type GetPackageResult = PackageServiceResult<Package>;
 
 /** Result type for package list fetch */
 export type GetPackagesResult = PackageServiceResult<readonly Package[]>;
+
+/** PO item balance payload used by PO lookup in create-order flows */
+export interface PurchaseOrderItemBalanceSummary {
+  readonly purchaseOrderItemId: string;
+  readonly purchaseOrderId: string;
+  readonly inventoryItemId: string;
+  readonly orderedQuantity: number;
+  readonly allocatedQuantity: number;
+  readonly remainingQuantity: number;
+}
+
+/** Lookup response payload for PO number searches */
+export interface PurchaseOrderLookupData {
+  readonly poNumber: string;
+  readonly items: readonly PurchaseOrderItemBalanceSummary[];
+}
+
+/** Effective balance for a PO line when combining allocation data with existing order usage */
+export interface PurchaseOrderLineBalance {
+  readonly allocatedQuantity: number;
+  readonly remainingQuantity: number;
+}
+
+/**
+ * Computes the effective allocated/remaining quantities for a PO line.
+ * Uses the larger of:
+ * - DB allocation totals (purchase_order_item_allocations)
+ * - Existing order usage for the same inventory item
+ *
+ * This keeps PO lookup accurate for historical orders that may not have
+ * allocation rows but already consumed PO quantities.
+ */
+export function computePurchaseOrderLineBalance(
+  orderedQuantity: number,
+  allocatedQuantity: number,
+  consumedQuantity: number
+): PurchaseOrderLineBalance {
+  const ordered = Math.max(0, Number(orderedQuantity) || 0);
+  const allocated = Math.max(0, Number(allocatedQuantity) || 0);
+  const consumed = Math.max(0, Number(consumedQuantity) || 0);
+  const effectiveAllocated = Math.min(ordered, Math.max(allocated, consumed));
+
+  return {
+    allocatedQuantity: effectiveAllocated,
+    remainingQuantity: Math.max(0, ordered - effectiveAllocated),
+  };
+}
+
+/** Result type for PO lookup by number */
+export type GetPurchaseOrderByNumberResult = PackageServiceResult<PurchaseOrderLookupData>;
 
 // ============================================================================
 // Status Workflow Helpers

@@ -26,15 +26,15 @@ export interface AppVersion {
 }
 
 export const APP_VERSION: AppVersion = {
-  "version": "0.67.0-dev",
-  "semver": "0.67.0",
+  "version": "0.78.0-dev",
+  "semver": "0.78.0",
   "baseTag": null,
-  "commitsSinceBase": 70,
+  "commitsSinceBase": 95,
   "isDirty": true,
-  "hash": "9359069",
-  "fullHash": "935906971cee5747a53751dbe79d3ff76261c637",
-  "branch": "main",
-  "message": "feat(pod): standardize POD filename format to use package reference and optional PO number",
-  "commitDate": "2026-06-02T20:37:14+02:00",
-  "buildDate": "2026-06-02T19:34:00.860Z"
+  "hash": "4b6d09c",
+  "fullHash": "4b6d09c445648e189561fea95dcdaf3de33d7c0a",
+  "branch": "copilot/add-purchase-order-section",
+  "message": "feat: implement authorization checks for updating purchase orders",
+  "commitDate": "2026-06-20T10:37:08+02:00",
+  "buildDate": "2026-06-20T08:39:35.860Z"
 };

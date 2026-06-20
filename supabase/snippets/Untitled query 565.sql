@@ -1,0 +1,1 @@
+INSERT INTO "public"."staff_profiles" ("id", "user_id", "email", "full_name", "role", "phone", "is_active", "created_at", "updated_at", "created_by") VALUES ('c10af67c-db7b-4f97-a746-ab64117b4e66', '4ee82713-1e78-4248-99af-5fcc05041242', 'rendani@email.com', 'Rendani', 'admin', '0844559856', true, '2026-01-20 19:55:31+00', '2026-01-20 19:55:34+00', null);

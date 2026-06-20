@@ -280,7 +280,7 @@ serve(async (req) => {
     // Rules:
     //   * package must still be in `pending` or `notified` status (server-side gate).
     //   * `quantity` decrease or delete → return diff to inventory_items.quantity.
-    //   * `quantity` increase           → decrement inventory; reject on insufficient stock.
+    //   * `quantity` increase           → decrement inventory (negative stock is allowed).
     //   * items with no inventory_item_id are mutated without touching inventory.
     //   * a movement row is inserted per affected inventory item with source='manual_edit'.
     // ------------------------------------------------------------------
@@ -415,20 +415,9 @@ serve(async (req) => {
             (invRows ?? []).map((r: any) => [r.id, r])
           )
 
-          // Pre-flight: any aggregate that would drop quantity below 0 is rejected.
-          for (const [invId, delta] of inventoryDeltas) {
-            const inv = invMap.get(invId)
-            if (!inv) continue // FK was set null on inventory delete — skip
-            if (inv.quantity + delta < 0) {
-              return new Response(
-                JSON.stringify({
-                  error: 'Insufficient inventory',
-                  details: `${inv.name} has ${inv.quantity} available; the requested change needs ${-delta}.`
-                }),
-                { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-              )
-            }
-          }
+          // Negative inventory is intentionally allowed (see migration
+          // 20260517123000_allow_negative_inventory), so we only validate row
+          // existence and then apply the aggregated deltas.
 
           // Apply each adjustment + queue movement rows.
           for (const [invId, delta] of inventoryDeltas) {
