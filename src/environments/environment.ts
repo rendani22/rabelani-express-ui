@@ -1,4 +1,5 @@
 export const environment = {
+  appEnvironment: 'local',
   production: false,
   supabase: {
     url: 'http://127.0.0.1:54321',

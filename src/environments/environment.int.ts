@@ -1,4 +1,5 @@
 export const environment = {
+  appEnvironment: 'int',
   production: true,
   supabase: {
     url: 'https://qmnqffpwvsvngjmyisrf.supabase.co',

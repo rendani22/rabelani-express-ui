@@ -26,15 +26,15 @@ export interface AppVersion {
 }
 
 export const APP_VERSION: AppVersion = {
-  "version": "0.80.0-dev",
-  "semver": "0.80.0",
+  "version": "0.70.0-dev",
+  "semver": "0.70.0",
   "baseTag": null,
-  "commitsSinceBase": 97,
+  "commitsSinceBase": 73,
   "isDirty": true,
-  "hash": "10cf0ab",
-  "fullHash": "10cf0abf0533f71a6e59fce11693e629eeee59ec",
-  "branch": "copilot/add-purchase-order-section",
-  "message": "feat: add production environment configuration and initial staff profile data",
-  "commitDate": "2026-06-20T11:46:05+02:00",
-  "buildDate": "2026-06-20T14:10:12.463Z"
+  "hash": "6e05b88",
+  "fullHash": "6e05b8857c086a4961865fdf115edec6516ac820",
+  "branch": "dev",
+  "message": "feat(user-card): refactor user input handling and update menu state management",
+  "commitDate": "2026-06-20T17:07:22+02:00",
+  "buildDate": "2026-06-20T22:43:27.013Z"
 };
