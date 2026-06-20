@@ -26,15 +26,15 @@ export interface AppVersion {
 }
 
 export const APP_VERSION: AppVersion = {
-  "version": "0.78.0-dev",
-  "semver": "0.78.0",
+  "version": "0.80.0-dev",
+  "semver": "0.80.0",
   "baseTag": null,
-  "commitsSinceBase": 95,
+  "commitsSinceBase": 97,
   "isDirty": true,
-  "hash": "4b6d09c",
-  "fullHash": "4b6d09c445648e189561fea95dcdaf3de33d7c0a",
+  "hash": "10cf0ab",
+  "fullHash": "10cf0abf0533f71a6e59fce11693e629eeee59ec",
   "branch": "copilot/add-purchase-order-section",
-  "message": "feat: implement authorization checks for updating purchase orders",
-  "commitDate": "2026-06-20T10:37:08+02:00",
-  "buildDate": "2026-06-20T08:39:35.860Z"
+  "message": "feat: add production environment configuration and initial staff profile data",
+  "commitDate": "2026-06-20T11:46:05+02:00",
+  "buildDate": "2026-06-20T14:10:12.463Z"
 };

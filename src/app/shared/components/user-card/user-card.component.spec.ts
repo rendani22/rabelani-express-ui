@@ -4,7 +4,7 @@ import { By } from '@angular/platform-browser';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { vi } from 'vitest';
 import { UserCardComponent } from './user-card.component';
-import { User, UserCardAction } from './user-card.interface';
+import { User } from './user-card.interface';
 
 describe('UserCardComponent', () => {
   let component: UserCardComponent;
@@ -28,7 +28,7 @@ describe('UserCardComponent', () => {
     fixture = TestBed.createComponent(UserCardComponent);
     component = fixture.componentInstance;
     debugElement = fixture.debugElement;
-    component.user = mockUser;
+    fixture.componentRef.setInput('user', mockUser);
     fixture.detectChanges();
   });
 
@@ -60,7 +60,7 @@ describe('UserCardComponent', () => {
 
 
     it('should not display bio when bio is empty', () => {
-      component.user = { ...mockUser, bio: '' };
+      fixture.componentRef.setInput('user', { ...mockUser, bio: '' });
       fixture.detectChanges();
       const bioElement = debugElement.query(By.css('.user-card__bio'));
       expect(bioElement).toBeFalsy();
@@ -70,32 +70,32 @@ describe('UserCardComponent', () => {
   describe('Menu Functionality', () => {
     it('should toggle menu when menu button is clicked', () => {
       const menuButton = debugElement.query(By.css('.user-card__menu-button'));
-      expect(component.isMenuOpen).toBe(false);
+      expect(component.isMenuOpen()).toBe(false);
 
       menuButton.nativeElement.click();
-      expect(component.isMenuOpen).toBe(true);
+      expect(component.isMenuOpen()).toBe(true);
 
       menuButton.nativeElement.click();
-      expect(component.isMenuOpen).toBe(false);
+      expect(component.isMenuOpen()).toBe(false);
     });
 
     it('should display menu options when menu is open', () => {
-      component.isMenuOpen = true;
+      component.isMenuOpen.set(true);
       fixture.detectChanges();
 
       const menuItems = debugElement.queryAll(By.css('.user-card__dropdown-item'));
-      expect(menuItems.length).toBe(component.menuOptions.length);
+      expect(menuItems.length).toBe(component.menuOptions().length);
     });
 
     it('should close menu when closeMenu is called', () => {
-      component.isMenuOpen = true;
+      component.isMenuOpen.set(true);
       component.closeMenu();
-      expect(component.isMenuOpen).toBe(false);
+      expect(component.isMenuOpen()).toBe(false);
     });
 
     it('should emit action event when menu option is clicked', () => {
       vi.spyOn(component.actionClick, 'emit');
-      const mockOption = component.menuOptions[0];
+      const mockOption = component.menuOptions()[0];
       const mockEvent = new Event('click');
 
       component.onMenuOptionClick(mockOption, mockEvent);
@@ -108,18 +108,18 @@ describe('UserCardComponent', () => {
     });
 
     it('should close menu when Escape key is pressed', () => {
-      component.isMenuOpen = true;
+      component.isMenuOpen.set(true);
       const escapeEvent = new KeyboardEvent('keydown', { key: 'Escape' });
 
       component.onMenuKeydown(escapeEvent);
 
-      expect(component.isMenuOpen).toBe(false);
+      expect(component.isMenuOpen()).toBe(false);
     });
   });
 
   describe('Action Buttons', () => {
     it('should display send email button when showSendEmail is true', () => {
-      component.showSendEmail = true;
+      fixture.componentRef.setInput('showSendEmail', true);
       fixture.detectChanges();
 
       const sendEmailButton = debugElement.query(By.css('.user-card__action--primary'));
@@ -127,7 +127,7 @@ describe('UserCardComponent', () => {
     });
 
     it('should not display send email button when showSendEmail is false', () => {
-      component.showSendEmail = false;
+      fixture.componentRef.setInput('showSendEmail', false);
       fixture.detectChanges();
 
       const sendEmailButton = debugElement.query(By.css('.user-card__action--primary'));
@@ -147,7 +147,7 @@ describe('UserCardComponent', () => {
     });
 
     it('should display edit profile button when showEditProfile is true', () => {
-      component.showEditProfile = true;
+      fixture.componentRef.setInput('showEditProfile', true);
       fixture.detectChanges();
 
       const editButton = debugElement.query(By.css('.user-card__action--secondary'));
@@ -185,7 +185,7 @@ describe('UserCardComponent', () => {
     });
 
     it('should update aria-expanded when menu is opened', () => {
-      component.isMenuOpen = true;
+      component.isMenuOpen.set(true);
       fixture.detectChanges();
 
       const menuButton = debugElement.query(By.css('.user-card__menu-button'));
@@ -203,12 +203,10 @@ describe('UserCardComponent', () => {
     });
   });
 
-  describe('TrackBy Function', () => {
-    it('should return action for trackByAction', () => {
-      const option = component.menuOptions[0];
-      const result = component.trackByAction(0, option);
-      expect(result).toBe(option.action);
+  describe('Menu Options', () => {
+    it('should expose menu options with action values for template tracking', () => {
+      const option = component.menuOptions()[0];
+      expect(option.action).toBeTruthy();
     });
   });
 });
-
