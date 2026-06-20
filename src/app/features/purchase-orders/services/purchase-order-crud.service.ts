@@ -1,4 +1,5 @@
 import { Injectable, inject } from '@angular/core';
+import { StaffService } from '../../../core';
 import { SupabaseService } from '../../../shared/services/supabase.service';
 
 export interface CreatePurchaseOrderInput {
@@ -55,14 +56,13 @@ interface AtomicUpdatePurchaseOrderRpcResponse {
 interface PurchaseOrderForEditRow {
   readonly id: string;
   readonly po_number: string;
-  readonly items: readonly PurchaseOrderForEditItemRow[];
 }
 
-interface PurchaseOrderForEditItemRow {
-  readonly id: string;
+interface PurchaseOrderForEditBalanceRow {
+  readonly purchase_order_item_id: string;
   readonly inventory_item_id: string;
   readonly ordered_quantity: number | string;
-  readonly balances?: readonly { allocated_quantity: number | string }[] | null;
+  readonly allocated_quantity: number | string;
 }
 
 interface PackageItemsByPoNumberRow {
@@ -75,6 +75,19 @@ interface PackageItemsByPoNumberRow {
 @Injectable()
 export class PurchaseOrderCrudService {
   private readonly supabase = inject(SupabaseService);
+  private readonly staffService = inject(StaffService);
+
+  private ensureDriverCannotUpdate(): PurchaseOrderCrudResult | null {
+    const profile = this.staffService.currentProfile();
+    if (profile?.role === 'driver') {
+      return {
+        success: false,
+        error: 'Drivers cannot update purchase orders.',
+      };
+    }
+
+    return null;
+  }
 
   async createPurchaseOrder(input: CreatePurchaseOrderInput): Promise<PurchaseOrderCrudResult> {
     const poNumber = input.poNumber.trim();
@@ -134,6 +147,15 @@ export class PurchaseOrderCrudService {
       return { success: false, error: 'At least one PO line is required' };
     }
 
+    if (!this.supabase.currentUser()) {
+      return { success: false, error: 'You must be signed in to update purchase orders.' };
+    }
+
+    const accessResult = this.ensureDriverCannotUpdate();
+    if (accessResult) {
+      return accessResult;
+    }
+
     const { data, error } = await this.supabase.client.rpc('update_purchase_order_with_items', {
       p_purchase_order_id: purchaseOrderId,
       p_po_number: poNumber,
@@ -162,32 +184,31 @@ export class PurchaseOrderCrudService {
       return { success: false, error: 'Purchase order id is required' };
     }
 
-    const { data, error } = await this.supabase.client
-      .from('purchase_orders')
-      .select(`
-        id,
-        po_number,
-        items:purchase_order_items(
-          id,
-          inventory_item_id,
-          ordered_quantity,
-          balances:purchase_order_item_balances(
-            allocated_quantity
-          )
-        )
-      `)
-      .eq('id', normalizedPurchaseOrderId)
-      .maybeSingle();
+    const [purchaseOrderResult, balanceResult] = await Promise.all([
+      this.supabase.client
+        .from('purchase_orders')
+        .select('id, po_number')
+        .eq('id', normalizedPurchaseOrderId)
+        .maybeSingle(),
+      this.supabase.client
+        .from('purchase_order_item_balances')
+        .select('purchase_order_item_id, inventory_item_id, ordered_quantity, allocated_quantity')
+        .eq('purchase_order_id', normalizedPurchaseOrderId),
+    ]);
 
-    if (error) {
-      return { success: false, error: error.message };
+    if (purchaseOrderResult.error) {
+      return { success: false, error: purchaseOrderResult.error.message };
     }
 
-    if (!data) {
+    if (!purchaseOrderResult.data) {
       return { success: false, error: 'Purchase order not found' };
     }
 
-    const poRow = data as PurchaseOrderForEditRow;
+    if (balanceResult.error) {
+      return { success: false, error: balanceResult.error.message };
+    }
+
+    const poRow = purchaseOrderResult.data as PurchaseOrderForEditRow;
     const poNumber = poRow.po_number.trim();
 
     const consumedByInventoryItemId = new Map<string, number>();
@@ -214,18 +235,19 @@ export class PurchaseOrderCrudService {
       }
     }
 
-    const items: PurchaseOrderEditLine[] = (poRow.items ?? []).map(line => {
-      const orderedQuantity = Number(line.ordered_quantity) || 0;
-      const allocatedQuantity = Number(line.balances?.[0]?.allocated_quantity ?? 0) || 0;
-      const consumedQuantity = consumedByInventoryItemId.get(line.inventory_item_id) ?? 0;
+    const items: PurchaseOrderEditLine[] = (balanceResult.data ?? []).map(line => {
+      const balanceRow = line as PurchaseOrderForEditBalanceRow;
+      const orderedQuantity = Number(balanceRow.ordered_quantity) || 0;
+      const allocatedQuantity = Number(balanceRow.allocated_quantity) || 0;
+      const consumedQuantity = consumedByInventoryItemId.get(balanceRow.inventory_item_id) ?? 0;
       const minAllowedQuantity = Math.min(
         orderedQuantity,
         Math.max(allocatedQuantity, consumedQuantity)
       );
 
       return {
-        purchaseOrderItemId: line.id,
-        inventoryItemId: line.inventory_item_id,
+        purchaseOrderItemId: balanceRow.purchase_order_item_id,
+        inventoryItemId: balanceRow.inventory_item_id,
         orderedQuantity,
         minAllowedQuantity,
       };

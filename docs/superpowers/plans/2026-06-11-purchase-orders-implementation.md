@@ -130,7 +130,7 @@ Expected: PASS; migration applies without errors.
 - [x] **Step 6: Commit**
 
 ```bash
-git add supabase/migrations/20260611120000_purchase_orders.sql
+git add supabase/migrationss/20260611120000_purchase_orders.sql
 git commit -m "feat: add purchase order schema and balances view"
 ```
 

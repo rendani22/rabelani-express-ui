@@ -1,7 +1,9 @@
 import { TestBed, getTestBed } from '@angular/core/testing';
 import { BrowserDynamicTestingModule, platformBrowserDynamicTesting } from '@angular/platform-browser-dynamic/testing';
+import { signal } from '@angular/core';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { StaffService } from '../../../core';
 import { SupabaseService } from '../../../shared/services/supabase.service';
 import { PurchaseOrderCrudService } from './purchase-order-crud.service';
 
@@ -15,17 +17,46 @@ describe('PurchaseOrderCrudService', () => {
   let service: PurchaseOrderCrudService;
   const rpc = vi.fn();
   const from = vi.fn();
+  const currentUser = signal({ id: 'user-1' } as { id: string });
+  const currentProfile = signal({
+    id: 'staff-1',
+    user_id: 'user-1',
+    email: 'warehouse@example.com',
+    full_name: 'Warehouse User',
+    role: 'warehouse',
+    is_active: true,
+    created_at: '2026-06-20T00:00:00.000Z',
+    updated_at: '2026-06-20T00:00:00.000Z',
+  });
 
   beforeEach(() => {
     rpc.mockReset();
     from.mockReset();
+    currentUser.set({ id: 'user-1' });
+    currentProfile.set({
+      id: 'staff-1',
+      user_id: 'user-1',
+      email: 'warehouse@example.com',
+      full_name: 'Warehouse User',
+      role: 'warehouse',
+      is_active: true,
+      created_at: '2026-06-20T00:00:00.000Z',
+      updated_at: '2026-06-20T00:00:00.000Z',
+    });
 
     TestBed.configureTestingModule({
       providers: [
         PurchaseOrderCrudService,
         {
+          provide: StaffService,
+          useValue: {
+            currentProfile,
+          },
+        },
+        {
           provide: SupabaseService,
           useValue: {
+            currentUser,
             client: {
               rpc,
               from,
@@ -40,6 +71,47 @@ describe('PurchaseOrderCrudService', () => {
 
   afterEach(() => {
     TestBed.resetTestingModule();
+  });
+
+  it('returns a friendly authorization error when user is not signed in', async () => {
+    currentUser.set(null);
+
+    const result = await service.updatePurchaseOrder({
+      purchaseOrderId: 'po-1',
+      poNumber: 'PO-2001',
+      items: [{ purchaseOrderItemId: 'poi-1', orderedQuantity: 8 }],
+    });
+
+    expect(result).toEqual({
+      success: false,
+      error: 'You must be signed in to update purchase orders.',
+    });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it('prevents drivers from updating purchase orders', async () => {
+    currentProfile.set({
+      id: 'staff-1',
+      user_id: 'user-1',
+      email: 'driver@example.com',
+      full_name: 'Driver User',
+      role: 'driver',
+      is_active: true,
+      created_at: '2026-06-20T00:00:00.000Z',
+      updated_at: '2026-06-20T00:00:00.000Z',
+    });
+
+    const result = await service.updatePurchaseOrder({
+      purchaseOrderId: 'po-1',
+      poNumber: 'PO-2001',
+      items: [{ purchaseOrderItemId: 'poi-1', orderedQuantity: 8 }],
+    });
+
+    expect(result).toEqual({
+      success: false,
+      error: 'Drivers cannot update purchase orders.',
+    });
+    expect(rpc).not.toHaveBeenCalled();
   });
 
   it('creates purchase order with items using atomic rpc', async () => {
@@ -123,19 +195,24 @@ describe('PurchaseOrderCrudService', () => {
       data: {
         id: 'po-1',
         po_number: ' PO-2001 ',
-        items: [
-          {
-            id: 'poi-1',
-            inventory_item_id: 'inv-1',
-            ordered_quantity: '10',
-            balances: [{ allocated_quantity: '3' }],
-          },
-        ],
       },
       error: null,
     });
     const poEq = vi.fn().mockReturnValue({ maybeSingle });
     const poSelect = vi.fn().mockReturnValue({ eq: poEq });
+
+    const balanceEq = vi.fn().mockReturnValue({
+      data: [
+        {
+          purchase_order_item_id: 'poi-1',
+          inventory_item_id: 'inv-1',
+          ordered_quantity: '10',
+          allocated_quantity: '3',
+        },
+      ],
+      error: null,
+    });
+    const balanceSelect = vi.fn().mockReturnValue({ eq: balanceEq });
 
     const pkgIs = vi.fn().mockResolvedValue({
       data: [{ items: [{ quantity: '5', inventory_item_id: 'inv-1' }] }],
@@ -145,7 +222,11 @@ describe('PurchaseOrderCrudService', () => {
     const pkgSelect = vi.fn().mockReturnValue({ eq: pkgEq });
 
     from.mockImplementation((table: string) =>
-      table === 'purchase_orders' ? { select: poSelect } : { select: pkgSelect }
+      table === 'purchase_orders'
+        ? { select: poSelect }
+        : table === 'purchase_order_item_balances'
+          ? { select: balanceSelect }
+          : { select: pkgSelect }
     );
 
     const result = await service.getPurchaseOrderForEdit(' po-1 ');
@@ -166,7 +247,8 @@ describe('PurchaseOrderCrudService', () => {
       },
     });
     expect(from).toHaveBeenNthCalledWith(1, 'purchase_orders');
-    expect(from).toHaveBeenNthCalledWith(2, 'packages');
+    expect(from).toHaveBeenNthCalledWith(2, 'purchase_order_item_balances');
+    expect(from).toHaveBeenNthCalledWith(3, 'packages');
   });
 
   it('returns load-edit query errors', async () => {
@@ -177,8 +259,14 @@ describe('PurchaseOrderCrudService', () => {
     const poEq = vi.fn().mockReturnValue({ maybeSingle });
     const poSelect = vi.fn().mockReturnValue({ eq: poEq });
 
+    const balanceSelect = vi.fn().mockReturnValue({
+      eq: vi.fn().mockReturnValue({ data: [], error: null }),
+    });
+
     from.mockImplementation((table: string) =>
-      table === 'purchase_orders' ? { select: poSelect } : { select: vi.fn() }
+      table === 'purchase_orders'
+        ? { select: poSelect }
+        : { select: balanceSelect }
     );
 
     const result = await service.getPurchaseOrderForEdit('po-1');

@@ -127,7 +127,7 @@ Expected: function present with no syntax errors in generated diff.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add supabase/migrations/20260617194000_update_purchase_order_with_items.sql
+git add supabase/migrationss/20260617194000_update_purchase_order_with_items.sql
 git commit -m "feat: add atomic purchase-order update rpc"
 ```
 
