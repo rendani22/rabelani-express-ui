@@ -987,7 +987,8 @@ serve(async (req) => {
           // same formula in orders.ts) takes precedence so both code paths
           // end up identical.
           const podFilename = pod?.pdf_filename
-            || `POD-${updatedPackage.reference}${poNumber ? `-${poNumber}` : ''}.pdf`
+            || `${poNumber ? `${poNumber}` : ''}-${updatedPackage.reference} .pdf`
+
           const attachments: Array<Record<string, string>> = []
           if (pod?.pdf_base64) {
             const cleanBase64 = pod.pdf_base64.replace(/^data:application\/pdf;base64,/, '')
