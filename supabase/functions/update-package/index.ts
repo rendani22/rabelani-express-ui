@@ -986,8 +986,7 @@ serve(async (req) => {
           // A client-supplied `pod.pdf_filename` (already produced with the
           // same formula in orders.ts) takes precedence so both code paths
           // end up identical.
-          const podFilename = pod?.pdf_filename
-            || `${poNumber ? `${poNumber}` : ''}-${updatedPackage.reference} .pdf`
+          const podFilename = `${poNumber ? `${poNumber}` : ''}-${updatedPackage.reference} .pdf`
 
           const attachments: Array<Record<string, string>> = []
           if (pod?.pdf_base64) {
