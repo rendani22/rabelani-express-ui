@@ -34,6 +34,12 @@ export * from './search-modal/search-modal.component';
 // Create Package Modal
 export * from './create-package-modal/create-package-modal.component';
 
+// Create Purchase Order Modal
+export * from './create-purchase-order-modal/create-purchase-order-modal.component';
+
+// Edit Purchase Order Modal
+export * from './edit-purchase-order-modal/edit-purchase-order-modal.component';
+
 // Package Details Panel
 export * from './package-details-panel/package-details-panel.component';
 
@@ -64,4 +70,3 @@ export * from './assign-driver-modal/assign-driver-modal.component';
 // POD Document (printable proof of delivery)
 export * from './pod-document/pod-document.component';
 export * from './pod-document/pod-document-view.component';
-

@@ -137,8 +137,8 @@
     margin: 0;
     padding: 0;
 
-    // First item spans full width as a horizontal bar
-    &:first-child {
+    // Full-width items span both columns as horizontal bars
+    &--full-width {
       grid-column: 1 / -1;
 
       ::ng-deep .nav-item {

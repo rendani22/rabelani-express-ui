@@ -26,15 +26,15 @@ export interface AppVersion {
 }
 
 export const APP_VERSION: AppVersion = {
-  "version": "0.67.0-dev",
-  "semver": "0.67.0",
+  "version": "0.70.0-dev",
+  "semver": "0.70.0",
   "baseTag": null,
-  "commitsSinceBase": 70,
+  "commitsSinceBase": 73,
   "isDirty": true,
-  "hash": "9359069",
-  "fullHash": "935906971cee5747a53751dbe79d3ff76261c637",
-  "branch": "main",
-  "message": "feat(pod): standardize POD filename format to use package reference and optional PO number",
-  "commitDate": "2026-06-02T20:37:14+02:00",
-  "buildDate": "2026-06-02T19:34:00.860Z"
+  "hash": "6e05b88",
+  "fullHash": "6e05b8857c086a4961865fdf115edec6516ac820",
+  "branch": "dev",
+  "message": "feat(user-card): refactor user input handling and update menu state management",
+  "commitDate": "2026-06-20T17:07:22+02:00",
+  "buildDate": "2026-06-20T22:43:27.013Z"
 };

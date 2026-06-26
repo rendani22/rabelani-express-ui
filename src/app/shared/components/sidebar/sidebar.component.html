@@ -29,7 +29,10 @@
     <span class="nav-section__label">{{ navLabel }}</span>
     <ul class="nav-section__list">
       @for (item of navItems; track item.label) {
-        <li class="nav-section__item">
+        <li
+          class="nav-section__item"
+          [class.nav-section__item--full-width]="item.label === 'Dashboard' || item.label === 'Purchase Orders'"
+        >
           <app-nav-item
             [icon]="item.icon"
             [label]="item.label"
