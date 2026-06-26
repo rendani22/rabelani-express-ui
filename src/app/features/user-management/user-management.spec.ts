@@ -5,6 +5,7 @@ import { vi } from 'vitest';
 import { UserManagementComponent } from './user-management';
 import { StaffService, StaffProfile, StaffRole } from '../../core';
 import { User, UserCardAction } from '../../shared/components/user-card';
+import { ToastService } from '../../shared/components/toast/toast.service';
 
 describe('UserManagementComponent', () => {
   let component: UserManagementComponent;
@@ -18,6 +19,9 @@ describe('UserManagementComponent', () => {
     deactivateStaff: ReturnType<typeof vi.fn>;
     reactivateStaff: ReturnType<typeof vi.fn>;
     createStaff: ReturnType<typeof vi.fn>;
+  };
+  let toastServiceMock: {
+    success: ReturnType<typeof vi.fn>;
   };
 
   const mockStaffProfiles: StaffProfile[] = [
@@ -70,11 +74,15 @@ describe('UserManagementComponent', () => {
       reactivateStaff: vi.fn().mockResolvedValue({ success: true, error: null }),
       createStaff: vi.fn().mockResolvedValue({ profile: mockStaffProfiles[0], error: null })
     };
+    toastServiceMock = {
+      success: vi.fn(),
+    };
 
     await TestBed.configureTestingModule({
       imports: [UserManagementComponent],
       providers: [
-        { provide: StaffService, useValue: staffServiceMock }
+        { provide: StaffService, useValue: staffServiceMock },
+        { provide: ToastService, useValue: toastServiceMock },
       ]
     }).compileComponents();
 
@@ -298,8 +306,7 @@ describe('UserManagementComponent', () => {
       staffServiceMock.staffList.set(mockStaffProfiles);
     });
 
-    it('should log card click for valid user', () => {
-      const consoleSpy = vi.spyOn(console, 'log');
+    it('should allow card click for valid user without side effects', () => {
       const user: User = {
         id: '1',
         name: 'Admin User',
@@ -311,8 +318,8 @@ describe('UserManagementComponent', () => {
 
       component.onCardClick(user);
 
-      expect(consoleSpy).toHaveBeenCalledWith('Card clicked:', expect.objectContaining({ id: '1' }));
-      consoleSpy.mockRestore();
+      expect(staffServiceMock.deactivateStaff).not.toHaveBeenCalled();
+      expect(staffServiceMock.reactivateStaff).not.toHaveBeenCalled();
     });
 
     it('should not log anything for invalid user', () => {
@@ -367,8 +374,7 @@ describe('UserManagementComponent', () => {
       }
     });
 
-    it('should log edit profile action', async () => {
-      const consoleSpy = vi.spyOn(console, 'log');
+    it('should open edit modal for editProfile action', async () => {
       const action: UserCardAction = {
         userId: '1',
         actionType: 'editProfile'
@@ -376,8 +382,8 @@ describe('UserManagementComponent', () => {
 
       await component.onCardAction(action);
 
-      expect(consoleSpy).toHaveBeenCalledWith('Edit profile:', expect.objectContaining({ id: '1' }));
-      consoleSpy.mockRestore();
+      expect(component.editUserModalOpen()).toBe(true);
+      expect(component.staffToEdit()?.id).toBe('1');
     });
 
     it('should do nothing for non-existent user', async () => {
@@ -399,22 +405,34 @@ describe('UserManagementComponent', () => {
       staffServiceMock.staffList.set(mockStaffProfiles);
     });
 
-    it('should call deactivateStaff when user confirms', async () => {
-      vi.spyOn(window, 'confirm').mockReturnValue(true);
+    it('should open confirmation dialog when deactivating', async () => {
       const staff = mockStaffProfiles[0];
 
       await component.onDeactivate(staff);
 
-      expect(staffServiceMock.deactivateStaff).toHaveBeenCalledWith(staff.id);
+      expect(component.confirmDeactivateOpen()).toBe(true);
+      expect(component.staffPendingDeactivation()?.id).toBe(staff.id);
+      expect(staffServiceMock.deactivateStaff).not.toHaveBeenCalled();
     });
 
-    it('should not call deactivateStaff when user cancels', async () => {
-      vi.spyOn(window, 'confirm').mockReturnValue(false);
+    it('should deactivate staff on confirmation', async () => {
       const staff = mockStaffProfiles[0];
-
       await component.onDeactivate(staff);
+      await component.onConfirmDeactivate();
 
+      expect(staffServiceMock.deactivateStaff).toHaveBeenCalledWith(staff.id);
+      expect(component.confirmDeactivateOpen()).toBe(false);
+      expect(component.staffPendingDeactivation()).toBeNull();
+      expect(toastServiceMock.success).toHaveBeenCalled();
+    });
+
+    it('should clear pending deactivation when cancelled', async () => {
+      const staff = mockStaffProfiles[0];
+      await component.onDeactivate(staff);
+      component.onCancelDeactivate();
       expect(staffServiceMock.deactivateStaff).not.toHaveBeenCalled();
+      expect(component.confirmDeactivateOpen()).toBe(false);
+      expect(component.staffPendingDeactivation()).toBeNull();
     });
 
     it('should call reactivateStaff', async () => {
@@ -432,35 +450,30 @@ describe('UserManagementComponent', () => {
     });
 
     it('should handle viewProfile menu option', async () => {
-      const consoleSpy = vi.spyOn(console, 'log');
       const action: UserCardAction = {
         userId: '1',
         actionType: 'menuOption',
         menuOption: 'viewProfile'
       };
-
       await component.onCardAction(action);
 
-      expect(consoleSpy).toHaveBeenCalledWith('View profile:', expect.objectContaining({ id: '1' }));
-      consoleSpy.mockRestore();
+      expect(component.editUserModalOpen()).toBe(false);
+      expect(staffServiceMock.deactivateStaff).not.toHaveBeenCalled();
     });
 
     it('should handle edit menu option', async () => {
-      const consoleSpy = vi.spyOn(console, 'log');
       const action: UserCardAction = {
         userId: '1',
         actionType: 'menuOption',
         menuOption: 'edit'
       };
-
       await component.onCardAction(action);
 
-      expect(consoleSpy).toHaveBeenCalledWith('Edit:', expect.objectContaining({ id: '1' }));
-      consoleSpy.mockRestore();
+      expect(component.editUserModalOpen()).toBe(true);
+      expect(component.staffToEdit()?.id).toBe('1');
     });
 
     it('should handle deactivate menu option', async () => {
-      vi.spyOn(window, 'confirm').mockReturnValue(true);
       const action: UserCardAction = {
         userId: '1',
         actionType: 'menuOption',
@@ -469,7 +482,9 @@ describe('UserManagementComponent', () => {
 
       await component.onCardAction(action);
 
-      expect(staffServiceMock.deactivateStaff).toHaveBeenCalledWith('1');
+      expect(component.confirmDeactivateOpen()).toBe(true);
+      expect(component.staffPendingDeactivation()?.id).toBe('1');
+      expect(staffServiceMock.deactivateStaff).not.toHaveBeenCalled();
     });
 
     it('should handle reactivate menu option', async () => {
@@ -514,5 +529,3 @@ describe('UserManagementComponent', () => {
     });
   });
 });
-
-

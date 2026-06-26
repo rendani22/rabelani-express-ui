@@ -312,24 +312,24 @@ describe('AddUserModalComponent', () => {
   });
 
   describe('onClose', () => {
-    it('should emit closeModal when not submitting', () => {
+    it('should emit closeModal when not submitting', async () => {
       const emitSpy = vi.spyOn(component.closeModal, 'emit');
 
-      component.onClose();
+      await component.onClose();
 
       expect(emitSpy).toHaveBeenCalled();
     });
 
-    it('should not emit closeModal when submitting', () => {
+    it('should not emit closeModal when submitting', async () => {
       component.isSubmitting.set(true);
       const emitSpy = vi.spyOn(component.closeModal, 'emit');
 
-      component.onClose();
+      await component.onClose();
 
       expect(emitSpy).not.toHaveBeenCalled();
     });
 
-    it('should reset form on close', () => {
+    it('should reset form on close', async () => {
       component.form.patchValue({
         full_name: 'Test',
         email: 'test@test.com',
@@ -338,7 +338,7 @@ describe('AddUserModalComponent', () => {
       component.errorMessage.set('Some error');
       component.successMessage.set('Success!');
 
-      component.onClose();
+      await component.onClose();
 
       expect(component.form.value.full_name).toBe('');
       expect(component.form.value.email).toBe('');
@@ -366,4 +366,3 @@ describe('AddUserModalComponent', () => {
     });
   });
 });
-
