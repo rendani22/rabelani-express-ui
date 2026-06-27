@@ -126,7 +126,7 @@ describe('PurchaseOrderCrudService', () => {
       ],
     });
 
-    expect(result).toEqual({ success: true });
+    expect(result).toEqual({ success: true, purchaseOrderId: 'po-1' });
     expect(rpc).toHaveBeenCalledTimes(1);
     expect(rpc).toHaveBeenCalledWith('create_purchase_order_with_items', {
       p_po_number: 'PO-1001',

@@ -181,7 +181,7 @@ describe('Dashboard', () => {
 
   it('should navigate to inventory from inventory CTA', () => {
     component.onViewInventory();
-    expect(navigateSpy).toHaveBeenCalledWith(['/inventory']);
+    expect(navigateSpy).toHaveBeenCalledWith(['/inventory'], { queryParams: undefined });
   });
 
   it('should render the primary dashboard containers', () => {

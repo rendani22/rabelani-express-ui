@@ -19,7 +19,7 @@ describe('CreatePurchaseOrderModalComponent', () => {
 
   it('starts with no PO lines so min-length validation is enforced', () => {
     expect(component.itemsArray.length).toBe(0);
-    expect(component.form.controls.items.errors?.['minlength']).toBeTruthy();
+    expect(component.form.controls.items.errors?.['required']).toBeTruthy();
   });
 
   it('requires at least one PO line before submit', () => {
@@ -27,7 +27,7 @@ describe('CreatePurchaseOrderModalComponent', () => {
     component.form.controls.poNumber.setValue('PO-42');
 
     expect(component.form.valid).toBe(false);
-    expect(component.form.controls.items.errors?.['minlength']).toBeTruthy();
+    expect(component.form.controls.items.errors?.['required']).toBeTruthy();
   });
 
   it('treats whitespace-only poNumber as invalid', () => {
@@ -74,18 +74,21 @@ describe('CreatePurchaseOrderModalComponent', () => {
 
   it('emits created payload on valid submit', async () => {
     const createdSpy = vi.spyOn(component.created, 'emit');
+    const documentFile = new File(['po'], 'po-123.pdf', { type: 'application/pdf' });
 
     component.form.controls.poNumber.setValue('PO-123');
     component.addLine();
     const line = component.itemsArray.at(0);
     line.controls.inventoryItemId.setValue('inv-1');
     line.controls.orderedQuantity.setValue(2);
+    component.selectedFile.set(documentFile);
 
     await component.onSubmit();
 
     expect(createdSpy).toHaveBeenCalledWith({
       poNumber: 'PO-123',
       items: [{ inventoryItemId: 'inv-1', orderedQuantity: 2 }],
+      documentFile,
     });
   });
 
