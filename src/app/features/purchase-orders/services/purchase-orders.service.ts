@@ -94,6 +94,7 @@ export class PurchaseOrdersService {
           id,
           po_number,
           status,
+          document_url,
           created_at,
           updated_at,
           items:purchase_order_items(
@@ -279,6 +280,7 @@ export class PurchaseOrdersService {
             ),
             orderBreakdown: computeOrderBreakdown(packages),
             source: 'purchase_order' as PurchaseOrderSource,
+            documentUrl: order.document_url ?? null,
           };
         })
       );
@@ -364,6 +366,7 @@ export class PurchaseOrdersService {
             completionPercentage: computeCompletionPercentage(packages),
             orderBreakdown: computeOrderBreakdown(packages),
             source: 'order' as PurchaseOrderSource,
+            documentUrl: null,
           };
         });
 
@@ -398,6 +401,7 @@ interface PurchaseOrderRow {
   readonly id: string;
   readonly po_number: string;
   readonly status: string;
+  readonly document_url?: string | null;
   readonly created_at: string;
   readonly updated_at: string;
   readonly items?: readonly PurchaseOrderItemRow[];

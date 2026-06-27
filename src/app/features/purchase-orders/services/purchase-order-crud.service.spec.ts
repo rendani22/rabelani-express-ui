@@ -17,7 +17,7 @@ describe('PurchaseOrderCrudService', () => {
   let service: PurchaseOrderCrudService;
   const rpc = vi.fn();
   const from = vi.fn();
-  const currentUser = signal({ id: 'user-1' } as { id: string });
+  const currentUser = signal<{ id: string } | null>({ id: 'user-1' });
   const currentProfile = signal({
     id: 'staff-1',
     user_id: 'user-1',

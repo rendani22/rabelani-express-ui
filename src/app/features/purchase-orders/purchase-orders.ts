@@ -26,6 +26,7 @@ import {
   tablerX,
   tablerShoppingCart,
   tablerArrowRight,
+  tablerFileDownload,
 } from '@ng-icons/tabler-icons';
 
 import { LayoutComponent } from '../../shared/components/layout/layout.component';
@@ -78,6 +79,7 @@ import { ToastService } from '../../shared/components/toast';
       tablerX,
       tablerShoppingCart,
       tablerArrowRight,
+      tablerFileDownload,
     }),
   ],
   templateUrl: './purchase-orders.html',
@@ -185,6 +187,13 @@ export class PurchaseOrdersComponent implements OnInit {
     if (!result.success) {
       this.toastService.error(result.error ?? 'Failed to create purchase order.');
       return;
+    }
+
+    // Upload the PO document
+    const purchaseOrderId = result.purchaseOrderId!;
+    const uploadResult = await this.purchaseOrderCrud.uploadPODocument(purchaseOrderId, request.documentFile);
+    if (!uploadResult.success) {
+      this.toastService.warning(`Purchase order ${request.poNumber} created, but document upload failed: ${uploadResult.error ?? 'Unknown error'}`);
     }
 
     this.toastService.success(`Purchase order ${request.poNumber} created successfully.`);

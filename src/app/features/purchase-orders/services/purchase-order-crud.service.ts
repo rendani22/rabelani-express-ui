@@ -14,6 +14,7 @@ export interface CreatePurchaseOrderItemInput {
 
 export interface PurchaseOrderCrudResult {
   readonly success: boolean;
+  readonly purchaseOrderId?: string;
   readonly error?: string;
 }
 
@@ -120,6 +121,34 @@ export class PurchaseOrderCrudService {
 
     if (!(data as AtomicCreatePurchaseOrderRpcResponse | null)?.purchase_order_id) {
       return { success: false, error: 'Failed to create purchase order' };
+    }
+
+    return { success: true, purchaseOrderId: (data as AtomicCreatePurchaseOrderRpcResponse).purchase_order_id };
+  }
+
+  async uploadPODocument(purchaseOrderId: string, file: File): Promise<PurchaseOrderCrudResult> {
+    const sanitizedName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const filePath = `${purchaseOrderId}/${Date.now()}-${sanitizedName}`;
+
+    const { error: uploadError } = await this.supabase.client.storage
+      .from('po-documents')
+      .upload(filePath, file, { upsert: false, contentType: file.type });
+
+    if (uploadError) {
+      return { success: false, error: uploadError.message };
+    }
+
+    const { data: urlData } = this.supabase.client.storage
+      .from('po-documents')
+      .getPublicUrl(filePath);
+
+    const { error: updateError } = await this.supabase.client
+      .from('purchase_orders')
+      .update({ document_url: urlData.publicUrl })
+      .eq('id', purchaseOrderId);
+
+    if (updateError) {
+      return { success: false, error: updateError.message };
     }
 
     return { success: true };

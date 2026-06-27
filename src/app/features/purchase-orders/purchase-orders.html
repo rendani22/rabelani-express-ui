@@ -458,6 +458,16 @@
                   }
                   <div class="ml-auto">
                     <div class="flex items-center gap-2">
+                      @if (po.documentUrl) {
+                        <a
+                          [href]="po.documentUrl"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                          <ng-icon name="tablerFileDownload" size="12"></ng-icon>
+                          View Document
+                        </a>
+                      }
                       @if (canEdit(po)) {
                         <button
                           type="button"

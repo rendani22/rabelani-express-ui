@@ -26,15 +26,15 @@ export interface AppVersion {
 }
 
 export const APP_VERSION: AppVersion = {
-  "version": "0.70.0-dev",
-  "semver": "0.70.0",
+  "version": "0.74.0-dev",
+  "semver": "0.74.0",
   "baseTag": null,
-  "commitsSinceBase": 73,
+  "commitsSinceBase": 77,
   "isDirty": true,
-  "hash": "6e05b88",
-  "fullHash": "6e05b8857c086a4961865fdf115edec6516ac820",
-  "branch": "dev",
-  "message": "feat(user-card): refactor user input handling and update menu state management",
-  "commitDate": "2026-06-20T17:07:22+02:00",
-  "buildDate": "2026-06-20T22:43:27.013Z"
+  "hash": "eabe69c",
+  "fullHash": "eabe69c8922f133be6a59be3e4b36c18177e6565",
+  "branch": "main",
+  "message": "Merge branch 'dev'",
+  "commitDate": "2026-06-26T15:30:50+02:00",
+  "buildDate": "2026-06-27T06:01:36.329Z"
 };

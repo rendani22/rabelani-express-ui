@@ -256,6 +256,8 @@ export interface PurchaseOrder {
   readonly orderBreakdown: PurchaseOrderOrderBreakdown;
   /** How this PO entry was created — either from the PO form or inferred from an order's po_number. */
   readonly source: PurchaseOrderSource;
+  /** URL of the uploaded PO document (only set for `purchase_order` source POs). */
+  readonly documentUrl: string | null;
 }
 
 // ============================================================================

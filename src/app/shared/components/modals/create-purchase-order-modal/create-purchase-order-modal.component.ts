@@ -21,6 +21,7 @@ export interface CreatePurchaseOrderLine {
 export interface CreatePurchaseOrderRequest {
   readonly poNumber: string;
   readonly items: readonly CreatePurchaseOrderLine[];
+  readonly documentFile: File;
 }
 
 type PurchaseOrderLineFormGroup = FormGroup<{
@@ -55,6 +56,8 @@ export class CreatePurchaseOrderModalComponent {
   readonly errorMessage = signal<string | null>(null);
   readonly inventoryItems = this.inventoryService.items;
   readonly inventorySearch = signal('');
+  readonly selectedFile = signal<File | null>(null);
+  readonly fileError = signal<string | null>(null);
 
   readonly form = this.fb.nonNullable.group({
     poNumber: this.fb.nonNullable.control('', [Validators.required, trimRequired]),
@@ -174,9 +177,27 @@ export class CreatePurchaseOrderModalComponent {
     return item ? `${item.name}${item.sku ? ` (${item.sku})` : ''}` : 'Unknown Item';
   }
 
+  onFileChange(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0] ?? null;
+    this.selectedFile.set(file);
+    this.fileError.set(null);
+  }
+
+  clearFile(): void {
+    this.selectedFile.set(null);
+    this.fileError.set(null);
+  }
+
   async onSubmit(): Promise<void> {
     this.form.markAllAsTouched();
     this.errorMessage.set(null);
+
+    if (!this.selectedFile()) {
+      this.fileError.set('PO document is required');
+      this.errorMessage.set('Please fix the errors in the form');
+      return;
+    }
 
     if (this.form.invalid) {
       this.errorMessage.set('Please fix the errors in the form');
@@ -190,6 +211,7 @@ export class CreatePurchaseOrderModalComponent {
         inventoryItemId: item.inventoryItemId.trim(),
         orderedQuantity: item.orderedQuantity,
       })),
+      documentFile: this.selectedFile()!,
     });
   }
 
@@ -198,6 +220,8 @@ export class CreatePurchaseOrderModalComponent {
     this.itemsArray.clear();
     this.errorMessage.set(null);
     this.inventorySearch.set('');
+    this.selectedFile.set(null);
+    this.fileError.set(null);
     this.closeModal.emit();
   }
 }
