@@ -247,7 +247,8 @@ export class CreatePackageModalComponent {
     this.form.controls.poNumber.valueChanges
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => {
-        if (this.poLookupState() === 'loaded') {
+        const state = this.poLookupState();
+        if (state === 'loaded' || state === 'loading') {
           this.clearPoLookupState(true);
         }
         if (this.duplicatePackage()) {

@@ -5,6 +5,7 @@ import { vi } from 'vitest';
 import { CreatePackageModalComponent } from './create-package-modal.component';
 import {
   DeliveryLocationService,
+  GetPurchaseOrderByNumberResult,
   InventoryService,
   PackageService,
   ReceiverService,
@@ -171,11 +172,13 @@ describe('CreatePackageModalComponent', () => {
   });
 
   it('ignores stale PO lookup responses after poNumber changes', async () => {
-    let resolveLookup: ((value: Awaited<ReturnType<PackageService['getPurchaseOrderByNumber']>>) => void) | null = null;
+    const lookup: { resolve: ((value: GetPurchaseOrderByNumberResult) => void) | null } = {
+      resolve: null,
+    };
     packageServiceMock.getPurchaseOrderByNumber.mockImplementationOnce(
       () =>
-        new Promise((resolve) => {
-          resolveLookup = resolve;
+        new Promise<GetPurchaseOrderByNumberResult>((resolve) => {
+          lookup.resolve = resolve;
         }),
     );
 
@@ -183,7 +186,7 @@ describe('CreatePackageModalComponent', () => {
     const lookupPromise = component.onPoLookup();
     component.form.controls.poNumber.setValue('PO-2002');
 
-    resolveLookup?.({
+    lookup.resolve?.({
       success: true,
       data: {
         poNumber: 'PO-1001',
