@@ -27,7 +27,7 @@
             </div>
             <div>
               <h2 id="create-po-modal-title" class="font-semibold text-gray-800 dark:text-gray-100">Create Purchase Order</h2>
-              <p class="text-sm text-gray-500 dark:text-gray-400">Add PO number and line items</p>
+              <p class="text-sm text-gray-500 dark:text-gray-400">Select a customer, set the value &amp; date, then add line items</p>
             </div>
           </div>
 
@@ -57,29 +57,133 @@
         }
 
         <form [formGroup]="form" (ngSubmit)="onSubmit()" class="space-y-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <!-- PO Number -->
+            <div>
+              <label for="poNumber" class="block text-sm font-medium mb-1.5 text-gray-700 dark:text-gray-300">
+                PO Number <span class="text-red-500" aria-hidden="true">*</span>
+              </label>
+              <input
+                id="poNumber"
+                type="text"
+                formControlName="poNumber"
+                placeholder="PO-12345"
+                class="w-full px-3 py-2.5 rounded-lg border text-sm shadow-sm transition-colors
+                       bg-white dark:bg-gray-800/30
+                       border-gray-200 dark:border-gray-700/60
+                       text-gray-800 dark:text-gray-100
+                       placeholder:text-gray-400 dark:placeholder:text-gray-500
+                       hover:border-gray-300 dark:hover:border-gray-600
+                       focus:border-violet-500 dark:focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                [class.border-red-400]="getFieldError('poNumber')"
+                [attr.aria-invalid]="getFieldError('poNumber') ? 'true' : null"
+                [attr.aria-describedby]="getFieldError('poNumber') ? 'poNumber-error' : null"
+              />
+              @if (getFieldError('poNumber'); as error) {
+                <p id="poNumber-error" class="text-xs mt-1 text-red-500" role="alert">{{ error }}</p>
+              }
+            </div>
+
+            <!-- Customer -->
+            <div>
+              <label for="receiverId" class="block text-sm font-medium mb-1.5 text-gray-700 dark:text-gray-300">
+                Customer <span class="text-red-500" aria-hidden="true">*</span>
+              </label>
+              <select
+                id="receiverId"
+                formControlName="receiverId"
+                class="w-full px-3 py-2.5 rounded-lg border text-sm shadow-sm transition-colors
+                       bg-white dark:bg-gray-800/30
+                       border-gray-200 dark:border-gray-700/60
+                       text-gray-800 dark:text-gray-100
+                       hover:border-gray-300 dark:hover:border-gray-600
+                       focus:border-violet-500 dark:focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                [class.border-red-400]="getFieldError('receiverId')"
+                [class.text-gray-400]="!form.controls.receiverId.value"
+                [attr.aria-invalid]="getFieldError('receiverId') ? 'true' : null"
+              >
+                <option value="" disabled>Select a customer…</option>
+                @for (customer of customers(); track customer.id) {
+                  <option [value]="customer.id">{{ customer.name }} {{ customer.surname }} — {{ customer.email }}</option>
+                }
+              </select>
+              @if (getFieldError('receiverId'); as error) {
+                <p class="text-xs mt-1 text-red-500" role="alert">{{ error }}</p>
+              }
+            </div>
+
+            <!-- PO Value -->
+            <div>
+              <label for="poValue" class="block text-sm font-medium mb-1.5 text-gray-700 dark:text-gray-300">
+                PO Value (ZAR) <span class="text-red-500" aria-hidden="true">*</span>
+              </label>
+              <div class="relative">
+                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400 dark:text-gray-500 pointer-events-none">R</span>
+                <input
+                  id="poValue"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  formControlName="poValue"
+                  placeholder="0.00"
+                  class="w-full pl-7 pr-3 py-2.5 rounded-lg border text-sm shadow-sm transition-colors
+                         bg-white dark:bg-gray-800/30
+                         border-gray-200 dark:border-gray-700/60
+                         text-gray-800 dark:text-gray-100
+                         placeholder:text-gray-400 dark:placeholder:text-gray-500
+                         hover:border-gray-300 dark:hover:border-gray-600
+                         focus:border-violet-500 dark:focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                  [class.border-red-400]="getFieldError('poValue')"
+                  [attr.aria-invalid]="getFieldError('poValue') ? 'true' : null"
+                />
+              </div>
+              @if (getFieldError('poValue'); as error) {
+                <p class="text-xs mt-1 text-red-500" role="alert">{{ error }}</p>
+              }
+            </div>
+
+            <!-- PO Date -->
+            <div>
+              <label for="poDate" class="block text-sm font-medium mb-1.5 text-gray-700 dark:text-gray-300">
+                PO Date <span class="text-red-500" aria-hidden="true">*</span>
+              </label>
+              <input
+                id="poDate"
+                type="date"
+                formControlName="poDate"
+                class="w-full px-3 py-2.5 rounded-lg border text-sm shadow-sm transition-colors
+                       bg-white dark:bg-gray-800/30
+                       border-gray-200 dark:border-gray-700/60
+                       text-gray-800 dark:text-gray-100
+                       hover:border-gray-300 dark:hover:border-gray-600
+                       focus:border-violet-500 dark:focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                [class.border-red-400]="getFieldError('poDate')"
+                [attr.aria-invalid]="getFieldError('poDate') ? 'true' : null"
+              />
+              @if (getFieldError('poDate'); as error) {
+                <p class="text-xs mt-1 text-red-500" role="alert">{{ error }}</p>
+              }
+            </div>
+          </div>
+
+          <!-- Details -->
           <div>
-            <label for="poNumber" class="block text-sm font-medium mb-1.5 text-gray-700 dark:text-gray-300">
-              PO Number <span class="text-red-500" aria-hidden="true">*</span>
+            <label for="details" class="block text-sm font-medium mb-1.5 text-gray-700 dark:text-gray-300">
+              Details
             </label>
-            <input
-              id="poNumber"
-              type="text"
-              formControlName="poNumber"
-              placeholder="PO-12345"
-              class="w-full px-3 py-2.5 rounded-lg border text-sm shadow-sm transition-colors
+            <textarea
+              id="details"
+              rows="3"
+              formControlName="details"
+              placeholder="Notes about this purchase order (supplier, terms, reference…)"
+              class="w-full px-3 py-2.5 rounded-lg border text-sm shadow-sm transition-colors resize-y
                      bg-white dark:bg-gray-800/30
                      border-gray-200 dark:border-gray-700/60
                      text-gray-800 dark:text-gray-100
                      placeholder:text-gray-400 dark:placeholder:text-gray-500
                      hover:border-gray-300 dark:hover:border-gray-600
                      focus:border-violet-500 dark:focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
-              [class.border-red-400]="getFieldError('poNumber')"
-              [attr.aria-invalid]="getFieldError('poNumber') ? 'true' : null"
-              [attr.aria-describedby]="getFieldError('poNumber') ? 'poNumber-error' : null"
-            />
-            @if (getFieldError('poNumber'); as error) {
-              <p id="poNumber-error" class="text-xs mt-1 text-red-500" role="alert">{{ error }}</p>
-            }
+            ></textarea>
           </div>
 
           <!-- PO Document Upload (required) -->

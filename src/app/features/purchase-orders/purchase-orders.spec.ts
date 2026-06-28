@@ -47,6 +47,10 @@ describe('PurchaseOrdersComponent', () => {
   const selectedPo: PurchaseOrderEditFormValue = {
     purchaseOrderId: 'po-1',
     poNumber: 'PO-001',
+    receiverId: 'rec-1',
+    poValue: 1500,
+    poDate: '2026-06-28',
+    details: 'PO notes',
     items: [
       {
         purchaseOrderItemId: 'poi-1',
@@ -60,6 +64,10 @@ describe('PurchaseOrdersComponent', () => {
   const updateRequest: UpdatePurchaseOrderRequest = {
     purchaseOrderId: 'po-1',
     poNumber: 'PO-001',
+    receiverId: 'rec-1',
+    poValue: 1500,
+    poDate: '2026-06-28',
+    details: 'PO notes',
     items: [
       {
         purchaseOrderItemId: 'poi-1',

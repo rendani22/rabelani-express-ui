@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, effect, inject, input, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, input, output, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import {
   AbstractControl,
@@ -11,6 +11,7 @@ import {
   ValidatorFn,
   Validators,
 } from '@angular/forms';
+import { ReceiverService } from '../../../../core';
 
 export interface PurchaseOrderEditLineValue {
   readonly purchaseOrderItemId: string;
@@ -23,6 +24,10 @@ export interface PurchaseOrderEditFormValue {
   readonly purchaseOrderId: string;
   readonly poNumber: string;
   readonly items: readonly PurchaseOrderEditLineValue[];
+  readonly receiverId: string | null;
+  readonly poValue: number | null;
+  readonly poDate: string | null;
+  readonly details: string | null;
 }
 
 export interface UpdatePurchaseOrderLineValue {
@@ -34,6 +39,10 @@ export interface UpdatePurchaseOrderRequest {
   readonly purchaseOrderId: string;
   readonly poNumber: string;
   readonly items: readonly UpdatePurchaseOrderLineValue[];
+  readonly receiverId: string;
+  readonly poValue: number;
+  readonly poDate: string;
+  readonly details: string;
 }
 
 type PurchaseOrderEditLineFormGroup = FormGroup<{
@@ -75,6 +84,7 @@ const minAllowedQuantityValidator = (minAllowedQuantity: number): ValidatorFn =>
 })
 export class EditPurchaseOrderModalComponent {
   private readonly fb = inject(FormBuilder);
+  private readonly receiverService = inject(ReceiverService);
 
   readonly isOpen = input(false);
   readonly purchaseOrder = input<PurchaseOrderEditFormValue | null>(null);
@@ -84,8 +94,21 @@ export class EditPurchaseOrderModalComponent {
 
   readonly errorMessage = signal<string | null>(null);
 
+  /** Customers (receiver profiles) available for selection, sorted by name. */
+  readonly customers = computed(() =>
+    [...this.receiverService.receiverList()]
+      .filter(receiver => receiver.is_active)
+      .sort((a, b) =>
+        `${a.name} ${a.surname}`.localeCompare(`${b.name} ${b.surname}`)
+      )
+  );
+
   readonly form = this.fb.nonNullable.group({
     poNumber: this.fb.nonNullable.control('', [Validators.required, trimRequired]),
+    receiverId: this.fb.nonNullable.control('', [Validators.required, trimRequired]),
+    poValue: this.fb.nonNullable.control<number | null>(null, [Validators.required, Validators.min(0)]),
+    poDate: this.fb.nonNullable.control('', [Validators.required, trimRequired]),
+    details: this.fb.nonNullable.control(''),
     items: this.fb.array<PurchaseOrderEditLineFormGroup>([], [Validators.required, Validators.minLength(1)]),
   });
 
@@ -97,16 +120,27 @@ export class EditPurchaseOrderModalComponent {
     effect(() => {
       const isOpen = this.isOpen();
       const purchaseOrder = this.purchaseOrder();
-      if (!isOpen || !purchaseOrder) return;
+      if (!isOpen) return;
+      // Load customers so the dropdown can resolve the selected receiver
+      this.receiverService.loadAllReceivers();
+      if (!purchaseOrder) return;
       this.prefillForm(purchaseOrder);
     });
   }
 
-  getFieldError(fieldName: 'poNumber'): string | null {
+  getFieldError(fieldName: 'poNumber' | 'receiverId' | 'poValue' | 'poDate'): string | null {
     const control = this.form.controls[fieldName];
     if (!control.touched || !control.errors) return null;
 
-    if (control.errors['required']) return 'PO number is required';
+    if (control.errors['required']) {
+      switch (fieldName) {
+        case 'poNumber': return 'PO number is required';
+        case 'receiverId': return 'Please select a customer';
+        case 'poValue': return 'PO value is required';
+        case 'poDate': return 'PO date is required';
+      }
+    }
+    if (control.errors['min']) return 'PO value cannot be negative';
     return null;
   }
 
@@ -146,6 +180,10 @@ export class EditPurchaseOrderModalComponent {
         purchaseOrderItemId: item.purchaseOrderItemId.trim(),
         orderedQuantity: Number(item.orderedQuantity),
       })),
+      receiverId: value.receiverId.trim(),
+      poValue: Number(value.poValue),
+      poDate: value.poDate.trim(),
+      details: value.details.trim(),
     });
   }
 
@@ -158,6 +196,10 @@ export class EditPurchaseOrderModalComponent {
 
   private prefillForm(purchaseOrder: PurchaseOrderEditFormValue): void {
     this.form.controls.poNumber.setValue(purchaseOrder.poNumber);
+    this.form.controls.receiverId.setValue(purchaseOrder.receiverId ?? '');
+    this.form.controls.poValue.setValue(purchaseOrder.poValue ?? null);
+    this.form.controls.poDate.setValue(purchaseOrder.poDate ?? '');
+    this.form.controls.details.setValue(purchaseOrder.details ?? '');
 
     const lineGroups = purchaseOrder.items.map(line => this.createLineFormGroup(line));
     this.form.setControl(

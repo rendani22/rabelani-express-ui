@@ -20,6 +20,10 @@ describe('EditPurchaseOrderModalComponent', () => {
   const editModel: PurchaseOrderEditFormValue = {
     purchaseOrderId: 'po-1',
     poNumber: ' PO-2001 ',
+    receiverId: 'rec-1',
+    poValue: 2500.5,
+    poDate: '2026-06-28',
+    details: 'PO notes',
     items: [
       {
         purchaseOrderItemId: 'poi-1',
@@ -79,6 +83,10 @@ describe('EditPurchaseOrderModalComponent', () => {
         { purchaseOrderItemId: 'poi-1', orderedQuantity: 8 },
         { purchaseOrderItemId: 'poi-2', orderedQuantity: 3 },
       ],
+      receiverId: 'rec-1',
+      poValue: 2500.5,
+      poDate: '2026-06-28',
+      details: 'PO notes',
     });
   });
 

@@ -258,6 +258,18 @@ export interface PurchaseOrder {
   readonly source: PurchaseOrderSource;
   /** URL of the uploaded PO document (only set for `purchase_order` source POs). */
   readonly documentUrl: string | null;
+  /** Customer (receiver) the PO was raised for. Null for order-sourced POs. */
+  readonly receiverId: string | null;
+  /** Customer display name ("Name Surname"). Null when unknown / order-sourced. */
+  readonly receiverName: string | null;
+  /** Customer email. Null when unknown / order-sourced. */
+  readonly receiverEmail: string | null;
+  /** Stated monetary value of the PO in ZAR. Null when not captured. */
+  readonly poValue: number | null;
+  /** PO date as an ISO `YYYY-MM-DD` string. Null when not captured. */
+  readonly poDate: string | null;
+  /** Free-text details / notes for the PO. Null when not captured. */
+  readonly details: string | null;
 }
 
 // ============================================================================

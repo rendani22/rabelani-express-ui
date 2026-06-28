@@ -11,7 +11,7 @@ import {
   ValidatorFn,
   Validators,
 } from '@angular/forms';
-import { InventoryService, InventoryItem } from '../../../../core';
+import { InventoryService, InventoryItem, ReceiverService } from '../../../../core';
 
 export interface CreatePurchaseOrderLine {
   readonly inventoryItemId: string;
@@ -22,6 +22,14 @@ export interface CreatePurchaseOrderRequest {
   readonly poNumber: string;
   readonly items: readonly CreatePurchaseOrderLine[];
   readonly documentFile: File;
+  /** Customer (receiver profile) the PO is raised for. */
+  readonly receiverId: string;
+  /** Monetary value of the PO in ZAR. */
+  readonly poValue: number;
+  /** PO date as an ISO `YYYY-MM-DD` string. */
+  readonly poDate: string;
+  /** Optional free-text details / notes. */
+  readonly details: string;
 }
 
 type PurchaseOrderLineFormGroup = FormGroup<{
@@ -48,6 +56,7 @@ const trimRequired: ValidatorFn = (control: AbstractControl): ValidationErrors |
 export class CreatePurchaseOrderModalComponent {
   private readonly fb = inject(FormBuilder);
   private readonly inventoryService = inject(InventoryService);
+  private readonly receiverService = inject(ReceiverService);
 
   readonly isOpen = input(false);
   readonly closeModal = output<void>();
@@ -59,8 +68,24 @@ export class CreatePurchaseOrderModalComponent {
   readonly selectedFile = signal<File | null>(null);
   readonly fileError = signal<string | null>(null);
 
+  /** Customers (receiver profiles) available for selection, sorted by name. */
+  readonly customers = computed(() =>
+    [...this.receiverService.receiverList()]
+      .filter(receiver => receiver.is_active)
+      .sort((a, b) =>
+        `${a.name} ${a.surname}`.localeCompare(`${b.name} ${b.surname}`)
+      )
+  );
+
+  /** Today's date as `YYYY-MM-DD`, used as the default PO date. */
+  private readonly today = new Date().toISOString().slice(0, 10);
+
   readonly form = this.fb.nonNullable.group({
     poNumber: this.fb.nonNullable.control('', [Validators.required, trimRequired]),
+    receiverId: this.fb.nonNullable.control('', [Validators.required, trimRequired]),
+    poValue: this.fb.nonNullable.control<number | null>(null, [Validators.required, Validators.min(0)]),
+    poDate: this.fb.nonNullable.control(this.today, [Validators.required, trimRequired]),
+    details: this.fb.nonNullable.control(''),
     items: this.fb.array<PurchaseOrderLineFormGroup>([], [Validators.required, Validators.minLength(1)]),
   });
 
@@ -105,8 +130,9 @@ export class CreatePurchaseOrderModalComponent {
   constructor() {
     effect(() => {
       if (this.isOpen()) {
-        // Load inventory items each time the modal opens so the list is fresh
+        // Load inventory items + customers each time the modal opens so lists are fresh
         this.inventoryService.loadItems();
+        this.receiverService.loadAllReceivers();
       } else {
         // Reset search when modal closes
         this.inventorySearch.set('');
@@ -139,11 +165,19 @@ export class CreatePurchaseOrderModalComponent {
     }
   }
 
-  getFieldError(fieldName: 'poNumber'): string | null {
+  getFieldError(fieldName: 'poNumber' | 'receiverId' | 'poValue' | 'poDate'): string | null {
     const control = this.form.controls[fieldName];
     if (!control.touched || !control.errors) return null;
 
-    if (control.errors['required']) return 'PO number is required';
+    if (control.errors['required']) {
+      switch (fieldName) {
+        case 'poNumber': return 'PO number is required';
+        case 'receiverId': return 'Please select a customer';
+        case 'poValue': return 'PO value is required';
+        case 'poDate': return 'PO date is required';
+      }
+    }
+    if (control.errors['min']) return 'PO value cannot be negative';
     return null;
   }
 
@@ -212,6 +246,10 @@ export class CreatePurchaseOrderModalComponent {
         orderedQuantity: item.orderedQuantity,
       })),
       documentFile: this.selectedFile()!,
+      receiverId: value.receiverId.trim(),
+      poValue: Number(value.poValue),
+      poDate: value.poDate.trim(),
+      details: value.details.trim(),
     });
   }
 

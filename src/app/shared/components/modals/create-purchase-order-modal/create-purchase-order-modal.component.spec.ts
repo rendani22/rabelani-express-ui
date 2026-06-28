@@ -77,6 +77,10 @@ describe('CreatePurchaseOrderModalComponent', () => {
     const documentFile = new File(['po'], 'po-123.pdf', { type: 'application/pdf' });
 
     component.form.controls.poNumber.setValue('PO-123');
+    component.form.controls.receiverId.setValue('rec-1');
+    component.form.controls.poValue.setValue(2500);
+    component.form.controls.poDate.setValue('2026-06-28');
+    component.form.controls.details.setValue(' notes ');
     component.addLine();
     const line = component.itemsArray.at(0);
     line.controls.inventoryItemId.setValue('inv-1');
@@ -89,6 +93,10 @@ describe('CreatePurchaseOrderModalComponent', () => {
       poNumber: 'PO-123',
       items: [{ inventoryItemId: 'inv-1', orderedQuantity: 2 }],
       documentFile,
+      receiverId: 'rec-1',
+      poValue: 2500,
+      poDate: '2026-06-28',
+      details: 'notes',
     });
   });
 

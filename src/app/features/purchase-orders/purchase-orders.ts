@@ -27,6 +27,10 @@ import {
   tablerShoppingCart,
   tablerArrowRight,
   tablerFileDownload,
+  tablerUser,
+  tablerCalendar,
+  tablerCoin,
+  tablerNotes,
 } from '@ng-icons/tabler-icons';
 
 import { LayoutComponent } from '../../shared/components/layout/layout.component';
@@ -80,6 +84,10 @@ import { ToastService } from '../../shared/components/toast';
       tablerShoppingCart,
       tablerArrowRight,
       tablerFileDownload,
+      tablerUser,
+      tablerCalendar,
+      tablerCoin,
+      tablerNotes,
     }),
   ],
   templateUrl: './purchase-orders.html',
@@ -181,6 +189,10 @@ export class PurchaseOrdersComponent implements OnInit {
         inventoryItemId: item.inventoryItemId,
         orderedQuantity: item.orderedQuantity,
       })),
+      receiverId: request.receiverId || null,
+      poValue: request.poValue ?? null,
+      poDate: request.poDate || null,
+      details: request.details || null,
     });
     this.isCreatingPo.set(false);
 
@@ -283,6 +295,10 @@ export class PurchaseOrdersComponent implements OnInit {
           purchaseOrderItemId: item.purchaseOrderItemId,
           orderedQuantity: item.orderedQuantity,
         })),
+        receiverId: request.receiverId || null,
+        poValue: request.poValue ?? null,
+        poDate: request.poDate || null,
+        details: request.details || null,
       });
 
       if (!result.success) {
@@ -378,6 +394,24 @@ export class PurchaseOrdersComponent implements OnInit {
       month: 'short',
       day: 'numeric',
     });
+  }
+
+  /** Format a `YYYY-MM-DD` PO date for display (no time component). */
+  formatPoDate(date: string | null): string {
+    if (!date) return '—';
+    const parsed = new Date(`${date}T00:00:00`);
+    if (Number.isNaN(parsed.getTime())) return date;
+    return parsed.toLocaleDateString('en-ZA', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+  }
+
+  /** Format a ZAR monetary value, or a dash when absent. */
+  formatCurrency(value: number | null): string {
+    if (value === null || value === undefined || Number.isNaN(value)) return '—';
+    return new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR' }).format(value);
   }
 
   showCompletion(po: PurchaseOrder): boolean {

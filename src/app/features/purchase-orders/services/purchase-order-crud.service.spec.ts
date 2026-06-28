@@ -80,6 +80,10 @@ describe('PurchaseOrderCrudService', () => {
       purchaseOrderId: 'po-1',
       poNumber: 'PO-2001',
       items: [{ purchaseOrderItemId: 'poi-1', orderedQuantity: 8 }],
+      receiverId: 'rec-1',
+      poValue: 1000,
+      poDate: '2026-06-28',
+      details: null,
     });
 
     expect(result).toEqual({
@@ -105,6 +109,10 @@ describe('PurchaseOrderCrudService', () => {
       purchaseOrderId: 'po-1',
       poNumber: 'PO-2001',
       items: [{ purchaseOrderItemId: 'poi-1', orderedQuantity: 8 }],
+      receiverId: 'rec-1',
+      poValue: 1000,
+      poDate: '2026-06-28',
+      details: null,
     });
 
     expect(result).toEqual({
@@ -124,6 +132,10 @@ describe('PurchaseOrderCrudService', () => {
         { inventoryItemId: ' inv-1 ', orderedQuantity: 3 },
         { inventoryItemId: 'inv-2', orderedQuantity: 2 },
       ],
+      receiverId: ' rec-1 ',
+      poValue: 1500.5,
+      poDate: '2026-06-28',
+      details: ' some notes ',
     });
 
     expect(result).toEqual({ success: true, purchaseOrderId: 'po-1' });
@@ -134,6 +146,10 @@ describe('PurchaseOrderCrudService', () => {
         { inventory_item_id: 'inv-1', ordered_quantity: 3 },
         { inventory_item_id: 'inv-2', ordered_quantity: 2 },
       ],
+      p_receiver_id: 'rec-1',
+      p_po_value: 1500.5,
+      p_po_date: '2026-06-28',
+      p_details: 'some notes',
     });
     expect(single).toHaveBeenCalledTimes(1);
     expect(from).not.toHaveBeenCalled();
@@ -147,6 +163,10 @@ describe('PurchaseOrderCrudService', () => {
     const result = await service.createPurchaseOrder({
       poNumber: 'PO-1001',
       items: [{ inventoryItemId: 'inv-1', orderedQuantity: 3 }],
+      receiverId: null,
+      poValue: null,
+      poDate: null,
+      details: null,
     });
 
     expect(result).toEqual({ success: false, error: 'Duplicate PO number' });
@@ -160,6 +180,10 @@ describe('PurchaseOrderCrudService', () => {
       purchaseOrderId: ' po-1 ',
       poNumber: ' PO-2001 ',
       items: [{ purchaseOrderItemId: ' poi-1 ', orderedQuantity: 8 }],
+      receiverId: ' rec-1 ',
+      poValue: 2500.75,
+      poDate: '2026-06-28',
+      details: ' updated notes ',
     });
 
     expect(result).toEqual({ success: true });
@@ -167,6 +191,10 @@ describe('PurchaseOrderCrudService', () => {
       p_purchase_order_id: 'po-1',
       p_po_number: 'PO-2001',
       p_items: [{ purchase_order_item_id: 'poi-1', ordered_quantity: 8 }],
+      p_receiver_id: 'rec-1',
+      p_po_value: 2500.75,
+      p_po_date: '2026-06-28',
+      p_details: 'updated notes',
     });
     expect(single).toHaveBeenCalledTimes(1);
   });
@@ -182,6 +210,10 @@ describe('PurchaseOrderCrudService', () => {
       purchaseOrderId: 'po-1',
       poNumber: 'PO-2001',
       items: [{ purchaseOrderItemId: 'poi-1', orderedQuantity: 8 }],
+      receiverId: 'rec-1',
+      poValue: 1000,
+      poDate: '2026-06-28',
+      details: null,
     });
 
     expect(result).toEqual({
@@ -195,6 +227,10 @@ describe('PurchaseOrderCrudService', () => {
       data: {
         id: 'po-1',
         po_number: ' PO-2001 ',
+        receiver_id: 'rec-1',
+        po_value: '2500.50',
+        po_date: '2026-06-28',
+        details: 'PO notes',
       },
       error: null,
     });
@@ -244,6 +280,10 @@ describe('PurchaseOrderCrudService', () => {
             minAllowedQuantity: 5,
           },
         ],
+        receiverId: 'rec-1',
+        poValue: 2500.5,
+        poDate: '2026-06-28',
+        details: 'PO notes',
       },
     });
     expect(from).toHaveBeenNthCalledWith(1, 'purchase_orders');

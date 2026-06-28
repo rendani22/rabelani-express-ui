@@ -5,6 +5,14 @@ import { SupabaseService } from '../../../shared/services/supabase.service';
 export interface CreatePurchaseOrderInput {
   readonly poNumber: string;
   readonly items: readonly CreatePurchaseOrderItemInput[];
+  /** Customer (receiver profile) the PO is raised for. */
+  readonly receiverId: string | null;
+  /** Monetary value of the PO (ZAR). */
+  readonly poValue: number | null;
+  /** PO date as an ISO `YYYY-MM-DD` string. */
+  readonly poDate: string | null;
+  /** Free-text details / notes for the PO. */
+  readonly details: string | null;
 }
 
 export interface CreatePurchaseOrderItemInput {
@@ -22,6 +30,14 @@ export interface UpdatePurchaseOrderInput {
   readonly purchaseOrderId: string;
   readonly poNumber: string;
   readonly items: readonly UpdatePurchaseOrderItemInput[];
+  /** Customer (receiver profile) the PO is raised for. */
+  readonly receiverId: string | null;
+  /** Monetary value of the PO (ZAR). */
+  readonly poValue: number | null;
+  /** PO date as an ISO `YYYY-MM-DD` string. */
+  readonly poDate: string | null;
+  /** Free-text details / notes for the PO. */
+  readonly details: string | null;
 }
 
 export interface UpdatePurchaseOrderItemInput {
@@ -40,6 +56,10 @@ export interface PurchaseOrderEditPayload {
   readonly purchaseOrderId: string;
   readonly poNumber: string;
   readonly items: readonly PurchaseOrderEditLine[];
+  readonly receiverId: string | null;
+  readonly poValue: number | null;
+  readonly poDate: string | null;
+  readonly details: string | null;
 }
 
 export type PurchaseOrderCrudDataResult<T> =
@@ -57,6 +77,10 @@ interface AtomicUpdatePurchaseOrderRpcResponse {
 interface PurchaseOrderForEditRow {
   readonly id: string;
   readonly po_number: string;
+  readonly receiver_id?: string | null;
+  readonly po_value?: number | string | null;
+  readonly po_date?: string | null;
+  readonly details?: string | null;
 }
 
 interface PurchaseOrderForEditBalanceRow {
@@ -107,12 +131,28 @@ export class PurchaseOrderCrudService {
       return { success: false, error: 'At least one PO line is required' };
     }
 
+    const receiverId = input.receiverId?.trim() || null;
+    const poValue =
+      input.poValue === null || input.poValue === undefined || Number.isNaN(Number(input.poValue))
+        ? null
+        : Number(input.poValue);
+    const poDate = input.poDate?.trim() || null;
+    const details = input.details?.trim() || null;
+
+    if (poValue !== null && poValue < 0) {
+      return { success: false, error: 'PO value cannot be negative' };
+    }
+
     const { data, error } = await this.supabase.client.rpc('create_purchase_order_with_items', {
       p_po_number: poNumber,
       p_items: items.map(item => ({
         inventory_item_id: item.inventoryItemId,
         ordered_quantity: item.orderedQuantity,
       })),
+      p_receiver_id: receiverId,
+      p_po_value: poValue,
+      p_po_date: poDate,
+      p_details: details,
     }).single();
 
     if (error) {
@@ -185,6 +225,18 @@ export class PurchaseOrderCrudService {
       return accessResult;
     }
 
+    const receiverId = input.receiverId?.trim() || null;
+    const poValue =
+      input.poValue === null || input.poValue === undefined || Number.isNaN(Number(input.poValue))
+        ? null
+        : Number(input.poValue);
+    const poDate = input.poDate?.trim() || null;
+    const details = input.details?.trim() || null;
+
+    if (poValue !== null && poValue < 0) {
+      return { success: false, error: 'PO value cannot be negative' };
+    }
+
     const { data, error } = await this.supabase.client.rpc('update_purchase_order_with_items', {
       p_purchase_order_id: purchaseOrderId,
       p_po_number: poNumber,
@@ -192,6 +244,10 @@ export class PurchaseOrderCrudService {
         purchase_order_item_id: item.purchaseOrderItemId,
         ordered_quantity: item.orderedQuantity,
       })),
+      p_receiver_id: receiverId,
+      p_po_value: poValue,
+      p_po_date: poDate,
+      p_details: details,
     }).single();
 
     if (error) {
@@ -216,7 +272,7 @@ export class PurchaseOrderCrudService {
     const [purchaseOrderResult, balanceResult] = await Promise.all([
       this.supabase.client
         .from('purchase_orders')
-        .select('id, po_number')
+        .select('id, po_number, receiver_id, po_value, po_date, details')
         .eq('id', normalizedPurchaseOrderId)
         .maybeSingle(),
       this.supabase.client
@@ -282,12 +338,19 @@ export class PurchaseOrderCrudService {
       };
     });
 
+    const poValue =
+      poRow.po_value === null || poRow.po_value === undefined ? null : Number(poRow.po_value);
+
     return {
       success: true,
       data: {
         purchaseOrderId: poRow.id,
         poNumber,
         items,
+        receiverId: poRow.receiver_id ?? null,
+        poValue: poValue !== null && Number.isNaN(poValue) ? null : poValue,
+        poDate: poRow.po_date ?? null,
+        details: poRow.details ?? null,
       },
     };
   }

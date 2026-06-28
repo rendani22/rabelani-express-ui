@@ -17,6 +17,8 @@
     "test": "ng test",
     "storybook": "ng run rabelani-express-ui:storybook",
     "build-storybook": "ng run rabelani-express-ui:build-storybook",
+    "supabase:link-dev": "supabase link --project-ref qmnqffpwvsvngjmyisrf",
+    "supabase:link-prod": "supabase link --project-ref udsigrijzqgmtmkilluv",
     "deploy:create-package": "supabase functions deploy create-package ",
     "deploy:update-package": "supabase functions deploy update-package"
   },

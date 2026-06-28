@@ -95,6 +95,10 @@ export class PurchaseOrdersService {
           po_number,
           status,
           document_url,
+          receiver_id,
+          po_value,
+          po_date,
+          details,
           created_at,
           updated_at,
           items:purchase_order_items(
@@ -154,6 +158,31 @@ export class PurchaseOrdersService {
 
         for (const item of (invItems ?? []) as InventoryItem[]) {
           inventoryMap.set(item.id, item);
+        }
+      }
+
+      // Hydrate customers (receiver profiles) referenced by the POs
+      const receiverMap = new Map<string, ReceiverProfileRow>();
+      const receiverIds = Array.from(
+        new Set(
+          orders
+            .map(order => order.receiver_id)
+            .filter((id): id is string => !!id)
+        )
+      );
+      if (receiverIds.length > 0) {
+        const { data: receivers, error: receiversError } = await this.supabase.client
+          .from('receiver_profiles')
+          .select('id, name, surname, email')
+          .in('id', receiverIds);
+
+        if (receiversError) {
+          this.error.set(receiversError.message);
+          return;
+        }
+
+        for (const receiver of (receivers ?? []) as ReceiverProfileRow[]) {
+          receiverMap.set(receiver.id, receiver);
         }
       }
 
@@ -266,6 +295,12 @@ export class PurchaseOrdersService {
             0
           );
 
+          const receiver = order.receiver_id ? receiverMap.get(order.receiver_id) ?? null : null;
+          const poValue =
+            order.po_value === null || order.po_value === undefined
+              ? null
+              : Number(order.po_value);
+
           return {
             poNumber: order.po_number,
             packages,
@@ -281,6 +316,12 @@ export class PurchaseOrdersService {
             orderBreakdown: computeOrderBreakdown(packages),
             source: 'purchase_order' as PurchaseOrderSource,
             documentUrl: order.document_url ?? null,
+            receiverId: order.receiver_id ?? null,
+            receiverName: receiver ? `${receiver.name} ${receiver.surname}`.trim() : null,
+            receiverEmail: receiver?.email ?? null,
+            poValue: poValue !== null && Number.isNaN(poValue) ? null : poValue,
+            poDate: order.po_date ?? null,
+            details: order.details ?? null,
           };
         })
       );
@@ -367,6 +408,12 @@ export class PurchaseOrdersService {
             orderBreakdown: computeOrderBreakdown(packages),
             source: 'order' as PurchaseOrderSource,
             documentUrl: null,
+            receiverId: null,
+            receiverName: null,
+            receiverEmail: null,
+            poValue: null,
+            poDate: null,
+            details: null,
           };
         });
 
@@ -402,9 +449,20 @@ interface PurchaseOrderRow {
   readonly po_number: string;
   readonly status: string;
   readonly document_url?: string | null;
+  readonly receiver_id?: string | null;
+  readonly po_value?: number | string | null;
+  readonly po_date?: string | null;
+  readonly details?: string | null;
   readonly created_at: string;
   readonly updated_at: string;
   readonly items?: readonly PurchaseOrderItemRow[];
+}
+
+interface ReceiverProfileRow {
+  readonly id: string;
+  readonly name: string;
+  readonly surname: string;
+  readonly email: string;
 }
 
 interface PurchaseOrderItemRow {
