@@ -8,7 +8,19 @@ import { PurchaseOrdersComponent } from './purchase-orders';
 import { PurchaseOrdersService } from './services/purchase-orders.service';
 import { PurchaseOrderCrudService } from './services/purchase-order-crud.service';
 import { ToastService } from '../../shared/components/toast';
+import { PodExportService } from '../pods/services/pod-export.service';
+import { FileSaveService } from '../../shared/services/file-save.service';
+import { PACKAGE_STATUS } from '../../core';
+import type { PackageStatus } from '../../core';
+import type { PurchaseOrder } from './purchase-orders.models';
 import type { PurchaseOrderEditFormValue, UpdatePurchaseOrderRequest } from '../../shared/components/modals';
+
+function makePo(poNumber: string, statuses: readonly PackageStatus[]): PurchaseOrder {
+  return {
+    poNumber,
+    packages: statuses.map((status, i) => ({ id: `${poNumber}-pkg-${i}`, status })),
+  } as unknown as PurchaseOrder;
+}
 
 try {
   getTestBed().initTestEnvironment(BrowserDynamicTestingModule, platformBrowserDynamicTesting());
@@ -42,6 +54,15 @@ describe('PurchaseOrdersComponent', () => {
 
   const routerMock = {
     navigate: vi.fn(),
+  };
+
+  const podExportMock = {
+    createExportJob: vi.fn(),
+    getJob: vi.fn(),
+  };
+
+  const fileSaveMock = {
+    saveBlob: vi.fn().mockResolvedValue(undefined),
   };
 
   const selectedPo: PurchaseOrderEditFormValue = {
@@ -81,6 +102,9 @@ describe('PurchaseOrdersComponent', () => {
     purchaseOrderCrudMock.updatePurchaseOrder.mockReset();
     toastServiceMock.success.mockReset();
     toastServiceMock.error.mockReset();
+    podExportMock.createExportJob.mockReset();
+    podExportMock.getJob.mockReset();
+    fileSaveMock.saveBlob.mockReset().mockResolvedValue(undefined);
 
     TestBed.configureTestingModule({
       providers: [
@@ -88,6 +112,8 @@ describe('PurchaseOrdersComponent', () => {
         { provide: Router, useValue: routerMock },
         { provide: PurchaseOrdersService, useValue: purchaseOrdersServiceMock },
         { provide: PurchaseOrderCrudService, useValue: purchaseOrderCrudMock },
+        { provide: PodExportService, useValue: podExportMock },
+        { provide: FileSaveService, useValue: fileSaveMock },
       ],
     });
 
@@ -140,5 +166,78 @@ describe('PurchaseOrdersComponent', () => {
     expect(component.editPoModalOpen()).toBe(true);
     expect(component.selectedPoForEdit()).toEqual(selectedPo);
     expect(component.isUpdatingPo()).toBe(false);
+  });
+
+  // ── Bulk POD download ─────────────────────────────────────────────────────
+
+  it('counts only delivered/collected orders as POD-eligible', () => {
+    const po = makePo('PO-001', [
+      PACKAGE_STATUS.DELIVERED,
+      PACKAGE_STATUS.COLLECTED,
+      PACKAGE_STATUS.PENDING,
+      PACKAGE_STATUS.DRAFT,
+      PACKAGE_STATUS.RETURNED,
+    ]);
+
+    expect(component.completedPodCount(po)).toBe(2);
+  });
+
+  it('enables bulk POD download when at least one order is completed', () => {
+    expect(component.canBulkDownloadPods(makePo('PO-A', []))).toBe(false);
+    expect(component.canBulkDownloadPods(makePo('PO-B', [PACKAGE_STATUS.PENDING]))).toBe(false);
+    expect(component.canBulkDownloadPods(makePo('PO-C', [PACKAGE_STATUS.COLLECTED]))).toBe(true);
+    expect(
+      component.canBulkDownloadPods(makePo('PO-D', [PACKAGE_STATUS.COLLECTED, PACKAGE_STATUS.DELIVERED]))
+    ).toBe(true);
+  });
+
+  it('does nothing when bulk download is not eligible', async () => {
+    await component.onBulkDownloadPods(makePo('PO-E', [PACKAGE_STATUS.PENDING]));
+
+    expect(podExportMock.createExportJob).not.toHaveBeenCalled();
+    expect(fileSaveMock.saveBlob).not.toHaveBeenCalled();
+  });
+
+  it('zips PODs for completed orders and saves the blob', async () => {
+    const blob = new Blob(['zip'], { type: 'application/zip' });
+    podExportMock.createExportJob.mockReturnValue('job-1');
+    podExportMock.getJob.mockReturnValue({
+      progress: signal(100),
+      status: signal('complete'),
+      promise: Promise.resolve({ success: true, blob }),
+    });
+
+    const po = makePo('PO-005', [
+      PACKAGE_STATUS.COLLECTED,
+      PACKAGE_STATUS.DELIVERED,
+      PACKAGE_STATUS.PENDING,
+    ]);
+
+    await component.onBulkDownloadPods(po);
+
+    expect(podExportMock.createExportJob).toHaveBeenCalledWith(
+      ['PO-005-pkg-0', 'PO-005-pkg-1'],
+      { merge: false }
+    );
+    expect(fileSaveMock.saveBlob).toHaveBeenCalledWith(blob, { suggestedName: 'pods-PO-005.zip' });
+    expect(toastServiceMock.success).toHaveBeenCalledWith('Downloaded 2 PODs for PO-005.');
+    expect(component.downloadingPodsPoNumber()).toBeNull();
+  });
+
+  it('surfaces an error and clears downloading state when the export fails', async () => {
+    podExportMock.createExportJob.mockReturnValue('job-2');
+    podExportMock.getJob.mockReturnValue({
+      progress: signal(0),
+      status: signal('failed'),
+      promise: Promise.resolve({ success: false, error: 'Export failed' }),
+    });
+
+    const po = makePo('PO-006', [PACKAGE_STATUS.COLLECTED, PACKAGE_STATUS.COLLECTED]);
+
+    await component.onBulkDownloadPods(po);
+
+    expect(fileSaveMock.saveBlob).not.toHaveBeenCalled();
+    expect(toastServiceMock.error).toHaveBeenCalledWith('Export failed');
+    expect(component.downloadingPodsPoNumber()).toBeNull();
   });
 });

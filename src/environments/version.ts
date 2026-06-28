@@ -31,10 +31,10 @@ export const APP_VERSION: AppVersion = {
   "baseTag": null,
   "commitsSinceBase": 79,
   "isDirty": true,
-  "hash": "948a877",
-  "fullHash": "948a877a8f6597f09646060411217f5742b4abbe",
+  "hash": "edbdc81",
+  "fullHash": "edbdc8106fde7b5c7a9426ab0adb4ba1290227e0",
   "branch": "dev",
-  "message": "Claude md file",
-  "commitDate": "2026-06-28T01:52:26+02:00",
-  "buildDate": "2026-06-28T00:17:26.014Z"
+  "message": "Improve the po page speed",
+  "commitDate": "2026-06-28T02:47:32+02:00",
+  "buildDate": "2026-06-28T00:58:20.079Z"
 };

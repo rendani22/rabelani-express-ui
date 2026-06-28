@@ -31,6 +31,7 @@ import {
   tablerCalendar,
   tablerCoin,
   tablerNotes,
+  tablerFileZip,
 } from '@ng-icons/tabler-icons';
 
 import { LayoutComponent } from '../../shared/components/layout/layout.component';
@@ -43,6 +44,8 @@ import {
   computeInventoryProgress,
 } from './purchase-orders.models';
 import { Package, PACKAGE_STATUS } from '../../core';
+import { PodExportService } from '../pods/services/pod-export.service';
+import { FileSaveService } from '../../shared/services/file-save.service';
 import {
   CreatePurchaseOrderModalComponent,
   CreatePurchaseOrderRequest,
@@ -88,6 +91,7 @@ import { ToastService } from '../../shared/components/toast';
       tablerCalendar,
       tablerCoin,
       tablerNotes,
+      tablerFileZip,
     }),
   ],
   templateUrl: './purchase-orders.html',
@@ -98,6 +102,17 @@ export class PurchaseOrdersComponent implements OnInit {
   private readonly purchaseOrderCrud = inject(PurchaseOrderCrudService);
   private readonly toastService = inject(ToastService);
   private readonly router = inject(Router);
+  private readonly podExport = inject(PodExportService);
+  private readonly fileSave = inject(FileSaveService);
+
+  /** Statuses that have a downloadable proof of delivery. */
+  private static readonly POD_STATUSES: ReadonlySet<string> = new Set([
+    PACKAGE_STATUS.DELIVERED,
+    PACKAGE_STATUS.COLLECTED,
+  ]);
+
+  /** PO number whose PODs are currently being zipped/downloaded (null when idle). */
+  readonly downloadingPodsPoNumber = signal<string | null>(null);
 
   // Exposed service state for the template
   readonly isLoading = this.service.isLoading;
@@ -426,6 +441,60 @@ export class PurchaseOrdersComponent implements OnInit {
 
   inventoryProgress(po: PurchaseOrder) {
     return computeInventoryProgress(po.inventoryRefs);
+  }
+
+  // ============================================================================
+  // Bulk POD download
+  // ============================================================================
+
+  /** Packages in this PO that have a downloadable POD (delivered / collected). */
+  private podEligiblePackages(po: PurchaseOrder): Package[] {
+    return po.packages.filter(pkg => PurchaseOrdersComponent.POD_STATUSES.has(pkg.status));
+  }
+
+  /** Count of completed orders in this PO that have a POD. */
+  completedPodCount(po: PurchaseOrder): number {
+    return this.podEligiblePackages(po).length;
+  }
+
+  isDownloadingPods(po: PurchaseOrder): boolean {
+    return this.downloadingPodsPoNumber() === po.poNumber;
+  }
+
+  /** Enabled when at least one completed order has a POD to bundle. */
+  canBulkDownloadPods(po: PurchaseOrder): boolean {
+    return this.completedPodCount(po) > 0 && this.downloadingPodsPoNumber() === null;
+  }
+
+  /** Build a ZIP of every POD for the completed orders in this PO and download it. */
+  async onBulkDownloadPods(po: PurchaseOrder): Promise<void> {
+    if (!this.canBulkDownloadPods(po)) return;
+
+    const packageIds = this.podEligiblePackages(po).map(pkg => pkg.id);
+    if (packageIds.length === 0) return;
+
+    this.downloadingPodsPoNumber.set(po.poNumber);
+    try {
+      const jobId = this.podExport.createExportJob(packageIds, { merge: false });
+      const job = this.podExport.getJob(jobId);
+      if (!job) {
+        this.toastService.error('Failed to start POD download.');
+        return;
+      }
+
+      const result = await job.promise;
+      if (!result.success || !result.blob) {
+        this.toastService.error(result.error ?? 'Failed to download PODs.');
+        return;
+      }
+
+      await this.fileSave.saveBlob(result.blob, { suggestedName: `pods-${po.poNumber}.zip` });
+      this.toastService.success(`Downloaded ${packageIds.length} PODs for ${po.poNumber}.`);
+    } catch (err) {
+      this.toastService.error(err instanceof Error ? err.message : 'Failed to download PODs.');
+    } finally {
+      this.downloadingPodsPoNumber.set(null);
+    }
   }
 
   trackByPoNumber(_: number, po: PurchaseOrder): string {
