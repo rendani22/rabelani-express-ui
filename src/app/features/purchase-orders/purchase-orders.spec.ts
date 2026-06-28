@@ -168,6 +168,69 @@ describe('PurchaseOrdersComponent', () => {
     expect(component.isUpdatingPo()).toBe(false);
   });
 
+  // ── Delivered value vs PO value (unit-price based) ────────────────────────
+
+  function poWithValue(
+    poValue: number | null,
+    refs: ReadonlyArray<{ id: string; unitPrice: number | null }>,
+    packages: ReadonlyArray<{ status: PackageStatus; items: ReadonlyArray<{ inventory_item_id: string; quantity: number }> }>
+  ): PurchaseOrder {
+    return {
+      poNumber: 'PO-V',
+      poValue,
+      inventoryRefs: refs.map(r => ({ inventoryItemId: r.id, item: { unit_price: r.unitPrice } })),
+      packages,
+    } as unknown as PurchaseOrder;
+  }
+
+  it('prices delivered value from inventory unit prices and delivered/collected orders', () => {
+    const po = poWithValue(
+      1000,
+      [{ id: 'inv-1', unitPrice: 100 }, { id: 'inv-2', unitPrice: 50 }],
+      [
+        // delivered: 2×100 + 1×50 = 250
+        { status: PACKAGE_STATUS.DELIVERED, items: [{ inventory_item_id: 'inv-1', quantity: 2 }, { inventory_item_id: 'inv-2', quantity: 1 }] },
+        // collected: 3×100 = 300
+        { status: PACKAGE_STATUS.COLLECTED, items: [{ inventory_item_id: 'inv-1', quantity: 3 }] },
+        // not yet delivered — ignored
+        { status: PACKAGE_STATUS.PENDING, items: [{ inventory_item_id: 'inv-1', quantity: 5 }] },
+      ]
+    );
+
+    expect(component.deliveredValue(po)).toBe(550);
+    expect(component.deliveredValuePercent(po)).toBe(55);
+    expect(component.deliveredValueTone(po)).toBe('partial');
+  });
+
+  it('skips items without a known unit price', () => {
+    const po = poWithValue(
+      1000,
+      [{ id: 'inv-1', unitPrice: 100 }, { id: 'inv-2', unitPrice: null }],
+      [{ status: PACKAGE_STATUS.DELIVERED, items: [{ inventory_item_id: 'inv-1', quantity: 2 }, { inventory_item_id: 'inv-2', quantity: 9 }] }]
+    );
+
+    expect(component.deliveredValue(po)).toBe(200);
+  });
+
+  it('color-codes delivered value by how closely it matches the PO value', () => {
+    const full = poWithValue(200, [{ id: 'inv-1', unitPrice: 100 }],
+      [{ status: PACKAGE_STATUS.DELIVERED, items: [{ inventory_item_id: 'inv-1', quantity: 2 }] }]);
+    const partial = poWithValue(1000, [{ id: 'inv-1', unitPrice: 100 }],
+      [{ status: PACKAGE_STATUS.DELIVERED, items: [{ inventory_item_id: 'inv-1', quantity: 3 }] }]);
+    const none = poWithValue(1000, [{ id: 'inv-1', unitPrice: 100 }],
+      [{ status: PACKAGE_STATUS.PENDING, items: [{ inventory_item_id: 'inv-1', quantity: 3 }] }]);
+
+    expect(component.deliveredValueTone(full)).toBe('full');
+    expect(component.deliveredValuePercent(full)).toBe(100);
+    expect(component.deliveredValueBarClass(full)).toContain('emerald');
+
+    expect(component.deliveredValueTone(partial)).toBe('partial');
+    expect(component.deliveredValueBarClass(partial)).toContain('amber');
+
+    expect(component.deliveredValueTone(none)).toBe('none');
+    expect(component.deliveredValue(none)).toBe(0);
+  });
+
   // ── Bulk POD download ─────────────────────────────────────────────────────
 
   it('counts only delivered/collected orders as POD-eligible', () => {

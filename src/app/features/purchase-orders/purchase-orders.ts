@@ -429,6 +429,78 @@ export class PurchaseOrdersComponent implements OnInit {
     return new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR' }).format(value);
   }
 
+  /**
+   * Value delivered so far, priced from inventory unit prices:
+   * Σ(delivered/collected quantity × inventory_items.unit_price) across the PO's
+   * delivered orders. Only items with a known unit price contribute.
+   */
+  deliveredValue(po: PurchaseOrder): number {
+    const priceByItemId = new Map<string, number>();
+    for (const ref of po.inventoryRefs) {
+      const price = ref.item?.unit_price;
+      if (price !== null && price !== undefined && !Number.isNaN(price)) {
+        priceByItemId.set(ref.inventoryItemId, price);
+      }
+    }
+
+    let total = 0;
+    for (const pkg of po.packages) {
+      if (!PurchaseOrdersComponent.POD_STATUSES.has(pkg.status)) continue;
+      for (const item of pkg.items ?? []) {
+        const inventoryItemId = item.inventory_item_id;
+        if (!inventoryItemId) continue;
+        const price = priceByItemId.get(inventoryItemId);
+        if (price === undefined) continue;
+        total += (Number(item.quantity) || 0) * price;
+      }
+    }
+    return total;
+  }
+
+  /** Delivered value as a percentage of the PO value (0–100, capped). */
+  deliveredValuePercent(po: PurchaseOrder): number {
+    const total = po.poValue ?? 0;
+    const delivered = this.deliveredValue(po);
+    if (total <= 0) return delivered > 0 ? 100 : 0;
+    return Math.min(100, Math.round((delivered / total) * 100));
+  }
+
+  /** How close the delivered value is to the PO value, for color coding. */
+  deliveredValueTone(po: PurchaseOrder): 'full' | 'partial' | 'none' {
+    const total = po.poValue ?? 0;
+    const delivered = this.deliveredValue(po);
+    if (delivered <= 0) return 'none';
+    if (delivered >= total) return 'full';
+    return 'partial';
+  }
+
+  /** Short label describing the delivered-vs-PO-value state. */
+  deliveredValueLabel(po: PurchaseOrder): string {
+    switch (this.deliveredValueTone(po)) {
+      case 'full': return 'Fully delivered';
+      case 'partial': return 'Partially delivered';
+      case 'none': return 'Not yet delivered';
+    }
+  }
+
+  /** Text color classes keyed on how closely the delivered value matches the PO value. */
+  deliveredValueTextClass(po: PurchaseOrder): string {
+    switch (this.deliveredValueTone(po)) {
+      case 'full': return 'text-emerald-700 dark:text-emerald-400';
+      case 'partial': return 'text-amber-700 dark:text-amber-400';
+      case 'none': return 'text-gray-500 dark:text-gray-400';
+    }
+  }
+
+  /** Progress-bar fill classes keyed on how closely the delivered value matches the PO value. */
+  deliveredValueBarClass(po: PurchaseOrder): string {
+    switch (this.deliveredValueTone(po)) {
+      case 'full': return 'bg-emerald-500';
+      case 'partial': return 'bg-amber-500';
+      case 'none': return 'bg-gray-300 dark:bg-gray-600';
+    }
+  }
+
   showCompletion(po: PurchaseOrder): boolean {
     return po.source === 'purchase_order'
       ? po.inventoryRefs.length > 0 || po.totalItems > 0

@@ -328,6 +328,33 @@
                       </div>
                     </div>
 
+                    <!-- Value delivered vs PO value (color-coded by match) -->
+                    @if (po.poValue !== null) {
+                      <div class="mt-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-700">
+                        <div class="flex items-center justify-between mb-1.5">
+                          <span class="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wide flex items-center gap-1.5">
+                            <ng-icon name="tablerCoin" size="13"></ng-icon>
+                            Value delivered
+                          </span>
+                          <span class="inline-flex items-center gap-1 text-xs font-medium {{ deliveredValueTextClass(po) }}">
+                            <ng-icon [name]="deliveredValueTone(po) === 'full' ? 'tablerCheck' : 'tablerClock'" size="12"></ng-icon>
+                            {{ deliveredValueLabel(po) }}
+                          </span>
+                        </div>
+                        <div class="flex items-baseline gap-2 mb-2">
+                          <span class="text-base font-bold tabular-nums {{ deliveredValueTextClass(po) }}">{{ formatCurrency(deliveredValue(po)) }}</span>
+                          <span class="text-xs text-gray-500 dark:text-gray-400">of {{ formatCurrency(po.poValue) }}</span>
+                          <span class="ml-auto text-xs font-semibold tabular-nums {{ deliveredValueTextClass(po) }}">{{ deliveredValuePercent(po) }}%</span>
+                        </div>
+                        <div class="h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                          <div
+                            class="h-full rounded-full transition-all duration-500 {{ deliveredValueBarClass(po) }}"
+                            [style.width.%]="deliveredValuePercent(po)">
+                          </div>
+                        </div>
+                      </div>
+                    }
+
                     @if (po.details) {
                       <div class="mt-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-700">
                         <p class="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wide flex items-center gap-1.5 mb-1">
