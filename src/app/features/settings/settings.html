@@ -315,7 +315,13 @@
 
             <span class="about-grid__label">Version</span>
             <span class="about-grid__value">
-              {{ appVersion.version }}
+              {{ appVersion.semver }}
+              @if (appVersion.channel !== 'stable') {
+                <span
+                  class="ml-2 inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium capitalize text-gray-600 dark:bg-gray-700 dark:text-gray-300"
+                  >{{ appVersion.channel }}</span
+                >
+              }
               <code class="ml-2 font-mono text-xs text-gray-400 dark:text-gray-500">({{ appVersion.hash }})</code>
             </span>
 
