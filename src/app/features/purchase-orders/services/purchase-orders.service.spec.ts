@@ -316,7 +316,9 @@ describe('Purchase order contracts', () => {
 
     expect(service.error()).toBe('Inventory load failed');
     expect(service.filteredPurchaseOrders()).toHaveLength(0);
-    expect(packagesOrder).not.toHaveBeenCalled();
+    // Packages are fetched in the parallel wave before inventory, so the
+    // packages query runs; an inventory failure still aborts PO construction.
+    expect(packagesOrder).toHaveBeenCalled();
   });
 
   it('sets error and aborts when packages query fails', async () => {

@@ -117,32 +117,94 @@ export class PurchaseOrdersService {
       const orders = (rawOrders ?? []) as PurchaseOrderRow[];
       const poNumbers = orders.map(order => order.po_number);
 
-       // Load allocations per PO item to compute remaining quantities
-       const allItemIds = orders.flatMap(order => (order.items ?? []).map(i => i.id));
-       const allocationsByPoItemId = new Map<string, number>();
-       if (allItemIds.length > 0) {
-         const { data: allocations, error: allocError } = await this.supabase.client
-           .from('purchase_order_item_allocations')
-           .select('purchase_order_item_id, allocated_quantity')
-           .in('purchase_order_item_id', allItemIds);
+      // PO-item ids (for allocations) and receiver ids (for customer hydration)
+      const allItemIds = orders.flatMap(order => (order.items ?? []).map(i => i.id));
+      const receiverIds = Array.from(
+        new Set(
+          orders
+            .map(order => order.receiver_id)
+            .filter((id): id is string => !!id)
+        )
+      );
 
-         if (!allocError && allocations) {
-           for (const alloc of allocations) {
-             const current = allocationsByPoItemId.get(alloc.purchase_order_item_id) ?? 0;
-             allocationsByPoItemId.set(alloc.purchase_order_item_id, current + (Number(alloc.allocated_quantity) || 0));
-           }
-         }
-       }
+      // ── Wave 2: independent fetches in parallel ─────────────────────────────
+      // Allocations, customers, and ALL packages carrying a po_number are
+      // mutually independent once we have the PO rows, so fetch them together
+      // instead of one-after-another. The single packages query replaces the
+      // previous first-class + order-created pair (and its brittle NOT IN filter).
+      const [allocationsResult, receiversResult, packagesResult] = await Promise.all([
+        allItemIds.length > 0
+          ? this.supabase.client
+              .from('purchase_order_item_allocations')
+              .select('purchase_order_item_id, allocated_quantity')
+              .in('purchase_order_item_id', allItemIds)
+          : Promise.resolve({ data: [] as AllocationRow[], error: null }),
+        receiverIds.length > 0
+          ? this.supabase.client
+              .from('receiver_profiles')
+              .select('id, name, surname, email')
+              .in('id', receiverIds)
+          : Promise.resolve({ data: [] as ReceiverProfileRow[], error: null }),
+        this.supabase.client
+          .from('packages')
+          .select('*, items:package_items(id, quantity, description, inventory_item_id)')
+          .not('po_number', 'is', null)
+          .is('deleted_at', null)
+          .order('created_at', { ascending: false }),
+      ]);
 
-       const inventoryItemIds = Array.from(
-         new Set(
-           orders.flatMap(order =>
-             (order.items ?? [])
-               .map(item => item.inventory_item_id)
-               .filter((id): id is string => !!id)
-           )
-         )
-       );
+      // Allocations — best-effort (treated as 0 when unavailable, as before)
+      const allocationsByPoItemId = new Map<string, number>();
+      for (const alloc of (allocationsResult.data ?? []) as AllocationRow[]) {
+        const current = allocationsByPoItemId.get(alloc.purchase_order_item_id) ?? 0;
+        allocationsByPoItemId.set(
+          alloc.purchase_order_item_id,
+          current + (Number(alloc.allocated_quantity) || 0)
+        );
+      }
+
+      // Customers (receiver profiles)
+      if (receiversResult.error) {
+        this.error.set(receiversResult.error.message);
+        return;
+      }
+      const receiverMap = new Map<string, ReceiverProfileRow>();
+      for (const receiver of (receiversResult.data ?? []) as ReceiverProfileRow[]) {
+        receiverMap.set(receiver.id, receiver);
+      }
+
+      // Packages — bucket every po_number-carrying package by its PO number
+      if (packagesResult.error) {
+        this.error.set(packagesResult.error.message);
+        return;
+      }
+      const packagesByPoNumber = new Map<string, Package[]>();
+      for (const pkg of (packagesResult.data ?? []) as Package[]) {
+        const poNumber = pkg.po_number;
+        if (!poNumber) continue;
+        if (!packagesByPoNumber.has(poNumber)) {
+          packagesByPoNumber.set(poNumber, []);
+        }
+        packagesByPoNumber.get(poNumber)!.push(pkg);
+      }
+
+      // ── Wave 3: a single inventory fetch for every referenced item ──────────
+      // Union of inventory ids referenced by PO items and by package items, so
+      // the synthetic order-PO block below needs no further round-trip.
+      const inventoryItemIds = Array.from(
+        new Set<string>([
+          ...orders.flatMap(order =>
+            (order.items ?? [])
+              .map(item => item.inventory_item_id)
+              .filter((id): id is string => !!id)
+          ),
+          ...Array.from(packagesByPoNumber.values()).flat().flatMap(pkg =>
+            (pkg.items ?? [])
+              .map(item => item.inventory_item_id)
+              .filter((id): id is string => !!id)
+          ),
+        ])
+      );
 
       const inventoryMap = new Map<string, InventoryItem>();
       if (inventoryItemIds.length > 0) {
@@ -158,85 +220,6 @@ export class PurchaseOrdersService {
 
         for (const item of (invItems ?? []) as InventoryItem[]) {
           inventoryMap.set(item.id, item);
-        }
-      }
-
-      // Hydrate customers (receiver profiles) referenced by the POs
-      const receiverMap = new Map<string, ReceiverProfileRow>();
-      const receiverIds = Array.from(
-        new Set(
-          orders
-            .map(order => order.receiver_id)
-            .filter((id): id is string => !!id)
-        )
-      );
-      if (receiverIds.length > 0) {
-        const { data: receivers, error: receiversError } = await this.supabase.client
-          .from('receiver_profiles')
-          .select('id, name, surname, email')
-          .in('id', receiverIds);
-
-        if (receiversError) {
-          this.error.set(receiversError.message);
-          return;
-        }
-
-        for (const receiver of (receivers ?? []) as ReceiverProfileRow[]) {
-          receiverMap.set(receiver.id, receiver);
-        }
-      }
-
-      const packagesByPoNumber = new Map<string, Package[]>();
-
-      // Load packages linked to first-class POs
-      if (poNumbers.length > 0) {
-        const { data: rawPackages, error: packagesError } = await this.supabase.client
-          .from('packages')
-          .select('*, items:package_items(id, quantity, description, inventory_item_id)')
-          .in('po_number', poNumbers)
-          .is('deleted_at', null)
-          .order('created_at', { ascending: false });
-
-        if (packagesError) {
-          this.error.set(packagesError.message);
-          return;
-        }
-
-        for (const pkg of (rawPackages ?? []) as Package[]) {
-          const poNumber = pkg.po_number;
-          if (!poNumber) continue;
-          if (!packagesByPoNumber.has(poNumber)) {
-            packagesByPoNumber.set(poNumber, []);
-          }
-          packagesByPoNumber.get(poNumber)!.push(pkg);
-        }
-      }
-
-      // ── Load order-created POs ──────────────────────────────────────────────
-      // Packages may have a po_number set when created from an order, without a
-      // corresponding record in the `purchase_orders` table. Fetch those and
-      // synthesise PO entries from them.
-      let orderPkgQuery = this.supabase.client
-        .from('packages')
-        .select('*, items:package_items(id, quantity, description, inventory_item_id)')
-        .not('po_number', 'is', null)
-        .is('deleted_at', null)
-        .order('created_at', { ascending: false });
-
-      if (poNumbers.length > 0) {
-        orderPkgQuery = orderPkgQuery.not('po_number', 'in', `(${poNumbers.map(n => `"${n}"`).join(',')})`) as typeof orderPkgQuery;
-      }
-
-      const { data: rawOrderPackages, error: orderPackagesError } = await orderPkgQuery;
-
-      if (!orderPackagesError && rawOrderPackages) {
-        for (const pkg of rawOrderPackages as Package[]) {
-          const poNumber = pkg.po_number;
-          if (!poNumber) continue;
-          if (!packagesByPoNumber.has(poNumber)) {
-            packagesByPoNumber.set(poNumber, []);
-          }
-          packagesByPoNumber.get(poNumber)!.push(pkg);
         }
       }
 
@@ -333,30 +316,7 @@ export class PurchaseOrdersService {
       );
 
       if (orderOnlyPoNumbers.length > 0) {
-        // Gather any inventory item ids referenced by these packages
-        const orderOnlyInvIds = Array.from(
-          new Set(
-            orderOnlyPoNumbers.flatMap(poNum =>
-              (packagesByPoNumber.get(poNum) ?? []).flatMap(pkg =>
-                (pkg.items ?? [])
-                  .map(i => i.inventory_item_id)
-                  .filter((id): id is string => !!id)
-              )
-            )
-          )
-        ).filter(id => !inventoryMap.has(id));
-
-        if (orderOnlyInvIds.length > 0) {
-          const { data: extraItems } = await this.supabase.client
-            .from('inventory_items')
-            .select('*')
-            .in('id', orderOnlyInvIds);
-
-          for (const item of (extraItems ?? []) as InventoryItem[]) {
-            inventoryMap.set(item.id, item);
-          }
-        }
-
+        // Inventory for these packages was already hydrated in the wave-3 fetch.
         const syntheticPOs: PurchaseOrder[] = orderOnlyPoNumbers.map(poNum => {
           const packages = packagesByPoNumber.get(poNum) ?? [];
 
@@ -463,6 +423,11 @@ interface ReceiverProfileRow {
   readonly name: string;
   readonly surname: string;
   readonly email: string;
+}
+
+interface AllocationRow {
+  readonly purchase_order_item_id: string;
+  readonly allocated_quantity: number | string;
 }
 
 interface PurchaseOrderItemRow {
