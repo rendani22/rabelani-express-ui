@@ -7,6 +7,7 @@ export * from './models/receiver-profile.model';
 export * from './models/receiver-contact.model';
 export * from './models/delivery-location.models';
 export * from './models/inventory.models';
+export * from './models/notification.models';
 
 // Services
 export * from './services/auth.service';

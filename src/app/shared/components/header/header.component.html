@@ -45,10 +45,6 @@
                 class="absolute -top-0.5 -right-0.5 min-w-[1.1rem] h-[1.1rem] bg-rose-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center ring-2 ring-white dark:ring-slate-800 px-0.5">
                 {{ unreadCount() > 9 ? '9+' : unreadCount() }}
               </span>
-            } @else if (hasNotifications()) {
-              <div
-                class="absolute top-0.5 right-0.5 w-2 h-2 bg-rose-500 rounded-full ring-2 ring-white dark:ring-slate-800">
-              </div>
             }
           </button>
 
@@ -60,25 +56,51 @@
             <div class="dropdown-panel__header">
               <ng-icon name="tablerBell" size="14"></ng-icon>
               <span>Notifications</span>
-              <span class="ml-auto bg-rose-100 text-rose-600 dark:bg-rose-500/20 dark:text-rose-400 text-xs font-semibold px-1.5 py-0.5 rounded-full">{{ notifications().length }}</span>
+              @if (unreadCount() > 0) {
+                <span class="bg-rose-100 text-rose-600 dark:bg-rose-500/20 dark:text-rose-400 text-xs font-semibold px-1.5 py-0.5 rounded-full">{{ unreadCount() }}</span>
+                <button
+                  type="button"
+                  class="dropdown-panel__header-action ml-auto"
+                  (click)="onMarkAllRead($event)">
+                  <ng-icon name="tablerChecks" size="13"></ng-icon>
+                  Mark all read
+                </button>
+              }
             </div>
             <!-- Items -->
             <ul class="divide-y divide-slate-100 dark:divide-slate-700/60 max-h-72 overflow-y-auto">
-              <li *ngIf="notifications().length === 0" class="px-4 py-6 text-center text-sm text-slate-400 dark:text-slate-500">
-                No recent activity
+              <li *ngIf="notificationsLoading() && notifications().length === 0" class="px-4 py-6 text-center text-sm text-slate-400 dark:text-slate-500">
+                Loading…
               </li>
-              <li *ngFor="let notification of notifications(); let i = index">
+              <li *ngIf="!notificationsLoading() && notifications().length === 0" class="px-4 py-6 text-center text-sm text-slate-400 dark:text-slate-500">
+                You're all caught up
+              </li>
+              <li
+                *ngFor="let notification of notifications(); trackBy: trackNotification"
+                class="dropdown-panel__notification-row"
+                [class.dropdown-panel__notification-row--unread]="notification.readAt === null">
                 <a
                   class="dropdown-panel__notification"
                   [href]="notification.href"
-                  (click)="onNotificationClick($event, notification, i)">
+                  (click)="onNotificationClick($event, notification)">
                   <span class="dropdown-panel__notification-emoji">{{ notification.emoji }}</span>
-                  <span class="min-w-0">
+                  <span class="min-w-0 flex-1">
                     <span class="block text-sm font-medium text-slate-800 dark:text-slate-100 truncate">{{ notification.title }}</span>
                     <span class="block text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2">{{ notification.description }}</span>
-                    <span class="block text-xs text-slate-400 dark:text-slate-500 mt-1">{{ notification.date }}</span>
+                    <span class="block text-xs text-slate-400 dark:text-slate-500 mt-1">{{ notificationTime(notification) }}</span>
                   </span>
+                  <span
+                    *ngIf="notification.readAt === null"
+                    class="dropdown-panel__notification-dot"
+                    aria-label="Unread"></span>
                 </a>
+                <button
+                  type="button"
+                  class="dropdown-panel__notification-dismiss"
+                  aria-label="Dismiss notification"
+                  (click)="onDismissNotification($event, notification)">
+                  <ng-icon name="tablerX" size="14"></ng-icon>
+                </button>
               </li>
             </ul>
             <!-- Footer -->

@@ -4,17 +4,6 @@
 
 
 /**
- * Notification item displayed in the notifications dropdown
- */
-export interface HeaderNotification {
-  readonly emoji: string;
-  readonly title: string;
-  readonly description: string;
-  readonly date: string;
-  readonly href: string;
-}
-
-/**
  * Icon types available for help links
  */
 export type HelpLinkIcon = 'documentation' | 'contact';

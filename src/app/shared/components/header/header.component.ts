@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, OnInit, Output, inject, signal } from '@angular/core';
+import { Component, EventEmitter, Input, Output, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
@@ -14,13 +14,16 @@ import {
   tablerSend,
   tablerBook,
   tablerHelp,
+  tablerX,
+  tablerChecks,
 } from '@ng-icons/tabler-icons';
-import { ThemeService } from '../../../core';
+import { ThemeService, AppNotification, formatRelativeTime } from '../../../core';
 import { throwTestError } from '../../../core/utils/sentry.utils';
 import { SupabaseService } from '../../services/supabase.service';
+import { NotificationCenterService } from '../../services/notification-center.service';
 import { environment } from '../../../../environments/environment';
 import { HeaderService } from './header.service';
-import { HelpLink, HeaderNotification } from './header.models';
+import { HelpLink } from './header.models';
 import { DEFAULT_HELP_LINKS } from './header.constants';
 import { DocsModalComponent } from '../modals/docs-modal/docs-modal.component';
 
@@ -34,13 +37,15 @@ import { DocsModalComponent } from '../modals/docs-modal/docs-modal.component';
       tablerSun, tablerMoon, tablerChevronDown,
       tablerSettings, tablerLogout,
       tablerSend, tablerBook, tablerHelp,
+      tablerX, tablerChecks,
     }),
   ],
   templateUrl: './header.component.html',
   styleUrls: ['./header.component.css'],
 })
-export class HeaderComponent implements OnInit {
+export class HeaderComponent {
   private readonly headerService = inject(HeaderService);
+  private readonly notificationCenter = inject(NotificationCenterService);
   private readonly themeService = inject(ThemeService);
   private readonly supabaseService = inject(SupabaseService);
   private readonly router = inject(Router);
@@ -60,10 +65,11 @@ export class HeaderComponent implements OnInit {
 
   readonly darkMode = this.themeService.isDarkMode;
 
-  /** Notifications loaded dynamically from the database */
-  readonly notifications = this.headerService.notifications;
-  readonly hasNotifications = this.headerService.hasNotifications;
-  readonly unreadCount = this.headerService.unreadCount;
+  /** Per-user notification feed (header bell) */
+  readonly notifications = this.notificationCenter.notifications;
+  readonly unreadCount = this.notificationCenter.unreadCount;
+  readonly hasUnread = this.notificationCenter.hasUnread;
+  readonly notificationsLoading = this.notificationCenter.isLoading;
 
   /** Controls the documentation modal */
   readonly docsOpen = signal(false);
@@ -71,11 +77,6 @@ export class HeaderComponent implements OnInit {
   readonly isDev = !environment.production;
   readonly appEnvironment = environment.appEnvironment;
   readonly environmentBadge = this.getEnvironmentBadge();
-
-  ngOnInit(): void {
-    void this.headerService.loadNotifications();
-    this.headerService.subscribeToRealtime();
-  }
 
   toggleSidebar(): void {
     this.sidebarOpen = !this.sidebarOpen;
@@ -155,16 +156,39 @@ export class HeaderComponent implements OnInit {
     this.router.navigate(['/settings']);
   }
 
-  onNotificationClick(event: Event, notification: HeaderNotification, index: number): void {
+  /** Relative "time ago" label for a notification. */
+  notificationTime(notification: AppNotification): string {
+    return formatRelativeTime(notification.createdAt);
+  }
+
+  /** ngFor identity — keep DOM rows stable as the feed updates. */
+  trackNotification(_index: number, notification: AppNotification): string {
+    return notification.id;
+  }
+
+  onNotificationClick(event: Event, notification: AppNotification): void {
     event.preventDefault();
-    this.headerService.dismissNotification(index);
+    void this.notificationCenter.markAsRead(notification.id);
     this.headerService.closeAllDropdowns();
     void this.router.navigateByUrl(notification.href);
   }
 
+  /** Dismiss (delete) a single notification without navigating. */
+  onDismissNotification(event: Event, notification: AppNotification): void {
+    event.preventDefault();
+    event.stopPropagation();
+    void this.notificationCenter.dismiss(notification.id);
+  }
+
+  onMarkAllRead(event: Event): void {
+    event.preventDefault();
+    event.stopPropagation();
+    void this.notificationCenter.markAllAsRead();
+  }
+
   onViewAllOrders(event: Event): void {
     event.preventDefault();
-    this.headerService.clearAllNotifications();
+    void this.notificationCenter.markAllAsRead();
     this.headerService.closeAllDropdowns();
     void this.router.navigate(['/orders']);
   }
