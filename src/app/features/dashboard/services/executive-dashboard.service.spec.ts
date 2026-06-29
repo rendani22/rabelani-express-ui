@@ -4,26 +4,50 @@ import { vi } from 'vitest';
 import { ExecutiveDashboardService } from './executive-dashboard.service';
 import { SupabaseService } from '../../../shared/services/supabase.service';
 
-/**
- * A thenable query-builder stub: every chainable method returns `this`, and
- * awaiting it resolves to the configured `{ data, error }` for its table.
- */
-function makeClient(resultsByTable: Record<string, { data: unknown; error: unknown }>) {
-  const builder = (table: string) => {
-    const result = resultsByTable[table] ?? { data: [], error: null };
-    const self: Record<string, unknown> = {};
-    for (const method of ['select', 'in', 'is', 'limit', 'eq', 'order', 'gte', 'lte']) {
-      self[method] = () => self;
-    }
-    self['then'] = (resolve: (v: unknown) => unknown) => resolve(result);
-    return self;
-  };
-  return { from: vi.fn((table: string) => builder(table)) };
+/** Minimal Supabase stub whose `rpc()` resolves to a fixed `{ data, error }`. */
+function makeClient(result: { data: unknown; error: unknown }) {
+  return { rpc: vi.fn(async () => result) };
 }
 
+/**
+ * A representative `get_executive_metrics` payload: R300 realized across one
+ * collected order (Widget ×3), with R250 of pipeline awaiting collection.
+ */
+const PAYLOAD = {
+  summary: {
+    totalValue: 300,
+    totalOrders: 1,
+    avgOrderValue: 300,
+    pipelineValue: 250,
+    pipelineOrders: 1,
+    truncated: false,
+  },
+  periods: {
+    today: { value: 300, orders: 1 },
+    yesterday: { value: 100, orders: 1 },
+    week: { value: 300, orders: 1 },
+    prevWeek: { value: 0, orders: 0 },
+    month: { value: 300, orders: 1 },
+    prevMonth: { value: 0, orders: 0 },
+    year: { value: 300, orders: 1 },
+    prevYear: { value: 0, orders: 0 },
+    all: { value: 300, orders: 1 },
+  },
+  trends: {
+    day: [{ key: '2026-06-29', value: 300, orders: 1 }],
+    week: [{ key: '2026-06-29', value: 300, orders: 1 }],
+    month: [{ key: '2026-06', value: 300, orders: 1 }],
+    year: [{ key: '2026', value: 300, orders: 1 }],
+  },
+  topCustomers: [{ email: 'bob@example.com', value: 300, orders: 1 }],
+  topItems: [
+    { description: 'widget', inventoryItemId: 'inv-widget', value: 300, quantity: 3, orders: 1 },
+  ],
+};
+
 describe('ExecutiveDashboardService', () => {
-  function setup(resultsByTable: Record<string, { data: unknown; error: unknown }>) {
-    const mockSupabase = { client: makeClient(resultsByTable) };
+  function setup(result: { data: unknown; error: unknown }) {
+    const mockSupabase = { client: makeClient(result) };
     TestBed.configureTestingModule({
       providers: [
         ExecutiveDashboardService,
@@ -33,120 +57,65 @@ describe('ExecutiveDashboardService', () => {
     return TestBed.inject(ExecutiveDashboardService);
   }
 
-  const nowIso = new Date().toISOString();
-
-  // Two orders: one ready-for-collection (pipeline), one collected (realized).
-  // Prices: widget = 100, gadget = 50.
-  const packages = [
-    {
-      id: 'pkg-1',
-      reference: 'REF-1',
-      receiver_email: 'alice@example.com',
-      status: 'ready_for_collection',
-      created_at: nowIso,
-      updated_at: nowIso,
-      received_at: nowIso,
-      collected_at: null,
-      items: [
-        { quantity: 2, description: 'Widget', inventory_item_id: 'inv-widget' }, // 2 × 100 = 200
-        { quantity: 1, description: 'Gadget', inventory_item_id: 'inv-gadget' }, // 1 × 50 = 50
-      ],
-    },
-    {
-      id: 'pkg-2',
-      reference: 'REF-2',
-      receiver_email: 'bob@example.com',
-      status: 'collected',
-      created_at: nowIso,
-      updated_at: nowIso,
-      received_at: nowIso,
-      collected_at: nowIso,
-      items: [
-        { quantity: 3, description: 'Widget', inventory_item_id: 'inv-widget' }, // 3 × 100 = 300
-      ],
-    },
-  ];
-
-  const inventory = [
-    { id: 'inv-widget', unit_price: 100 },
-    { id: 'inv-gadget', unit_price: 50 },
-  ];
-
-  it('counts only collected orders as realized revenue, ready-for-collection as pipeline', async () => {
-    const service = setup({
-      packages: { data: packages, error: null },
-      inventory_items: { data: inventory, error: null },
-    });
+  it('maps the realized/pipeline summary from the RPC payload', async () => {
+    const service = setup({ data: PAYLOAD, error: null });
 
     await service.load();
 
     const summary = service.summary();
-    expect(summary.totalOrders).toBe(1); // only pkg-2 (collected)
-    expect(summary.totalValue).toBe(300); // realized
+    expect(summary.totalOrders).toBe(1);
+    expect(summary.totalValue).toBe(300);
     expect(summary.avgOrderValue).toBe(300);
-    expect(summary.pipelineValue).toBe(250); // pkg-1 (ready for collection)
+    expect(summary.pipelineValue).toBe(250);
     expect(summary.pipelineOrders).toBe(1);
     expect(summary.truncated).toBe(false);
+    expect(service.loaded()).toBe(true);
+    expect(service.error()).toBeNull();
   });
 
-  it('exposes an all-time KPI matching the realized (collected) value', async () => {
-    const service = setup({
-      packages: { data: packages, error: null },
-      inventory_items: { data: inventory, error: null },
-    });
+  it('builds the five period KPIs with deltas relative to the prior period', async () => {
+    const service = setup({ data: PAYLOAD, error: null });
 
     await service.load();
 
-    const all = service.kpis().find(k => k.key === 'all');
-    expect(all).toBeDefined();
-    expect(all!.value).toBe(300);
-    expect(all!.orders).toBe(1);
-    expect(all!.deltaPercent).toBeNull(); // no comparison for all-time
+    const kpis = service.kpis();
+    expect(kpis.map(k => k.key)).toEqual(['today', 'week', 'month', 'year', 'all']);
+
+    const today = kpis.find(k => k.key === 'today')!;
+    expect(today.value).toBe(300);
+    expect(today.orders).toBe(1);
+    expect(today.deltaPercent).toBe(200); // 300 vs 100 yesterday
+    expect(today.deltaUp).toBe(true);
+
+    const all = kpis.find(k => k.key === 'all')!;
+    expect(all.value).toBe(300);
+    expect(all.deltaPercent).toBeNull(); // no comparison for all-time
   });
 
-  it('ranks top items by collected value only (pipeline excluded)', async () => {
-    const service = setup({
-      packages: { data: packages, error: null },
-      inventory_items: { data: inventory, error: null },
-    });
+  it('labels trend points and prettifies customers / title-cases items', async () => {
+    const service = setup({ data: PAYLOAD, error: null });
 
     await service.load();
 
-    const items = service.topItems();
-    expect(items).toHaveLength(1); // Gadget was only on the ready-for-collection order
-    expect(items[0]).toMatchObject({ description: 'Widget', value: 300, quantity: 3, orders: 1 });
+    expect(service.trends().year).toEqual([
+      { key: '2026', label: '2026', value: 300, orders: 1 },
+    ]);
+    expect(service.trends().day[0].label).toBeTruthy();
+
+    const customer = service.topCustomers()[0];
+    expect(customer).toMatchObject({ email: 'bob@example.com', name: 'Bob', value: 300, orders: 1 });
+
+    const item = service.topItems()[0];
+    expect(item).toMatchObject({ description: 'Widget', value: 300, quantity: 3, orders: 1 });
   });
 
-  it('ranks top customers by collected value only', async () => {
-    const service = setup({
-      packages: { data: packages, error: null },
-      inventory_items: { data: inventory, error: null },
-    });
+  it('surfaces an error and does not mark loaded when the RPC fails', async () => {
+    const service = setup({ data: null, error: { message: 'boom' } });
 
     await service.load();
 
-    const customers = service.topCustomers();
-    expect(customers).toHaveLength(1); // alice's order is ready-for-collection, not collected
-    expect(customers[0]).toMatchObject({ email: 'bob@example.com', value: 300, orders: 1 });
-  });
-
-  it('treats collected items with no priced inventory as zero value', async () => {
-    const service = setup({
-      packages: {
-        data: [
-          {
-            ...packages[1], // collected order
-            items: [{ quantity: 5, description: 'Mystery', inventory_item_id: null }],
-          },
-        ],
-        error: null,
-      },
-      inventory_items: { data: [], error: null },
-    });
-
-    await service.load();
-
-    expect(service.summary().totalValue).toBe(0);
-    expect(service.topItems()).toHaveLength(0);
+    expect(service.error()).toBe('boom');
+    expect(service.loaded()).toBe(false);
+    expect(service.isLoading()).toBe(false);
   });
 });

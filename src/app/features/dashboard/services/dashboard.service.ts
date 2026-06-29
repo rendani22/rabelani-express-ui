@@ -363,7 +363,9 @@ export class DashboardService {
 
       this.applyMetrics(data as DashboardMetricsPayload);
     } catch (err) {
-      console.warn('[DashboardService] Failed to load POD stats:', err);
+      console.error('[DashboardService] Failed to load dashboard metrics:', err);
+    } finally {
+      this._isLoading.set(false);
     }
   }
 
