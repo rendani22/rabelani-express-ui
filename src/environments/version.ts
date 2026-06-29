@@ -42,23 +42,23 @@ export interface AppVersion {
 }
 
 export const APP_VERSION: AppVersion = {
-  "version": "0.77.0-dev.115+548dc57.dirty",
+  "version": "0.77.0-dev.116+67dc9e7.dirty",
   "semver": "0.77.0",
   "major": 0,
   "minor": 77,
   "patch": 0,
-  "prerelease": "dev.115",
-  "buildMetadata": "548dc57.dirty",
+  "prerelease": "dev.116",
+  "buildMetadata": "67dc9e7.dirty",
   "channel": "dev",
   "baseTag": null,
-  "commitsSinceBase": 115,
+  "commitsSinceBase": 116,
   "bumpsSinceBase": 81,
   "isDirty": true,
   "isRelease": false,
-  "hash": "548dc57",
-  "fullHash": "548dc5740c3c68e4584ea911df6efe5801d6a28f",
+  "hash": "67dc9e7",
+  "fullHash": "67dc9e7ff3908f41c4dcb4c780b2ec9d8bb5917a",
   "branch": "dev",
-  "message": "feat(version): SemVer 2.0.0-compliant, branch-aware version generation",
-  "commitDate": "2026-06-28T03:30:02+02:00",
-  "buildDate": "2026-06-28T01:37:37.600Z"
+  "message": "version  update",
+  "commitDate": "2026-06-28T03:38:29+02:00",
+  "buildDate": "2026-06-28T12:39:25.580Z"
 };

@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { LayoutComponent } from '../../shared/components/layout/layout.component';
@@ -7,6 +7,8 @@ import { DashboardActionsComponent } from './dashboard-actions/dashboard-actions
 import { CreatePackageModalComponent } from '../../shared/components/modals';
 import { Package } from '../../core';
 import { OnboardingTourService } from '../../core';
+import { StaffService } from '../../core';
+import { ExecutiveDashboard } from './executive/executive-dashboard';
 import { DashboardService, TopShippedItem } from './services/dashboard.service';
 import { StuckPackage } from './services/dashboard.service';
 import { PackageStatsCardComponent, StatItem } from './cards/package-stats-card/package-stats-card.component';
@@ -48,6 +50,7 @@ import { HourlyHeatmapCardComponent } from './cards/hourly-heatmap-card/hourly-h
     InventoryHealthCardComponent,
     TopItemsCardComponent,
     HourlyHeatmapCardComponent,
+    ExecutiveDashboard,
   ],
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.css',
@@ -56,6 +59,13 @@ export class Dashboard implements OnInit {
   private readonly dashboardService = inject(DashboardService);
   private readonly router = inject(Router);
   private readonly onboardingTour = inject(OnboardingTourService);
+  private readonly staffService = inject(StaffService);
+
+  /** Whether the current user may see the admin-only Executive (CEO) view. */
+  readonly isAdmin = this.staffService.isAdmin;
+
+  /** Active dashboard view. Admins can switch to the Executive revenue view. */
+  readonly activeView = signal<'operations' | 'executive'>('operations');
 
   // Modal state
   createPackageModalOpen = false;
@@ -100,6 +110,12 @@ export class Dashboard implements OnInit {
     // Auto-launch the onboarding tour for first-time users. The service is a
     // no-op if the user has already completed (or skipped) the tour.
     setTimeout(() => this.onboardingTour.start('dashboard'), 600);
+  }
+
+  setView(view: 'operations' | 'executive'): void {
+    // Executive view is admin-only; ignore the request otherwise.
+    if (view === 'executive' && !this.isAdmin()) return;
+    this.activeView.set(view);
   }
 
   onDateChange(dateRange: { start: Date; end?: Date }): void {
