@@ -2,6 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { OrdersComponent } from './orders';
 import { PackageService } from '../../core';
 import { signal } from '@angular/core';
+import { provideRouter } from '@angular/router';
 import { vi } from 'vitest';
 
 describe('OrdersComponent', () => {
@@ -20,7 +21,8 @@ describe('OrdersComponent', () => {
     await TestBed.configureTestingModule({
       imports: [OrdersComponent],
       providers: [
-        { provide: PackageService, useValue: packageServiceMock }
+        { provide: PackageService, useValue: packageServiceMock },
+        provideRouter([])
       ]
     }).compileComponents();
 

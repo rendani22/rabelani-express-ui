@@ -23,6 +23,7 @@ export class LayoutComponent {
   /** Base nav items configuration */
   private readonly baseNavItems: NavItem[] = [
     { icon: 'layout-dashboard', label: 'Dashboard', routerLink: '/dashboard' },
+    { icon: 'clipboard-list', label: 'Global PO', routerLink: '/purchase-orders' },
     { icon: 'shopping-cart', label: 'Orders', routerLink: '/orders' },
     { icon: 'orders', label: 'Inventory', routerLink: '/inventory' },
     { icon: 'truck', label: 'Drivers', routerLink: '/drivers' },

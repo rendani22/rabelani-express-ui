@@ -96,14 +96,17 @@
 
         <app-top-items-card
           title="Top Items Shipped"
-          [items]="topShippedItems()">
+          [items]="topShippedItems()"
+          (ordersClick)="onTopShippedItemOrdersClick($event)"
+          (inventoryClick)="onTopShippedItemInventoryClick($event)">
         </app-top-items-card>
 
         <!-- ── Row 8: Inventory Health (6) + (placeholder uses other 6 of receivers row below) ── -->
         <app-inventory-health-card
           title="Inventory Health"
           [data]="inventoryHealth()"
-          (viewInventoryClick)="onViewInventory()">
+          (viewInventoryClick)="onViewInventory()"
+          (inventoryItemClick)="onViewInventory($event)">
         </app-inventory-health-card>
 
         <!-- ── Row 9: Hourly Heatmap (full width) ── -->

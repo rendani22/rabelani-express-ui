@@ -35,6 +35,33 @@
           },
           "configurations": {
             "production": {
+              "fileReplacements": [
+                {
+                  "replace": "src/environments/environment.ts",
+                  "with": "src/environments/environment.prod.ts"
+                }
+              ],
+              "budgets": [
+                {
+                  "type": "initial",
+                  "maximumWarning": "500kB",
+                  "maximumError": "1MB"
+                },
+                {
+                  "type": "anyComponentStyle",
+                  "maximumWarning": "8kB",
+                  "maximumError": "16kB"
+                }
+              ],
+              "outputHashing": "all"
+            },
+            "integration": {
+              "fileReplacements": [
+                {
+                  "replace": "src/environments/environment.ts",
+                  "with": "src/environments/environment.int.ts"
+                }
+              ],
               "budgets": [
                 {
                   "type": "initial",
@@ -62,6 +89,9 @@
           "configurations": {
             "production": {
               "buildTarget": "rabelani-express-ui:build:production"
+            },
+            "integration": {
+              "buildTarget": "rabelani-express-ui:build:integration"
             },
             "development": {
               "buildTarget": "rabelani-express-ui:build:development"

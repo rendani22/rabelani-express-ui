@@ -61,7 +61,12 @@ import { InventoryHealth } from '../../services/dashboard.service';
           <ul class="space-y-1">
             @for (item of data.topLowStock; track item.id) {
               <li class="flex items-center justify-between text-sm">
-                <span class="text-gray-700 dark:text-gray-300 truncate">{{ item.name }}</span>
+                <button
+                  type="button"
+                  class="truncate text-left text-gray-700 dark:text-gray-300 hover:text-violet-600 dark:hover:text-violet-400"
+                  (click)="inventoryItemClick.emit({ id: item.id, name: item.name })">
+                  {{ item.name }}
+                </button>
                 <span class="font-mono text-xs"
                       [ngClass]="item.quantity === 0 ? 'text-rose-600 dark:text-rose-400' : 'text-amber-600 dark:text-amber-400'">
                   {{ item.quantity }} / {{ item.threshold }}
@@ -86,6 +91,7 @@ export class InventoryHealthCardComponent {
     topLowStock: [],
   };
   @Output() viewInventoryClick = new EventEmitter<void>();
+  @Output() inventoryItemClick = new EventEmitter<{ id: string; name: string }>();
 }
 
 

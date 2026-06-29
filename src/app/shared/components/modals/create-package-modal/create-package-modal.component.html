@@ -353,24 +353,66 @@
             <label for="poNumber" class="block text-sm font-medium mb-1 text-gray-600 dark:text-gray-300">
               Purchase Order Number <span class="text-red-500" aria-hidden="true">*</span>
             </label>
-            <input
-              id="poNumber"
-              type="text"
-              formControlName="poNumber"
-              placeholder="PO-12345"
-              class="w-full rounded-lg border px-3 py-2 text-sm shadow-sm transition-colors
-                     bg-white dark:bg-gray-800/30
-                     border-gray-200 dark:border-gray-700/60
-                     text-gray-800 dark:text-gray-100
-                     placeholder:text-gray-400 dark:placeholder:text-gray-500
-                     hover:border-gray-300 dark:hover:border-gray-600
-                     focus:border-violet-500 dark:focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
-              [class.border-red-400]="getFieldError('poNumber')"
-              [attr.aria-invalid]="getFieldError('poNumber') ? 'true' : null"
-              [attr.aria-describedby]="getFieldError('poNumber') ? 'poNumber-error' : null"
-            />
+            <div class="flex gap-2">
+              <input
+                id="poNumber"
+                type="text"
+                formControlName="poNumber"
+                placeholder="PO-12345"
+                class="flex-1 rounded-lg border px-3 py-2 text-sm shadow-sm transition-colors
+                       bg-white dark:bg-gray-800/30
+                       border-gray-200 dark:border-gray-700/60
+                       text-gray-800 dark:text-gray-100
+                       placeholder:text-gray-400 dark:placeholder:text-gray-500
+                       hover:border-gray-300 dark:hover:border-gray-600
+                       focus:border-violet-500 dark:focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                [class.border-red-400]="getFieldError('poNumber')"
+                [attr.aria-invalid]="getFieldError('poNumber') ? 'true' : null"
+                [attr.aria-describedby]="getFieldError('poNumber') ? 'poNumber-error' : null"
+              />
+              <button
+                type="button"
+                class="px-3 py-2 rounded-lg border border-violet-200 dark:border-violet-500/40 text-violet-700 dark:text-violet-300 hover:bg-violet-50 dark:hover:bg-violet-500/10 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-violet-500 disabled:opacity-50"
+                (click)="onPoLookup()"
+                [disabled]="poLookupState() === 'loading' || !form.controls.poNumber.value.trim()"
+              >
+                @if (poLookupState() === 'loading') {
+                  Loading…
+                } @else {
+                  Load PO
+                }
+              </button>
+            </div>
             @if (getFieldError('poNumber'); as error) {
               <p id="poNumber-error" class="text-xs mt-1 text-red-500" role="alert">{{ error }}</p>
+            }
+
+            @if (poLookupState() === 'not_found') {
+              <p class="text-xs mt-1 text-amber-600 dark:text-amber-400">
+                No PO lines with remaining quantity were found for this PO number.
+              </p>
+            }
+
+            @if (poLookupState() === 'loaded') {
+              <div class="mt-2 p-3 rounded-lg border border-violet-200 dark:border-violet-500/30 bg-violet-50/60 dark:bg-violet-500/10 space-y-2">
+                <p class="text-xs font-medium text-violet-700 dark:text-violet-300">Select PO lines to include in this order</p>
+                @for (line of poLines(); track line.purchaseOrderItemId) {
+                  <label class="flex items-center justify-between gap-2 text-sm text-gray-700 dark:text-gray-200">
+                    <span class="inline-flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        class="rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+                        [checked]="line.selected"
+                        (change)="onPoLineSelectionChange(line.purchaseOrderItemId, $any($event.target).checked)"
+                      />
+                      <span class="truncate">{{ getPoLineLabel(line.inventoryItemId) }}</span>
+                    </span>
+                    <span class="text-xs px-2 py-0.5 rounded bg-white dark:bg-gray-800 border border-violet-200 dark:border-violet-500/40 text-violet-700 dark:text-violet-300">
+                      Remaining: {{ line.remainingQuantity | number }}
+                    </span>
+                  </label>
+                }
+              </div>
             }
           </div>
 
@@ -422,91 +464,97 @@
               @for (item of itemsArray.controls; track item; let i = $index) {
                 <div class="border border-gray-200 dark:border-gray-700/60 rounded-lg p-3 space-y-2" [formGroupName]="i">
                   <!-- Inventory item selector -->
-                  <div>
-                    <label [for]="'item-inv-' + i" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                      From Inventory
-                      @if (getAvailableStock(i) !== null) {
-                        <span class="ml-1 text-violet-600 dark:text-violet-400">({{ getAvailableStock(i) | number }} available)</span>
-                      }
-                    </label>
-                    @if (isLoadingInventory()) {
-                      <div class="w-full rounded-lg border px-3 py-2 text-xs text-gray-400 border-gray-200 dark:border-gray-700/60 bg-white dark:bg-gray-800/30">
-                        Loading inventory…
-                      </div>
-                    } @else {
-                      <div class="relative" (clickOutside)="closeInventoryDropdown(i)">
-                        <input
-                          [id]="'item-inv-' + i"
-                          type="text"
-                          role="combobox"
-                          autocomplete="off"
-                          [attr.aria-expanded]="isInventoryDropdownOpen(i)"
-                          aria-autocomplete="list"
-                          [attr.aria-controls]="'inventory-listbox-' + i"
-                          [value]="inventorySearchAt(i)"
-                          (input)="onInventoryInput(i, $event)"
-                          (focus)="openInventoryDropdown(i)"
-                          placeholder="— Select or search inventory (optional) —"
-                          class="w-full rounded-lg border px-3 py-2 pr-9 text-sm shadow-sm transition-colors
-                                 bg-white dark:bg-gray-800/30
-                                 border-gray-200 dark:border-gray-700/60
-                                 text-gray-800 dark:text-gray-100
-                                 placeholder:text-gray-400 dark:placeholder:text-gray-500
-                                 hover:border-gray-300 dark:hover:border-gray-600
-                                 focus:border-violet-500 dark:focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
-                        />
-                        <button
-                          type="button"
-                          class="absolute inset-y-0 right-0 flex items-center px-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 focus:outline-none"
-                          (click)="toggleInventoryDropdown(i)"
-                          tabindex="-1"
-                          aria-label="Toggle inventory list"
-                        >
-                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                          </svg>
-                        </button>
-                        @if (isInventoryDropdownOpen(i)) {
-                          <ul
-                            [id]="'inventory-listbox-' + i"
-                            role="listbox"
-                            class="absolute z-10 mt-1 w-full max-h-60 overflow-auto rounded-lg border border-gray-200 dark:border-gray-700/60 bg-white dark:bg-gray-800 shadow-lg py-1 text-sm"
+                  @if (!isPoMappedRow(i)) {
+                    <div>
+                      <label [for]="'item-inv-' + i" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                        From Inventory
+                        @if (getAvailableStock(i) !== null) {
+                          <span class="ml-1 text-violet-600 dark:text-violet-400">({{ getAvailableStock(i) | number }} available)</span>
+                        }
+                      </label>
+                      @if (isLoadingInventory()) {
+                        <div class="w-full rounded-lg border px-3 py-2 text-xs text-gray-400 border-gray-200 dark:border-gray-700/60 bg-white dark:bg-gray-800/30">
+                          Loading inventory…
+                        </div>
+                      } @else {
+                        <div class="relative" (clickOutside)="closeInventoryDropdown(i)">
+                          <input
+                            [id]="'item-inv-' + i"
+                            type="text"
+                            role="combobox"
+                            autocomplete="off"
+                            [attr.aria-expanded]="isInventoryDropdownOpen(i)"
+                            aria-autocomplete="list"
+                            [attr.aria-controls]="'inventory-listbox-' + i"
+                            [value]="inventorySearchAt(i)"
+                            (input)="onInventoryInput(i, $event)"
+                            (focus)="openInventoryDropdown(i)"
+                            placeholder="— Select or search inventory (optional) —"
+                            class="w-full rounded-lg border px-3 py-2 pr-9 text-sm shadow-sm transition-colors
+                                   bg-white dark:bg-gray-800/30
+                                   border-gray-200 dark:border-gray-700/60
+                                   text-gray-800 dark:text-gray-100
+                                   placeholder:text-gray-400 dark:placeholder:text-gray-500
+                                   hover:border-gray-300 dark:hover:border-gray-600
+                                   focus:border-violet-500 dark:focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                          />
+                          <button
+                            type="button"
+                            class="absolute inset-y-0 right-0 flex items-center px-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 focus:outline-none"
+                            (click)="toggleInventoryDropdown(i)"
+                            tabindex="-1"
+                            aria-label="Toggle inventory list"
                           >
-                            <li
-                              role="option"
-                              [attr.aria-selected]="!item.get('inventoryItemId')?.value"
-                              class="px-3 py-2 cursor-pointer text-gray-500 dark:text-gray-400 italic hover:bg-violet-50 dark:hover:bg-violet-500/10"
-                              (mousedown)="$event.preventDefault()"
-                              (click)="selectInventoryItem(i, null)"
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                          </button>
+                          @if (isInventoryDropdownOpen(i)) {
+                            <ul
+                              [id]="'inventory-listbox-' + i"
+                              role="listbox"
+                              class="absolute z-10 mt-1 w-full max-h-60 overflow-auto rounded-lg border border-gray-200 dark:border-gray-700/60 bg-white dark:bg-gray-800 shadow-lg py-1 text-sm"
                             >
-                              — None (custom item) —
-                            </li>
-                            @for (invItem of activeInventoryItemsFor(i); track invItem.id) {
                               <li
                                 role="option"
-                                [attr.aria-selected]="item.get('inventoryItemId')?.value === invItem.id"
-                                class="px-3 py-2 text-gray-800 dark:text-gray-100 flex items-center justify-between"
-                                [ngClass]="{
-                                  'bg-violet-50 dark:bg-violet-500/10': item.get('inventoryItemId')?.value === invItem.id,
-                                  'cursor-pointer hover:bg-violet-50 dark:hover:bg-violet-500/10': true
-                                }"
+                                [attr.aria-selected]="!item.get('inventoryItemId')?.value"
+                                class="px-3 py-2 cursor-pointer text-gray-500 dark:text-gray-400 italic hover:bg-violet-50 dark:hover:bg-violet-500/10"
                                 (mousedown)="$event.preventDefault()"
-                                (click)="selectInventoryItem(i, invItem)"
+                                (click)="selectInventoryItem(i, null)"
                               >
-                                <span class="truncate">{{ getInventoryItemLabel(invItem) }}</span>
-                                @if (invItem.quantity === 0) {
-                                  <span class="ml-2 text-xs text-amber-700 dark:text-amber-300 font-medium">Out of stock</span>
-                                }
+                                — None (custom item) —
                               </li>
-                            }
-                            @if (activeInventoryItemsFor(i).length === 0) {
-                              <li class="px-3 py-2 text-gray-500 dark:text-gray-400 italic">No matching inventory items</li>
-                            }
-                          </ul>
-                        }
-                      </div>
-                    }
-                  </div>
+                              @for (invItem of activeInventoryItemsFor(i); track invItem.id) {
+                                <li
+                                  role="option"
+                                  [attr.aria-selected]="item.get('inventoryItemId')?.value === invItem.id"
+                                  class="px-3 py-2 text-gray-800 dark:text-gray-100 flex items-center justify-between"
+                                  [ngClass]="{
+                                    'bg-violet-50 dark:bg-violet-500/10': item.get('inventoryItemId')?.value === invItem.id,
+                                    'cursor-pointer hover:bg-violet-50 dark:hover:bg-violet-500/10': true
+                                  }"
+                                  (mousedown)="$event.preventDefault()"
+                                  (click)="selectInventoryItem(i, invItem)"
+                                >
+                                  <span class="truncate">{{ getInventoryItemLabel(invItem) }}</span>
+                                  @if (invItem.quantity === 0) {
+                                    <span class="ml-2 text-xs text-amber-700 dark:text-amber-300 font-medium">Out of stock</span>
+                                  }
+                                </li>
+                              }
+                              @if (activeInventoryItemsFor(i).length === 0) {
+                                <li class="px-3 py-2 text-gray-500 dark:text-gray-400 italic">No matching inventory items</li>
+                              }
+                            </ul>
+                          }
+                        </div>
+                      }
+                    </div>
+                  } @else {
+                    <div class="p-2 rounded-md bg-violet-50 dark:bg-violet-500/10 border border-violet-200 dark:border-violet-500/30 text-xs text-violet-700 dark:text-violet-300">
+                      Linked to selected PO line.
+                    </div>
+                  }
 
                   <!-- Qty + description row -->
                   <div class="flex gap-3 items-start">
@@ -526,6 +574,9 @@
                                hover:border-gray-300 dark:hover:border-gray-600
                                focus:border-violet-500 dark:focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
                       />
+                      @if (getItemError(i); as error) {
+                        <p class="text-xs mt-1 text-red-500" role="alert">{{ error }}</p>
+                      }
                     </div>
                     <div class="flex-1">
                       <label [for]="'item-desc-' + i" class="sr-only">Description for item {{ i + 1 }}</label>
@@ -543,22 +594,25 @@
                                focus:border-violet-500 dark:focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
                       />
                     </div>
-                    <button
-                      type="button"
-                      class="p-2 text-gray-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 rounded"
-                      (click)="removeItem(i)"
-                      [attr.aria-label]="'Remove item ' + (i + 1)"
-                    >
-                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                      </svg>
-                    </button>
+                    @if (!isPoMappedRow(i)) {
+                      <button
+                        type="button"
+                        class="p-2 text-gray-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 rounded"
+                        (click)="removeItem(i)"
+                        [attr.aria-label]="'Remove item ' + (i + 1)"
+                      >
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                        </svg>
+                      </button>
+                    }
                   </div>
                 </div>
               }
             </div>
 
             <!-- Add Item button (bottom for easy access without scrolling) -->
+            @if (poLookupState() !== 'loaded') {
             <div class="flex justify-center pt-1">
               <button
                 type="button"
@@ -571,6 +625,7 @@
                 <span>Add Item</span>
               </button>
             </div>
+            }
           </fieldset>
         </form>
         }

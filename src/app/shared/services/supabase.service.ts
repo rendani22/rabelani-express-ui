@@ -9,6 +9,25 @@ export interface AuthResponse {
   user?: User | null;
 }
 
+/**
+ * Single shared Supabase client for the whole browser context.
+ *
+ * `SupabaseService` is a root singleton in the running app, but unit tests
+ * spin up many TestBed injectors — each one would otherwise call
+ * `createClient` again and trigger GoTrue's "Multiple GoTrueClient instances
+ * detected" warning (they share the same auth storage key). Memoizing the
+ * client here keeps exactly one GoTrue instance regardless of how many times
+ * the service is constructed.
+ */
+let sharedSupabaseClient: SupabaseClient | undefined;
+
+function getSharedSupabaseClient(): SupabaseClient {
+  if (!sharedSupabaseClient) {
+    sharedSupabaseClient = createClient(environment.supabase.url, environment.supabase.anonKey);
+  }
+  return sharedSupabaseClient;
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -22,7 +41,7 @@ export class SupabaseService {
   isLoading = signal(false);
 
   constructor() {
-    this.supabase = createClient(environment.supabase.url, environment.supabase.anonKey);
+    this.supabase = getSharedSupabaseClient();
 
     // Listen to auth state changes
     this.supabase.auth.onAuthStateChange((event, session) => {

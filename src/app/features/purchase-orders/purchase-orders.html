@@ -1,0 +1,636 @@
+<app-layout>
+  <div class="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-9xl mx-auto">
+
+    <!-- ── Page header ── -->
+    <div class="sm:flex sm:justify-between sm:items-start mb-6">
+      <div class="mb-4 sm:mb-0">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center">
+            <ng-icon name="tablerClipboardList" size="20" class="text-violet-600 dark:text-violet-400"></ng-icon>
+          </div>
+          <div>
+            <h1 class="text-2xl md:text-3xl text-gray-800 dark:text-gray-100 font-bold">Purchase Orders</h1>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">View and track all POs with their linked orders and inventory</p>
+          </div>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <button
+          type="button"
+          class="flex items-center gap-2 px-4 py-2 bg-violet-600 text-white rounded-lg text-sm hover:bg-violet-700 transition-colors"
+          (click)="onOpenCreatePo()">
+          <ng-icon name="tablerFileInvoice" size="16"></ng-icon>
+          Create PO
+        </button>
+        <button
+          type="button"
+          class="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+          (click)="onRefresh()"
+          [disabled]="isLoading()">
+          <ng-icon name="tablerRefresh" size="16" [class.animate-spin]="isLoading()"></ng-icon>
+          Refresh
+        </button>
+      </div>
+    </div>
+
+    <!-- ── Stats cards ── -->
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+
+      <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 flex flex-col gap-1">
+        <span class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Total POs</span>
+        <span class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ stats().totalPOs }}</span>
+        <span class="text-xs text-gray-400 dark:text-gray-500">All time</span>
+      </div>
+
+      <div class="bg-white dark:bg-gray-800 rounded-xl border border-blue-200 dark:border-blue-600/40 p-4 flex flex-col gap-1">
+        <span class="text-xs font-medium text-blue-600 dark:text-blue-400 uppercase tracking-wide">In Progress</span>
+        <span class="text-2xl font-bold text-blue-700 dark:text-blue-300">{{ stats().activePOs }}</span>
+        <span class="text-xs text-gray-400 dark:text-gray-500">Active POs</span>
+      </div>
+
+      <div class="bg-white dark:bg-gray-800 rounded-xl border border-emerald-200 dark:border-emerald-600/40 p-4 flex flex-col gap-1">
+        <span class="text-xs font-medium text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">Completed</span>
+        <span class="text-2xl font-bold text-emerald-700 dark:text-emerald-300">{{ stats().completedPOs }}</span>
+        <span class="text-xs text-gray-400 dark:text-gray-500">Fulfilled POs</span>
+      </div>
+
+      <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 flex flex-col gap-1">
+        <span class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Draft</span>
+        <span class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ stats().draftPOs }}</span>
+        <span class="text-xs text-gray-400 dark:text-gray-500">Not yet sent</span>
+      </div>
+
+      <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 flex flex-col gap-1">
+        <span class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Orders</span>
+        <span class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ stats().totalPackages }}</span>
+        <span class="text-xs text-gray-400 dark:text-gray-500">Linked packages</span>
+      </div>
+
+      <div class="bg-white dark:bg-gray-800 rounded-xl border border-violet-200 dark:border-violet-600/40 p-4 flex flex-col gap-1">
+        <span class="text-xs font-medium text-violet-600 dark:text-violet-400 uppercase tracking-wide">Inventory</span>
+        <span class="text-2xl font-bold text-violet-700 dark:text-violet-300">{{ stats().totalInventoryItems }}</span>
+        <span class="text-xs text-gray-400 dark:text-gray-500">Linked items</span>
+      </div>
+
+    </div>
+
+    <!-- ── Search & filter bar ── -->
+    <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 mb-4">
+      <div class="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+
+        <!-- Search -->
+        <div class="relative flex-1 w-full">
+          <ng-icon
+            name="tablerSearch"
+            size="16"
+            class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 pointer-events-none">
+          </ng-icon>
+          <input
+            type="text"
+            placeholder="Search by PO number, order reference, receiver or inventory…"
+            [value]="searchTerm"
+            (input)="onSearch($any($event.target).value)"
+            class="w-full pl-9 pr-9 py-2 text-sm bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition" />
+          @if (searchTerm) {
+            <button
+              type="button"
+              class="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-400"
+              (click)="onClearSearch()"
+              aria-label="Clear search">
+              <ng-icon name="tablerX" size="14"></ng-icon>
+            </button>
+          }
+        </div>
+
+        <!-- Status filter tabs -->
+        <div class="flex items-center gap-1 bg-gray-100 dark:bg-gray-900 rounded-lg p-1 shrink-0">
+          @for (tab of statusTabs; track tab.key) {
+            <button
+              type="button"
+              class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors"
+              [class]="activeStatusFilter() === tab.key
+                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'"
+              (click)="onStatusTabChange(tab.key)">
+              {{ tab.label }}
+            </button>
+          }
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── Loading ── -->
+    @if (isLoading()) {
+      <div class="flex items-center justify-center py-16">
+        <div class="flex flex-col items-center gap-3">
+          <svg class="animate-spin h-8 w-8 text-violet-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <span class="text-sm text-gray-500 dark:text-gray-400">Loading purchase orders…</span>
+        </div>
+      </div>
+    }
+
+    <!-- ── Error ── -->
+    @if (error() && !isLoading()) {
+      <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 mb-4">
+        <div class="flex items-center gap-3">
+          <ng-icon name="tablerAlertCircle" size="20" class="text-red-500 shrink-0"></ng-icon>
+          <span class="text-sm text-red-700 dark:text-red-300 flex-1">{{ error() }}</span>
+          <button
+            type="button"
+            class="text-sm text-red-600 dark:text-red-400 underline hover:no-underline font-medium"
+            (click)="onRefresh()">
+            Try again
+          </button>
+        </div>
+      </div>
+    }
+
+    <!-- ── Empty state ── -->
+    @if (!isLoading() && !error() && filteredPOs().length === 0) {
+      <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-16">
+        <div class="flex flex-col items-center text-center">
+          <div class="w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center mb-4">
+            <ng-icon name="tablerClipboardList" size="32" class="text-gray-300 dark:text-gray-600"></ng-icon>
+          </div>
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-1">
+            {{ searchTerm || activeStatusFilter() !== 'all' ? 'No results found' : 'No purchase orders yet' }}
+          </h3>
+          <p class="text-sm text-gray-500 dark:text-gray-400 mb-6 max-w-sm">
+            @if (searchTerm || activeStatusFilter() !== 'all') {
+              Try adjusting your search or filters.
+            } @else {
+              Purchase orders appear here once created. Use Create PO to add your first purchase order.
+            }
+          </p>
+          @if (searchTerm || activeStatusFilter() !== 'all') {
+            <button
+              type="button"
+              class="inline-flex items-center gap-2 px-4 py-2 text-sm text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
+              (click)="onClearSearch(); onStatusTabChange('all')">
+              <ng-icon name="tablerX" size="14"></ng-icon>
+              Clear filters
+            </button>
+          }
+        </div>
+      </div>
+    }
+
+    <!-- ── PO list ── -->
+    @if (!isLoading() && filteredPOs().length > 0) {
+      <div class="space-y-3">
+        @for (po of filteredPOs(); track trackByPoNumber($index, po)) {
+          <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden transition-shadow hover:shadow-md">
+
+            <!-- PO header row (always visible) -->
+            <button
+              type="button"
+              class="w-full text-left px-5 py-4 flex items-center gap-4"
+              (click)="toggleExpand(po.poNumber)"
+              [attr.aria-expanded]="isExpanded(po.poNumber)">
+
+              <!-- PO icon -->
+              <div class="w-9 h-9 rounded-lg bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center shrink-0">
+                <ng-icon name="tablerFileInvoice" size="18" class="text-violet-600 dark:text-violet-400"></ng-icon>
+              </div>
+
+              <!-- PO info -->
+              <div class="flex-1 min-w-0">
+                <div class="flex flex-wrap items-center gap-2 mb-0.5">
+                  <span class="font-semibold text-gray-900 dark:text-gray-100 text-sm truncate">{{ po.poNumber }}</span>
+                  <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {{ statusClass(po.derivedStatus) }}">
+                    {{ statusLabel(po.derivedStatus) }}
+                  </span>
+                  @if (po.source === 'order') {
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
+                      <ng-icon name="tablerShoppingCart" size="10"></ng-icon>
+                      From Order
+                    </span>
+                  }
+                </div>
+                <div class="flex flex-wrap items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
+                  @if (po.receiverName) {
+                    <span class="flex items-center gap-1">
+                      <ng-icon name="tablerUser" size="12"></ng-icon>
+                      {{ po.receiverName }}
+                    </span>
+                  }
+                  @if (po.poValue !== null) {
+                    <span class="flex items-center gap-1 font-semibold text-emerald-600 dark:text-emerald-400">
+                      <ng-icon name="tablerCoin" size="12"></ng-icon>
+                      {{ formatCurrency(po.poValue) }}
+                    </span>
+                  }
+                  @if (po.poDate) {
+                    <span class="flex items-center gap-1">
+                      <ng-icon name="tablerCalendar" size="12"></ng-icon>
+                      {{ formatPoDate(po.poDate) }}
+                    </span>
+                  }
+                  <span class="flex items-center gap-1">
+                    <ng-icon name="tablerShoppingCart" size="12"></ng-icon>
+                    {{ po.packages.length }} {{ po.packages.length === 1 ? 'order' : 'orders' }}
+                  </span>
+                  @if (po.inventoryRefs.length > 0) {
+                    <span class="flex items-center gap-1">
+                      <ng-icon name="tablerBox" size="12"></ng-icon>
+                      {{ po.inventoryRefs.length }} inventory {{ po.inventoryRefs.length === 1 ? 'item' : 'items' }}
+                    </span>
+                  }
+                  <span class="flex items-center gap-1">
+                    <ng-icon name="tablerClock" size="12"></ng-icon>
+                    Created {{ formatDate(po.createdAt) }}
+                  </span>
+                </div>
+                <!-- Completion progress bar -->
+                @if (showCompletion(po)) {
+                  <div class="mt-1.5 flex items-center gap-2">
+                    <div class="flex-1 h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden max-w-[120px]">
+                      <div
+                        class="h-full rounded-full transition-all duration-500"
+                        [class]="po.completionPercentage === 100
+                          ? 'bg-emerald-500'
+                          : po.completionPercentage > 0
+                            ? 'bg-blue-500'
+                            : 'bg-gray-300 dark:bg-gray-600'"
+                        [style.width.%]="po.completionPercentage">
+                      </div>
+                    </div>
+                    <span class="text-xs text-gray-500 dark:text-gray-400 tabular-nums shrink-0">
+                      {{ po.completionPercentage }}% {{ completionLabel(po) }}
+                    </span>
+                  </div>
+                }
+              </div>
+
+              <!-- Package status mini-badges -->
+              <div class="hidden sm:flex flex-wrap gap-1 max-w-xs justify-end">
+                @for (pkg of po.packages; track trackByPackageId($index, pkg)) {
+                  <span class="inline-block px-1.5 py-0.5 rounded text-xs font-medium {{ packageStatusClass(pkg.status) }}">
+                    {{ packageStatusLabel(pkg.status) }}
+                  </span>
+                }
+              </div>
+
+              <!-- Expand chevron -->
+              <ng-icon
+                [name]="isExpanded(po.poNumber) ? 'tablerChevronUp' : 'tablerChevronDown'"
+                size="18"
+                class="text-gray-400 dark:text-gray-500 shrink-0 ml-2">
+              </ng-icon>
+            </button>
+
+            <!-- ── Expanded detail panel ── -->
+            @if (isExpanded(po.poNumber)) {
+              <div class="border-t border-gray-100 dark:border-gray-700 px-5 pb-5 pt-4">
+
+                <!-- ── PO detail summary ── -->
+                @if (po.source === 'purchase_order') {
+                  <div class="mb-6">
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <!-- Customer -->
+                      <div class="flex items-center gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-700">
+                        <div class="w-9 h-9 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center shrink-0">
+                          <ng-icon name="tablerUser" size="16" class="text-blue-600 dark:text-blue-400"></ng-icon>
+                        </div>
+                        <div class="min-w-0">
+                          <p class="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wide">Customer</p>
+                          <p class="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{{ po.receiverName ?? '—' }}</p>
+                          @if (po.receiverEmail) {
+                            <p class="text-xs text-gray-500 dark:text-gray-400 truncate">{{ po.receiverEmail }}</p>
+                          }
+                        </div>
+                      </div>
+
+                      <!-- PO Value -->
+                      <div class="flex items-center gap-3 p-3 rounded-lg bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-800/40">
+                        <div class="w-9 h-9 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center shrink-0">
+                          <ng-icon name="tablerCoin" size="16" class="text-emerald-600 dark:text-emerald-400"></ng-icon>
+                        </div>
+                        <div class="min-w-0">
+                          <p class="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wide">PO Value</p>
+                          <p class="text-base font-bold text-emerald-700 dark:text-emerald-300 tabular-nums truncate">{{ formatCurrency(po.poValue) }}</p>
+                        </div>
+                      </div>
+
+                      <!-- PO Date -->
+                      <div class="flex items-center gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-700">
+                        <div class="w-9 h-9 rounded-lg bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center shrink-0">
+                          <ng-icon name="tablerCalendar" size="16" class="text-violet-600 dark:text-violet-400"></ng-icon>
+                        </div>
+                        <div class="min-w-0">
+                          <p class="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wide">PO Date</p>
+                          <p class="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{{ formatPoDate(po.poDate) }}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Value delivered vs PO value (color-coded by match) -->
+                    @if (po.poValue !== null) {
+                      <div class="mt-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-700">
+                        <div class="flex items-center justify-between mb-1.5">
+                          <span class="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wide flex items-center gap-1.5">
+                            <ng-icon name="tablerCoin" size="13"></ng-icon>
+                            Value delivered
+                          </span>
+                          <span class="inline-flex items-center gap-1 text-xs font-medium {{ deliveredValueTextClass(po) }}">
+                            <ng-icon [name]="deliveredValueTone(po) === 'full' ? 'tablerCheck' : 'tablerClock'" size="12"></ng-icon>
+                            {{ deliveredValueLabel(po) }}
+                          </span>
+                        </div>
+                        <div class="flex items-baseline gap-2 mb-2">
+                          <span class="text-base font-bold tabular-nums {{ deliveredValueTextClass(po) }}">{{ formatCurrency(deliveredValue(po)) }}</span>
+                          <span class="text-xs text-gray-500 dark:text-gray-400">of {{ formatCurrency(po.poValue) }}</span>
+                          <span class="ml-auto text-xs font-semibold tabular-nums {{ deliveredValueTextClass(po) }}">{{ deliveredValuePercent(po) }}%</span>
+                        </div>
+                        <div class="h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                          <div
+                            class="h-full rounded-full transition-all duration-500 {{ deliveredValueBarClass(po) }}"
+                            [style.width.%]="deliveredValuePercent(po)">
+                          </div>
+                        </div>
+                      </div>
+                    }
+
+                    @if (po.details) {
+                      <div class="mt-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-700">
+                        <p class="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wide flex items-center gap-1.5 mb-1">
+                          <ng-icon name="tablerNotes" size="13"></ng-icon>
+                          Details
+                        </p>
+                        <p class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">{{ po.details }}</p>
+                      </div>
+                    }
+                  </div>
+                }
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+                  <!-- Orders section -->
+                  <div>
+                    <div class="flex items-center justify-between mb-3">
+                      <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-200 flex items-center gap-2">
+                        <ng-icon name="tablerShoppingCart" size="14" class="text-gray-400"></ng-icon>
+                        Linked Orders
+                        <span class="ml-1 px-1.5 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-xs text-gray-600 dark:text-gray-400">
+                          {{ po.packages.length }}
+                        </span>
+                      </h4>
+                      <button
+                        type="button"
+                        class="inline-flex items-center gap-1 text-xs text-violet-600 dark:text-violet-400 hover:text-violet-800 dark:hover:text-violet-200 font-medium transition-colors"
+                        (click)="goToOrders(po.poNumber)">
+                        View all in Orders
+                        <ng-icon name="tablerArrowRight" size="12"></ng-icon>
+                      </button>
+                    </div>
+
+                    <div class="space-y-2">
+                      @for (pkg of po.packages; track trackByPackageId($index, pkg)) {
+                        <div class="flex items-center gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-700 hover:border-violet-300 dark:hover:border-violet-600 transition-colors group">
+                          <div class="w-7 h-7 rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 flex items-center justify-center shrink-0">
+                            <ng-icon name="tablerPackage" size="13" class="text-gray-400 dark:text-gray-500"></ng-icon>
+                          </div>
+                          <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2 flex-wrap">
+                              <span class="font-medium text-sm text-gray-900 dark:text-gray-100 truncate">{{ pkg.reference }}</span>
+                              <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium {{ packageStatusClass(pkg.status) }}">
+                                {{ packageStatusLabel(pkg.status) }}
+                              </span>
+                            </div>
+                            <span class="text-xs text-gray-500 dark:text-gray-400 truncate">{{ pkg.receiver_email }}</span>
+                          </div>
+                          <button
+                            type="button"
+                            class="opacity-0 group-hover:opacity-100 p-1.5 rounded-md bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 hover:bg-violet-200 dark:hover:bg-violet-900/50 transition-all"
+                            title="View order"
+                            (click)="goToOrders(pkg.reference)">
+                            <ng-icon name="tablerExternalLink" size="13"></ng-icon>
+                          </button>
+                        </div>
+                      }
+                    </div>
+                  </div>
+
+                  <!-- Inventory section -->
+                  <div>
+                    <div class="flex items-center justify-between mb-3">
+                      <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-200 flex items-center gap-2">
+                        <ng-icon name="tablerBox" size="14" class="text-gray-400"></ng-icon>
+                        Linked Inventory
+                        <span class="ml-1 px-1.5 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-xs text-gray-600 dark:text-gray-400">
+                          {{ po.inventoryRefs.length }}
+                        </span>
+                      </h4>
+                      @if (po.inventoryRefs.length > 0) {
+                        <button
+                          type="button"
+                          class="inline-flex items-center gap-1 text-xs text-violet-600 dark:text-violet-400 hover:text-violet-800 dark:hover:text-violet-200 font-medium transition-colors"
+                          (click)="goToInventory()">
+                          View Inventory
+                          <ng-icon name="tablerArrowRight" size="12"></ng-icon>
+                        </button>
+                      }
+                    </div>
+
+                    @if (po.inventoryRefs.length === 0) {
+                      <div class="flex flex-col items-center justify-center py-8 rounded-lg border border-dashed border-gray-200 dark:border-gray-700 text-center">
+                        <ng-icon name="tablerBox" size="24" class="text-gray-300 dark:text-gray-600 mb-2"></ng-icon>
+                        <p class="text-xs text-gray-400 dark:text-gray-500">No inventory items linked to this PO</p>
+                        <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Items appear here when orders use stock from Inventory</p>
+                      </div>
+                    } @else {
+                      <div class="space-y-2">
+                        @for (ref of po.inventoryRefs; track trackByInventoryId($index, ref)) {
+                          <div class="flex items-center gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-700 hover:border-violet-300 dark:hover:border-violet-600 transition-colors group">
+                            <div class="w-7 h-7 rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 flex items-center justify-center shrink-0">
+                              <ng-icon name="tablerBox" size="13" class="text-gray-400 dark:text-gray-500"></ng-icon>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                              <div class="flex items-center gap-2 flex-wrap">
+                                <span class="font-medium text-sm text-gray-900 dark:text-gray-100 truncate">
+                                  {{ ref.item?.name ?? 'Unknown Item' }}
+                                </span>
+                                @if (ref.item?.sku) {
+                                  <span class="text-xs text-gray-400 dark:text-gray-500">{{ ref.item!.sku }}</span>
+                                }
+                              </div>
+                              <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 flex-wrap">
+                                <span>
+                                  Ordered:
+                                  <strong class="text-gray-700 dark:text-gray-300">{{ ref.orderedQuantity }}</strong>
+                                  {{ ref.item?.unit ?? '' }}
+                                </span>
+                                <span>·</span>
+                                <span>
+                                  Allocated:
+                                  <strong class="text-gray-700 dark:text-gray-300">{{ ref.allocatedQuantity }}</strong>
+                                  {{ ref.item?.unit ?? '' }}
+                                </span>
+                                <span>·</span>
+                                <span>
+                                  Remaining:
+                                  <strong class="text-gray-700 dark:text-gray-300">{{ ref.remainingQuantity }}</strong>
+                                  {{ ref.item?.unit ?? '' }}
+                                </span>
+                                @if (ref.item?.category) {
+                                  <span>·</span>
+                                  <span>{{ ref.item!.category }}</span>
+                                }
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              class="opacity-0 group-hover:opacity-100 p-1.5 rounded-md bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 hover:bg-violet-200 dark:hover:bg-violet-900/50 transition-all"
+                              title="View in Inventory"
+                              (click)="goToInventory()">
+                              <ng-icon name="tablerExternalLink" size="13"></ng-icon>
+                            </button>
+                          </div>
+                        }
+                      </div>
+                    }
+                  </div>
+
+                </div>
+
+                <!-- PO summary footer -->
+                <div class="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700 flex flex-wrap items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
+                  <span>PO Number: <strong class="text-gray-700 dark:text-gray-300">{{ po.poNumber }}</strong></span>
+                  <span>·</span>
+                  <span>Created: <strong class="text-gray-700 dark:text-gray-300">{{ formatDate(po.createdAt) }}</strong></span>
+                  <span>·</span>
+                  <span>Last updated: <strong class="text-gray-700 dark:text-gray-300">{{ formatDate(po.updatedAt) }}</strong></span>
+                  <span>·</span>
+                  <span>{{ po.totalItems }} item{{ po.totalItems !== 1 ? 's' : '' }} total</span>
+                  @if (showCompletion(po)) {
+                    <span>·</span>
+                    @if (po.source === 'purchase_order') {
+                      <span class="flex items-center gap-2">
+                        <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400">
+                          <ng-icon name="tablerCheck" size="11"></ng-icon>
+                          {{ inventoryProgress(po).allocatedQuantity }} allocated
+                        </span>
+                        @if (inventoryProgress(po).remainingQuantity > 0) {
+                          <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400">
+                            <ng-icon name="tablerClock" size="11"></ng-icon>
+                            {{ inventoryProgress(po).remainingQuantity }} remaining
+                          </span>
+                        }
+                      </span>
+                    } @else {
+                      <!-- Order breakdown counts -->
+                      <span class="flex items-center gap-2">
+                        @if (po.orderBreakdown.terminal > 0) {
+                          <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400">
+                            <ng-icon name="tablerCheck" size="11"></ng-icon>
+                            {{ po.orderBreakdown.terminal }} completed
+                          </span>
+                        }
+                        @if (po.orderBreakdown.active > 0) {
+                          <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400">
+                            <ng-icon name="tablerClock" size="11"></ng-icon>
+                            {{ po.orderBreakdown.active }} active
+                          </span>
+                        }
+                        @if (po.orderBreakdown.draft > 0) {
+                          <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
+                            {{ po.orderBreakdown.draft }} draft
+                          </span>
+                        }
+                      </span>
+                    }
+                    <!-- Full progress bar in footer -->
+                    <span class="flex items-center gap-1.5 ml-1">
+                      <div class="w-24 h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                        <div
+                          class="h-full rounded-full transition-all duration-500"
+                          [class]="po.completionPercentage === 100 ? 'bg-emerald-500' : 'bg-blue-500'"
+                          [style.width.%]="po.completionPercentage">
+                        </div>
+                      </div>
+                      <strong class="text-gray-700 dark:text-gray-300 tabular-nums">{{ po.completionPercentage }}%</strong>
+                    </span>
+                  }
+                  <div class="ml-auto">
+                    <div class="flex items-center gap-2">
+                      @if (po.documentUrl) {
+                        <a
+                          [href]="po.documentUrl"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                          <ng-icon name="tablerFileDownload" size="12"></ng-icon>
+                          View Document
+                        </a>
+                      }
+                      @if (po.packages.length > 0) {
+                        <button
+                          type="button"
+                          class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white dark:disabled:hover:bg-gray-800"
+                          [disabled]="!canBulkDownloadPods(po)"
+                          [title]="completedPodCount(po) > 0
+                            ? 'Download all completed-order PODs for this PO as a ZIP'
+                            : 'Available once at least one order in this PO is completed'"
+                          (click)="onBulkDownloadPods(po)">
+                          @if (isDownloadingPods(po)) {
+                            <svg class="animate-spin w-3.5 h-3.5 text-violet-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Preparing…
+                          } @else {
+                            <ng-icon name="tablerFileZip" size="12"></ng-icon>
+                            Download PODs
+                            @if (completedPodCount(po) > 0) {
+                              <span class="tabular-nums">({{ completedPodCount(po) }})</span>
+                            }
+                          }
+                        </button>
+                      }
+                      @if (canEdit(po)) {
+                        <button
+                          type="button"
+                          class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                          [disabled]="isOpeningEditPo()"
+                          (click)="onOpenEditPo(po)">
+                          Edit
+                        </button>
+                      }
+                      <button
+                        type="button"
+                        class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-violet-600 hover:bg-violet-700 text-white rounded-lg transition-colors"
+                        (click)="goToOrders(po.poNumber)">
+                        <ng-icon name="tablerExternalLink" size="12"></ng-icon>
+                        Open in Orders
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            }
+
+          </div>
+        }
+      </div>
+    }
+
+  </div>
+
+  <app-create-purchase-order-modal
+    [isOpen]="createPoModalOpen()"
+    (closeModal)="onCloseCreatePo()"
+    (created)="onPurchaseOrderCreated($event)">
+  </app-create-purchase-order-modal>
+
+  <app-edit-purchase-order-modal
+    [isOpen]="editPoModalOpen()"
+    [purchaseOrder]="selectedPoForEdit()"
+    (closeModal)="onCloseEditPo()"
+    (updated)="onPurchaseOrderUpdated($event)">
+  </app-edit-purchase-order-modal>
+</app-layout>

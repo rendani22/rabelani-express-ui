@@ -82,4 +82,9 @@ export const routes: Routes = [
     loadComponent: () => import('./features/email-templates/email-templates').then(m => m.EmailTemplatesComponent),
     canActivate: [authGuard],
   },
+  {
+    path: 'purchase-orders',
+    loadComponent: () => import('./features/purchase-orders/purchase-orders').then(m => m.PurchaseOrdersComponent),
+    canActivate: [authGuard],
+  },
 ];
