@@ -1,5 +1,5 @@
 import { Injectable, inject, signal, computed } from '@angular/core';
-import { PackageService, Package, PACKAGE_STATUS, PackageStatus } from '../../../core';
+import { PACKAGE_STATUS, PackageStatus } from '../../../core';
 import { SupabaseService } from '../../../shared/services/supabase.service';
 import { StaffProfile } from '../../../core/models/staff-profile.model';
 
@@ -170,14 +170,47 @@ export interface HourlyHeatmap {
 }
 
 /**
+ * Raw shape of the JSON document returned by the `get_dashboard_metrics`
+ * Postgres RPC. All aggregation happens server-side; this service only maps
+ * the payload onto the presentation signals below.
+ */
+interface DashboardMetricsPayload {
+  stats: PackageStats;
+  statusCounts: Record<string, number>;
+  weeklyTimeSeries: Array<{ date: string; count: number }>;
+  monthlyTimeSeries: Array<{ date: string; count: number }>;
+  recentActivity: Array<{
+    id: string;
+    reference: string;
+    receiverEmail: string;
+    status: PackageStatus;
+    createdAt: string;
+  }>;
+  topReceivers: Array<{ email: string; count: number }>;
+  hourlyBuckets: Array<{ dow: number; hour: number; count: number }>;
+  driverPerformance: DriverPerformance[];
+  lifecycleMetrics: LifecycleMetrics;
+  stuckPackages: Array<Omit<StuckPackage, 'statusLabel'>>;
+  driverStats: DriverStats;
+  podStats: PodStats;
+  locationDistribution: LocationDistribution[];
+  inventoryHealth: InventoryHealth;
+  topShippedItems: Array<Omit<TopShippedItem, 'description'> & { description: string }>;
+}
+
+/**
  * Dashboard Service
- * Aggregates and transforms package data for dashboard visualization
+ *
+ * Fetches pre-aggregated dashboard metrics from the `get_dashboard_metrics`
+ * Postgres RPC and exposes them as reactive signals. Aggregation is done in
+ * the database (one round trip, no PostgREST 1000-row cap); this service is
+ * only responsible for mapping the payload and applying presentation concerns
+ * (labels, colours, relative times).
  */
 @Injectable({
   providedIn: 'root',
 })
 export class DashboardService {
-  private readonly packageService = inject(PackageService);
   private readonly supabaseService = inject(SupabaseService);
 
   // ============================================================================
@@ -300,117 +333,35 @@ export class DashboardService {
   // ============================================================================
 
   /**
-   * Load all dashboard data
+   * Load all dashboard data via the server-side aggregation RPC.
+   *
+   * A single `get_dashboard_metrics` call returns every metric the dashboard
+   * renders, computed across the full tables in Postgres. If the call fails
+   * the existing signals are left untouched so a transient error doesn't blank
+   * the dashboard.
    */
   async loadDashboardData(dateRange?: { start: Date; end?: Date }): Promise<void> {
     this._isLoading.set(true);
 
-    const dateFrom = dateRange?.start?.toISOString();
+    const dateFrom = dateRange?.start?.toISOString() ?? null;
     const dateTo = dateRange?.end
       ? this.toEndOfDay(dateRange.end)
       : dateRange?.start
         ? this.toEndOfDay(dateRange.start)
-        : undefined;
+        : null;
 
     try {
-      // Load all packages and supplementary data in parallel
-      await Promise.all([
-        this.packageService.loadPackages({ dateFrom, dateTo }),
-        this.loadDriverStats(),
-        this.loadPodStats(dateFrom, dateTo),
-        this.loadLocationDistribution(dateFrom, dateTo),
-        this.loadDriverPerformance(dateFrom, dateTo),
-        this.loadLifecycleAndStuck(dateFrom, dateTo),
-        this.loadInventoryHealth(),
-        this.loadTopShippedItems(dateFrom, dateTo),
-      ]);
-
-      const packages = this.packageService.packages();
-
-      // Calculate all statistics from packages
-      this.calculateStats(packages);
-      this.calculateStatusDistribution(packages);
-      this.calculateWeeklyTimeSeries(packages);
-      this.calculateMonthlyTimeSeries(packages);
-      this.calculateRecentActivity(packages);
-      this.calculateTopReceivers(packages);
-      this.calculateHourlyHeatmap(packages);
-    } finally {
-      this._isLoading.set(false);
-    }
-  }
-
-  // ============================================================================
-  // Private Data Loaders
-  // ============================================================================
-
-  private async loadDriverStats(): Promise<void> {
-    try {
-      const { data, error } = await this.supabaseService.client
-        .from('staff_profiles')
-        .select('id, user_id, email, full_name, role, is_active, phone, created_at, updated_at')
-        .eq('role', 'driver')
-        .order('full_name', { ascending: true });
-
-      if (error || !data) return;
-
-      const drivers = data as StaffProfile[];
-
-      // Count packages in transit (picked up by any driver)
-      const { count: inTransitCount } = await this.supabaseService.client
-        .from('packages')
-        .select('id', { count: 'exact', head: true })
-        .eq('status', PACKAGE_STATUS.IN_TRANSIT)
-        .is('deleted_at', null);
-
-      const { count: totalCount } = await this.supabaseService.client
-        .from('packages')
-        .select('id', { count: 'exact', head: true })
-        .is('deleted_at', null);
-
-      this._driverStats.set({
-        total: drivers.length,
-        active: drivers.filter(d => d.is_active).length,
-        onDelivery: 0, // will be from in-transit packages
-        packagesInTransit: inTransitCount ?? 0,
-        totalPackages: totalCount ?? 0,
-        drivers: drivers.slice(0, 8), // show top 8
+      const { data, error } = await this.supabaseService.client.rpc('get_dashboard_metrics', {
+        p_date_from: dateFrom,
+        p_date_to: dateTo,
       });
-    } catch (err) {
-      console.warn('[DashboardService] Failed to load driver stats:', err);
-    }
-  }
 
-  private async loadPodStats(dateFrom?: string, dateTo?: string): Promise<void> {
-    try {
-      const now = new Date();
-      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
-      const weekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
-
-      let query = this.supabaseService.client
-        .from('pods')
-        .select('id, pdf_url, is_locked, completed_at');
-
-      if (dateFrom) {
-        query = query.gte('completed_at', dateFrom);
-      }
-      if (dateTo) {
-        query = query.lte('completed_at', dateTo);
+      if (error || !data) {
+        console.error('[DashboardService] get_dashboard_metrics failed:', error);
+        return;
       }
 
-      const { data, error } = await query;
-
-      if (error || !data) return;
-
-      const pods = data as Array<{ id: string; pdf_url: string | null; is_locked: boolean; completed_at: string }>;
-
-      this._podStats.set({
-        total: pods.length,
-        withPdf: pods.filter(p => !!p.pdf_url).length,
-        locked: pods.filter(p => p.is_locked).length,
-        today: pods.filter(p => p.completed_at >= todayStart).length,
-        thisWeek: pods.filter(p => p.completed_at >= weekStart).length,
-      });
+      this.applyMetrics(data as DashboardMetricsPayload);
     } catch (err) {
       console.warn('[DashboardService] Failed to load POD stats:', err);
     }
@@ -764,232 +715,161 @@ export class DashboardService {
     }
   }
 
-  private titleCase(s: string): string {
-    return s.replace(/\b\w/g, c => c.toUpperCase());
-  }
-
   // ============================================================================
-  // Private Calculation Methods
+  // Payload Mapping
   // ============================================================================
 
-  private calculateStats(packages: readonly Package[]): void {
-    const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const weekStart = new Date(todayStart);
-    weekStart.setDate(weekStart.getDate() - 7);
-    const monthStart = new Date(todayStart);
-    monthStart.setDate(monthStart.getDate() - 30);
-
-    const stats: PackageStats = {
-      total: packages.length,
-      pending: 0,
-      inTransit: 0,
-      readyForCollection: 0,
-      completed: 0,
-      returned: 0,
-      todayCount: 0,
-      weeklyCount: 0,
-      monthlyCount: 0,
-    };
-
-    packages.forEach(pkg => {
-      const createdAt = new Date(pkg.created_at);
-
-      // Count by status
-      switch (pkg.status) {
-        case PACKAGE_STATUS.PENDING:
-        case PACKAGE_STATUS.NOTIFIED:
-          stats.pending++;
-          break;
-        case PACKAGE_STATUS.IN_TRANSIT:
-          stats.inTransit++;
-          break;
-        case PACKAGE_STATUS.READY_FOR_COLLECTION:
-          stats.readyForCollection++;
-          break;
-        case PACKAGE_STATUS.DELIVERED:
-        case PACKAGE_STATUS.COLLECTED:
-          stats.completed++;
-          break;
-        case PACKAGE_STATUS.RETURNED:
-          stats.returned++;
-          break;
-      }
-
-      // Count by time period
-      if (createdAt >= todayStart) {
-        stats.todayCount++;
-      }
-      if (createdAt >= weekStart) {
-        stats.weeklyCount++;
-      }
-      if (createdAt >= monthStart) {
-        stats.monthlyCount++;
-      }
+  /** Maps the RPC payload onto the presentation signals. */
+  private applyMetrics(m: DashboardMetricsPayload): void {
+    this._stats.set(m.stats);
+    this._statusDistribution.set(this.buildStatusDistribution(m.statusCounts));
+    this._weeklyTimeSeries.set(this.buildWeeklySeries(m.weeklyTimeSeries));
+    this._monthlyTimeSeries.set(this.buildMonthlySeries(m.monthlyTimeSeries));
+    this._recentActivity.set(this.buildRecentActivity(m.recentActivity));
+    this._topReceivers.set(this.buildTopReceivers(m.topReceivers));
+    this._hourlyHeatmap.set(this.buildHeatmap(m.hourlyBuckets, m.stats.total));
+    this._driverPerformance.set(m.driverPerformance ?? []);
+    this._lifecycleMetrics.set(m.lifecycleMetrics);
+    this._stuckPackages.set(this.buildStuckPackages(m.stuckPackages));
+    this._driverStats.set({
+      ...m.driverStats,
+      drivers: (m.driverStats?.drivers ?? []) as StaffProfile[],
     });
-
-    this._stats.set(stats);
+    this._podStats.set(m.podStats);
+    this._locationDistribution.set(m.locationDistribution ?? []);
+    this._inventoryHealth.set(m.inventoryHealth);
+    this._topShippedItems.set(
+      (m.topShippedItems ?? []).map(item => ({
+        ...item,
+        description: this.titleCase(item.description),
+      })),
+    );
   }
 
-  private calculateStatusDistribution(packages: readonly Package[]): void {
-    const statusCounts = new Map<PackageStatus, number>();
-
-    packages.forEach(pkg => {
-      const count = statusCounts.get(pkg.status) || 0;
-      statusCounts.set(pkg.status, count + 1);
-    });
-
-    const distribution: StatusDistribution[] = [
+  private buildStatusDistribution(counts: Record<string, number>): StatusDistribution[] {
+    const c = (key: string) => counts?.[key] ?? 0;
+    return [
       {
         label: 'Pending',
-        value: (statusCounts.get(PACKAGE_STATUS.PENDING) || 0) + (statusCounts.get(PACKAGE_STATUS.NOTIFIED) || 0),
+        value: c(PACKAGE_STATUS.PENDING) + c(PACKAGE_STATUS.NOTIFIED),
         color: '#F59E0B', // Amber
         status: PACKAGE_STATUS.PENDING,
       },
       {
         label: 'In Transit',
-        value: statusCounts.get(PACKAGE_STATUS.IN_TRANSIT) || 0,
+        value: c(PACKAGE_STATUS.IN_TRANSIT),
         color: '#3B82F6', // Blue
         status: PACKAGE_STATUS.IN_TRANSIT,
       },
       {
         label: 'Ready',
-        value: statusCounts.get(PACKAGE_STATUS.READY_FOR_COLLECTION) || 0,
+        value: c(PACKAGE_STATUS.READY_FOR_COLLECTION),
         color: '#8B5CF6', // Purple
         status: PACKAGE_STATUS.READY_FOR_COLLECTION,
       },
       {
         label: 'Completed',
-        value: (statusCounts.get(PACKAGE_STATUS.DELIVERED) || 0) + (statusCounts.get(PACKAGE_STATUS.COLLECTED) || 0),
+        value: c(PACKAGE_STATUS.DELIVERED) + c(PACKAGE_STATUS.COLLECTED),
         color: '#10B981', // Green
         status: PACKAGE_STATUS.COLLECTED,
       },
       {
         label: 'Canceled',
-        value: statusCounts.get(PACKAGE_STATUS.RETURNED) || 0,
+        value: c(PACKAGE_STATUS.RETURNED),
         color: '#EF4444', // Red
         status: PACKAGE_STATUS.RETURNED,
       },
     ].filter(item => item.value > 0);
-
-    this._statusDistribution.set(distribution);
   }
 
-  private calculateWeeklyTimeSeries(packages: readonly Package[]): void {
-    const now = new Date();
-    const days: TimeSeriesDataPoint[] = [];
-
-    // Generate last 7 days
-    for (let i = 6; i >= 0; i--) {
-      const date = new Date(now);
-      date.setDate(date.getDate() - i);
-      const dateStr = date.toISOString().split('T')[0];
-
-      days.push({
-        date: dateStr,
-        label: this.formatDayLabel(date),
-        count: 0,
-      });
-    }
-
-    // Count packages per day
-    packages.forEach(pkg => {
-      const pkgDate = new Date(pkg.created_at).toISOString().split('T')[0];
-      const dayData = days.find(d => d.date === pkgDate);
-      if (dayData) {
-        dayData.count++;
-      }
-    });
-
-    this._weeklyTimeSeries.set(days);
-  }
-
-  private calculateMonthlyTimeSeries(packages: readonly Package[]): void {
-    const now = new Date();
-    const days: TimeSeriesDataPoint[] = [];
-
-    // Generate last 30 days
-    for (let i = 29; i >= 0; i--) {
-      const date = new Date(now);
-      date.setDate(date.getDate() - i);
-      const dateStr = date.toISOString().split('T')[0];
-      // Show label every ~5 days to avoid clutter
-      const showLabel = i % 5 === 0 || i === 0;
-      days.push({
-        date: dateStr,
-        label: showLabel ? this.formatShortDate(date) : '',
-        count: 0,
-      });
-    }
-
-    // Count packages per day
-    packages.forEach(pkg => {
-      const pkgDate = new Date(pkg.created_at).toISOString().split('T')[0];
-      const dayData = days.find(d => d.date === pkgDate);
-      if (dayData) {
-        dayData.count++;
-      }
-    });
-
-    this._monthlyTimeSeries.set(days);
-  }
-
-  private calculateRecentActivity(packages: readonly Package[]): void {
-    const sortedPackages = [...packages]
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-      .slice(0, 10);
-
-    const activities: PackageActivity[] = sortedPackages.map(pkg => ({
-      id: pkg.id,
-      reference: pkg.reference,
-      receiverEmail: pkg.receiver_email,
-      status: pkg.status,
-      statusLabel: this.getStatusLabel(pkg.status),
-      createdAt: new Date(pkg.created_at),
-      timeAgo: this.getTimeAgo(new Date(pkg.created_at)),
+  private buildWeeklySeries(rows: Array<{ date: string; count: number }>): TimeSeriesDataPoint[] {
+    return (rows ?? []).map(r => ({
+      date: r.date,
+      label: this.formatDayLabel(this.parseLocalDate(r.date)),
+      count: r.count,
     }));
-
-    this._recentActivity.set(activities);
   }
 
-  private calculateTopReceivers(packages: readonly Package[]): void {
-    const emailCounts = new Map<string, number>();
-    packages.forEach(pkg => {
-      emailCounts.set(pkg.receiver_email, (emailCounts.get(pkg.receiver_email) ?? 0) + 1);
+  private buildMonthlySeries(rows: Array<{ date: string; count: number }>): TimeSeriesDataPoint[] {
+    const list = rows ?? [];
+    const lastIndex = list.length - 1;
+    return list.map((r, i) => {
+      // Show a label roughly every 5 days (and always on the most recent day)
+      // to avoid clutter — mirrors the original 30-day chart.
+      const daysAgo = lastIndex - i;
+      const showLabel = daysAgo % 5 === 0 || i === lastIndex;
+      return {
+        date: r.date,
+        label: showLabel ? this.formatShortDate(this.parseLocalDate(r.date)) : '',
+        count: r.count,
+      };
     });
-
-    const top: TopReceiver[] = Array.from(emailCounts.entries())
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 7)
-      .map(([email, count]) => ({
-        email,
-        name: email.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
-        count,
-      }));
-
-    this._topReceivers.set(top);
   }
 
-  private calculateHourlyHeatmap(packages: readonly Package[]): void {
+  private buildRecentActivity(
+    rows: DashboardMetricsPayload['recentActivity'],
+  ): PackageActivity[] {
+    return (rows ?? []).map(r => {
+      const createdAt = new Date(r.createdAt);
+      return {
+        id: r.id,
+        reference: r.reference,
+        receiverEmail: r.receiverEmail,
+        status: r.status,
+        statusLabel: this.getStatusLabel(r.status),
+        createdAt,
+        timeAgo: this.getTimeAgo(createdAt),
+      };
+    });
+  }
+
+  private buildTopReceivers(rows: Array<{ email: string; count: number }>): TopReceiver[] {
+    return (rows ?? []).map(r => ({
+      email: r.email,
+      name: r.email.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+      count: r.count,
+    }));
+  }
+
+  private buildHeatmap(
+    buckets: Array<{ dow: number; hour: number; count: number }>,
+    total: number,
+  ): HourlyHeatmap {
     const counts = Array.from({ length: 7 }, () => Array.from({ length: 24 }, () => 0));
+    for (const b of buckets ?? []) {
+      if (b.dow >= 0 && b.dow < 7 && b.hour >= 0 && b.hour < 24) {
+        counts[b.dow][b.hour] = b.count;
+      }
+    }
+    const max = Math.max(0, ...counts.flat());
+    return { counts, max, total };
+  }
 
-    packages.forEach(pkg => {
-      const createdAt = new Date(pkg.created_at);
-      const day = createdAt.getDay(); // 0 (Sun) - 6 (Sat)
-      const hour = createdAt.getHours(); // 0 - 23
+  private buildStuckPackages(
+    rows: Array<Omit<StuckPackage, 'statusLabel'>>,
+  ): StuckPackage[] {
+    return (rows ?? []).map(r => ({
+      ...r,
+      statusLabel: this.getStatusLabel(r.status),
+    }));
+  }
 
-      // Increment the count for this hour of this day
-      counts[day][hour]++;
-    });
+  // ============================================================================
+  // Presentation Helpers
+  // ============================================================================
 
-    // Find max count for scaling
-    const max = Math.max(...counts.flat());
+  private titleCase(s: string): string {
+    return s.replace(/\b\w/g, c => c.toUpperCase());
+  }
 
-    this._hourlyHeatmap.set({
-      counts,
-      max,
-      total: packages.length,
-    });
+  /**
+   * Parse a `YYYY-MM-DD` date string as local time. `new Date('YYYY-MM-DD')`
+   * parses as UTC midnight, which can shift the weekday/label across the date
+   * boundary; constructing from parts keeps it in the local day.
+   */
+  private parseLocalDate(s: string): Date {
+    const [y, m, d] = s.split('-').map(Number);
+    return new Date(y, (m ?? 1) - 1, d ?? 1);
   }
 
   private formatDayLabel(date: Date): string {
@@ -1033,4 +913,3 @@ export class DashboardService {
     return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999).toISOString();
   }
 }
-
