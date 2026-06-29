@@ -260,6 +260,79 @@ export class PackageService {
   }
 
   /**
+   * Load *all* packages matching the given filters, transparently paging past
+   * the PostgREST per-request row cap (`db.max_rows`, currently 1000).
+   *
+   * A plain `loadPackages` call is limited to a single REST response, which the
+   * server truncates at 1000 rows — so consumers that aggregate over the whole
+   * table (e.g. the dashboard) would silently only ever see the most recent
+   * 1000 orders. This method walks the result set in `chunkSize` pages using
+   * `.range()` until every row has been fetched, then publishes the full list
+   * via the `packages` signal exactly like `loadPackages`.
+   *
+   * Only the filters the dashboard needs are supported (status / date range);
+   * free-text search and manual pagination are intentionally left to
+   * `loadPackages`.
+   */
+  async loadAllPackages(
+    filters?: Pick<PackageFilters, 'status' | 'dateFrom' | 'dateTo'>,
+    options?: { includeDeleted?: boolean },
+  ): Promise<GetPackagesResult> {
+    this._isLoading.set(true);
+    this._error.set(null);
+
+    // PostgREST caps each response at `db.max_rows` (1000). Page in chunks at
+    // or below that cap so every page comes back full until the last one.
+    const chunkSize = 1000;
+
+    try {
+      const all: Package[] = [];
+
+      for (let from = 0; ; from += chunkSize) {
+        let query = this.supabaseService.client
+          .from('packages')
+          .select('*, items:package_items(id, quantity, description, inventory_item_id)')
+          .order('created_at', { ascending: false })
+          .range(from, from + chunkSize - 1);
+
+        if (!options?.includeDeleted) {
+          query = query.is('deleted_at', null);
+        }
+        if (filters?.status) {
+          query = query.eq('status', filters.status);
+        }
+        if (filters?.dateFrom) {
+          query = query.gte('created_at', filters.dateFrom);
+        }
+        if (filters?.dateTo) {
+          query = query.lte('created_at', filters.dateTo);
+        }
+
+        const { data, error } = await query;
+
+        if (error) {
+          this._error.set(error.message);
+          return { success: false, error: error.message };
+        }
+
+        const batch = (data ?? []) as Package[];
+        all.push(...batch);
+
+        // A short page means we've reached the end of the result set.
+        if (batch.length < chunkSize) break;
+      }
+
+      this._packages.set(all);
+      this._totalCount.set(all.length);
+      return { success: true, data: all };
+    } catch (error) {
+      return this.handleError(error);
+    } finally {
+      this._isLoading.set(false);
+    }
+  }
+
+  /**
    * Get a single package by ID.
    *
    * @param id - Package UUID

@@ -313,7 +313,7 @@ export class DashboardService {
     try {
       // Load all packages and supplementary data in parallel
       await Promise.all([
-        this.packageService.loadPackages({ dateFrom, dateTo }),
+        this.packageService.loadAllPackages({ dateFrom, dateTo }),
         this.loadDriverStats(),
         this.loadPodStats(dateFrom, dateTo),
         this.loadLocationDistribution(dateFrom, dateTo),
@@ -341,6 +341,33 @@ export class DashboardService {
   // ============================================================================
   // Private Data Loaders
   // ============================================================================
+
+  /**
+   * Fetch every row matching a query, paging past the PostgREST per-request
+   * row cap (`db.max_rows`, currently 1000). Without this, any unbounded
+   * `select` silently returns only the first 1000 rows, so dashboard
+   * aggregations would be computed off a truncated slice of the table.
+   *
+   * `makeQuery` receives the inclusive `.range()` bounds for the current page
+   * and must return the (awaitable) Supabase query for that page.
+   */
+  private async fetchAllRows<T>(
+    makeQuery: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>,
+  ): Promise<T[]> {
+    const chunkSize = 1000;
+    const all: T[] = [];
+
+    for (let from = 0; ; from += chunkSize) {
+      const { data, error } = await makeQuery(from, from + chunkSize - 1);
+      if (error || !data) break;
+
+      all.push(...data);
+      // A short page means there are no more rows to fetch.
+      if (data.length < chunkSize) break;
+    }
+
+    return all;
+  }
 
   private async loadDriverStats(): Promise<void> {
     try {
@@ -423,28 +450,27 @@ export class DashboardService {
         .eq('is_active', true)
         .order('name');
 
-      // Load packages with their delivery_location_id, optionally filtered by date
-      let pkgQuery = this.supabaseService.client
-        .from('packages')
-        .select('delivery_location_id')
-        .is('deleted_at', null);
+      // Load packages with their delivery_location_id, optionally filtered by
+      // date. Paged so we count every package, not just the first 1000.
+      const packages = await this.fetchAllRows<{ delivery_location_id: string | null }>(
+        (from, to) => {
+          let pkgQuery = this.supabaseService.client
+            .from('packages')
+            .select('delivery_location_id')
+            .is('deleted_at', null);
 
-      if (dateFrom) {
-        pkgQuery = pkgQuery.gte('created_at', dateFrom);
-      }
-      if (dateTo) {
-        pkgQuery = pkgQuery.lte('created_at', dateTo);
-      }
+          if (dateFrom) pkgQuery = pkgQuery.gte('created_at', dateFrom);
+          if (dateTo) pkgQuery = pkgQuery.lte('created_at', dateTo);
 
-      const { data: packages } = await pkgQuery;
-
-      if (!packages) return;
+          return pkgQuery.range(from, to);
+        },
+      );
 
       // Count packages per location
       const countMap = new Map<string, number>();
       let unassignedCount = 0;
 
-      for (const pkg of packages as Array<{ delivery_location_id: string | null }>) {
+      for (const pkg of packages) {
         if (pkg.delivery_location_id) {
           countMap.set(pkg.delivery_location_id, (countMap.get(pkg.delivery_location_id) ?? 0) + 1);
         } else {
@@ -487,19 +513,6 @@ export class DashboardService {
       const drivers = (driversData ?? []) as Array<{ user_id: string; full_name: string; is_active: boolean }>;
       const nameByUserId = new Map(drivers.map(d => [d.user_id, d.full_name]));
 
-      // 2. Load packages with driver assignment within the date range
-      let pkgQuery = this.supabaseService.client
-        .from('packages')
-        .select('id, status, picked_up_by, picked_up_at, received_at, collected_at')
-        .not('picked_up_by', 'is', null)
-        .is('deleted_at', null);
-
-      if (dateFrom) pkgQuery = pkgQuery.gte('created_at', dateFrom);
-      if (dateTo) pkgQuery = pkgQuery.lte('created_at', dateTo);
-
-      const { data: pkgs, error } = await pkgQuery;
-      if (error || !pkgs) return;
-
       type Row = {
         id: string;
         status: PackageStatus;
@@ -509,9 +522,24 @@ export class DashboardService {
         collected_at: string | null;
       };
 
+      // 2. Load packages with driver assignment within the date range. Paged
+      // so per-driver stats cover every package, not just the first 1000.
+      const pkgs = await this.fetchAllRows<Row>((from, to) => {
+        let pkgQuery = this.supabaseService.client
+          .from('packages')
+          .select('id, status, picked_up_by, picked_up_at, received_at, collected_at')
+          .not('picked_up_by', 'is', null)
+          .is('deleted_at', null);
+
+        if (dateFrom) pkgQuery = pkgQuery.gte('created_at', dateFrom);
+        if (dateTo) pkgQuery = pkgQuery.lte('created_at', dateTo);
+
+        return pkgQuery.range(from, to);
+      });
+
       const byDriver = new Map<string, { pickups: number; delivered: number; inTransit: number; hours: number[] }>();
 
-      (pkgs as Row[]).forEach(p => {
+      pkgs.forEach(p => {
         const bucket = byDriver.get(p.picked_up_by) ?? { pickups: 0, delivered: 0, inTransit: 0, hours: [] };
         bucket.pickups++;
 
@@ -562,18 +590,6 @@ export class DashboardService {
    */
   private async loadLifecycleAndStuck(dateFrom?: string, dateTo?: string): Promise<void> {
     try {
-      // Pull lifecycle timestamps for all in-scope packages
-      let q = this.supabaseService.client
-        .from('packages')
-        .select('id, reference, status, receiver_email, created_at, updated_at, picked_up_at, received_at, collected_at')
-        .is('deleted_at', null);
-
-      if (dateFrom) q = q.gte('created_at', dateFrom);
-      if (dateTo) q = q.lte('created_at', dateTo);
-
-      const { data, error } = await q;
-      if (error || !data) return;
-
       type Row = {
         id: string;
         reference: string;
@@ -586,7 +602,19 @@ export class DashboardService {
         collected_at: string | null;
       };
 
-      const rows = data as Row[];
+      // Pull lifecycle timestamps for all in-scope packages. Paged so the
+      // metrics and stuck-package list cover every package, not just 1000.
+      const rows = await this.fetchAllRows<Row>((from, to) => {
+        let q = this.supabaseService.client
+          .from('packages')
+          .select('id, reference, status, receiver_email, created_at, updated_at, picked_up_at, received_at, collected_at')
+          .is('deleted_at', null);
+
+        if (dateFrom) q = q.gte('created_at', dateFrom);
+        if (dateTo) q = q.lte('created_at', dateTo);
+
+        return q.range(from, to);
+      });
 
       const c2pSamples: number[] = [];
       const p2rSamples: number[] = [];
@@ -714,20 +742,6 @@ export class DashboardService {
    */
   private async loadTopShippedItems(dateFrom?: string, dateTo?: string): Promise<void> {
     try {
-      // Use embedded select: package_items joined with packages for date filter.
-      // When no date range, just pull the latest 1000 package_items.
-      let query = this.supabaseService.client
-        .from('package_items')
-        .select('package_id, quantity, description, inventory_item_id, packages!inner(created_at, deleted_at)')
-        .is('packages.deleted_at', null)
-        .limit(2000);
-
-      if (dateFrom) query = query.gte('packages.created_at', dateFrom);
-      if (dateTo) query = query.lte('packages.created_at', dateTo);
-
-      const { data, error } = await query;
-      if (error || !data) return;
-
       type Row = {
         package_id: string;
         quantity: number;
@@ -735,8 +749,24 @@ export class DashboardService {
         inventory_item_id: string | null;
       };
 
+      // Embedded select: package_items joined with packages for the date
+      // filter. Paged so we aggregate over every item, not just the first
+      // 1000 (the PostgREST per-request cap).
+      const data = await this.fetchAllRows<Row>((from, to) => {
+        let query = this.supabaseService.client
+          .from('package_items')
+          .select('package_id, quantity, description, inventory_item_id, packages!inner(created_at, deleted_at)')
+          .is('packages.deleted_at', null)
+          .range(from, to);
+
+        if (dateFrom) query = query.gte('packages.created_at', dateFrom);
+        if (dateTo) query = query.lte('packages.created_at', dateTo);
+
+        return query;
+      });
+
       const grouped = new Map<string, { qty: number; pkgIds: Set<string>; invId: string | null }>();
-      for (const r of data as Row[]) {
+      for (const r of data) {
         const key = (r.description ?? '').trim().toLowerCase() || '(unnamed)';
         const bucket = grouped.get(key) ?? { qty: 0, pkgIds: new Set<string>(), invId: r.inventory_item_id };
         bucket.qty += r.quantity ?? 0;
