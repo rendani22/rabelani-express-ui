@@ -69,6 +69,8 @@ export class HeaderComponent implements OnInit {
   readonly docsOpen = signal(false);
 
   readonly isDev = !environment.production;
+  readonly appEnvironment = environment.appEnvironment;
+  readonly environmentBadge = this.getEnvironmentBadge();
 
   ngOnInit(): void {
     void this.headerService.loadNotifications();
@@ -90,6 +92,17 @@ export class HeaderComponent implements OnInit {
   // This bubbles to Angular's global ErrorHandler (and Sentry integration) for testing.
   testSentry(): never {
     return throwTestError();
+  }
+
+  private getEnvironmentBadge(): string | null {
+    switch (environment.appEnvironment) {
+      case 'local':
+        return 'LOCAL';
+      case 'int':
+        return 'INT';
+      default:
+        return null;
+    }
   }
 
   // Calls the create-package Edge Function with malformed JSON to trigger a

@@ -1,20 +1,44 @@
 #!/usr/bin/env node
 /**
- * Generates src/environments/version.ts with a semver derived from
- * Conventional Commits in the git history.
+ * Generates src/environments/version.ts with a SemVer 2.0.0 version derived
+ * from the git history using Conventional Commits.
  *
- * Rules (Conventional Commits):
- *   - "feat!:" / "fix!:" / "BREAKING CHANGE" footer  -> major bump (minor while < 1.0.0)
- *   - "feat:"                                        -> minor bump
- *   - "fix:" / "perf:"                               -> patch bump
+ * Output is fully SemVer 2.0.0 compliant:
+ *
+ *     MAJOR.MINOR.PATCH[-prerelease][+buildmetadata]
+ *     e.g. 1.4.2            (stable release branch, clean tree)
+ *          1.4.2-dev.7      (dev branch, 7 commits past base)
+ *          1.4.2-feat-x.3+9f1c2ab.dirty
+ *
+ * --- How the MAJOR.MINOR.PATCH core is computed -----------------------------
+ *
+ * Conventional Commit bump rules:
+ *   - "feat!:" / "fix!:" / "BREAKING CHANGE" footer  -> major (minor while <1.0)
+ *   - "feat:"                                        -> minor
+ *   - "fix:" / "perf:"                               -> patch
+ *   - "revert:"                                      -> cancels the most recent bump
  *   - Anything else (chore, docs, refactor, test...) -> no bump
  *
- * Starting point:
- *   - The latest tag matching v?MAJOR.MINOR.PATCH, if any. Otherwise 0.0.0.
- *   - Only commits *after* that tag are considered.
+ * The starting point is the nearest annotated/lightweight tag matching
+ * v?MAJOR.MINOR.PATCH that is *reachable from HEAD* (via `git describe`), so the
+ * version is computed against the branch's own history rather than the highest
+ * tag anywhere in the repo. Only commits after that tag are replayed.
+ *
+ * --- Channels (the prerelease / build-metadata part) -----------------------
+ *
+ *   - Release branches (main, master, release/*, hotfix/*) -> stable: no
+ *     prerelease suffix; the core IS the release version.
+ *   - dev branch                                           -> "-dev.<height>"
+ *   - any other branch                                     -> "-<branch>.<height>"
+ *
+ * <height> is the number of commits since the base tag (monotonic per branch),
+ * so prereleases sort correctly and always rank below the eventual stable
+ * release (e.g. 1.4.2-dev.7 < 1.4.2). The short commit hash and a "dirty"
+ * marker (uncommitted changes) live in +build metadata, which SemVer ignores
+ * for precedence — exactly what build metadata is for.
  */
 import { execFileSync } from 'node:child_process';
-import { writeFileSync, mkdirSync, readFileSync, existsSync } from 'node:fs';
+import { writeFileSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -22,39 +46,42 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const outFile = resolve(__dirname, '..', 'src', 'environments', 'version.ts');
 const pkgFile = resolve(__dirname, '..', 'package.json');
 
+/** Run a git command, returning trimmed stdout or `fallback` on any failure. */
 function git(args, fallback = '') {
   try {
     return execFileSync('git', args, { stdio: ['ignore', 'pipe', 'ignore'] })
       .toString()
-      .replace(/\n$/, '');
+      .replace(/\n+$/, '');
   } catch {
     return fallback;
   }
 }
 
-// Detect availability of a real git repo with history. CI builds (Cloudflare
-// Pages, GitHub Actions, etc.) often run against a shallow clone with no tags,
-// which would cause the version to collapse to the 0.0.0 -> 0.1.0 fallback.
+// --- Official SemVer 2.0.0 grammar (https://semver.org) ----------------------
+// Used as a final guardrail: a build must never emit an invalid version string.
+const SEMVER_RE =
+  /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$/;
+
+// --- Repo detection & shallow-clone recovery ---------------------------------
+// CI builds (Cloudflare Pages, GitHub Actions, ...) frequently run against a
+// shallow clone with no tags, which would collapse the derived version. Try to
+// deepen the history so semver derivation works; failures are non-fatal.
 const hasGit = git(['rev-parse', '--is-inside-work-tree'], '') === 'true';
 const isShallow = hasGit && git(['rev-parse', '--is-shallow-repository'], 'false') === 'true';
 if (isShallow) {
-  // Best-effort: try to fetch full history + tags so semver derivation works.
-  // Failures are fine (no network, detached, etc.) — we'll fall back below.
   try {
-    execFileSync('git', ['fetch', '--unshallow', '--tags'], {
-      stdio: ['ignore', 'ignore', 'ignore'],
-    });
+    execFileSync('git', ['fetch', '--unshallow', '--tags'], { stdio: 'ignore' });
   } catch {
     try {
-      execFileSync('git', ['fetch', '--tags'], { stdio: ['ignore', 'ignore', 'ignore'] });
+      execFileSync('git', ['fetch', '--tags'], { stdio: 'ignore' });
     } catch {
-      /* ignore */
+      /* offline / detached — fall back below */
     }
   }
 }
 
-// Read package.json version as a deployment-time fallback when git history
-// isn't available (shallow CI clones, source tarballs, etc.).
+// package.json version is the deployment-time fallback when git history is
+// unavailable (shallow CI clones, source tarballs, etc.).
 let pkgVersion = '';
 try {
   const pkg = JSON.parse(readFileSync(pkgFile, 'utf8'));
@@ -65,34 +92,50 @@ try {
   /* ignore */
 }
 
+// --- Locate the base tag (nearest semver tag reachable from HEAD) ------------
 const SEMVER_TAG = /^v?(\d+)\.(\d+)\.(\d+)$/;
-const allTags = git(['tag', '--list'], '')
-  .split('\n')
-  .map((t) => t.trim())
-  .filter(Boolean);
+
+function parseTag(tag) {
+  const m = SEMVER_TAG.exec(tag);
+  return m ? { tag, major: +m[1], minor: +m[2], patch: +m[3] } : null;
+}
 
 let baseTag = '';
 let base = { major: 0, minor: 0, patch: 0 };
-const semverTags = allTags
-  .map((t) => {
-    const m = SEMVER_TAG.exec(t);
-    return m ? { tag: t, major: +m[1], minor: +m[2], patch: +m[3] } : null;
-  })
-  .filter(Boolean)
-  .sort((a, b) =>
-    a.major !== b.major
-      ? a.major - b.major
-      : a.minor !== b.minor
-        ? a.minor - b.minor
-        : a.patch - b.patch,
-  );
 
-if (semverTags.length > 0) {
-  const latest = semverTags[semverTags.length - 1];
-  baseTag = latest.tag;
-  base = { major: latest.major, minor: latest.minor, patch: latest.patch };
+// Prefer the nearest ancestor tag so branches compute against their own
+// history. `git describe` walks back from HEAD and returns the closest match.
+const described = git(['describe', '--tags', '--abbrev=0', '--match', 'v[0-9]*.[0-9]*.[0-9]*'], '');
+let parsed = described ? parseTag(described) : null;
+
+// Some repos tag without the leading "v"; retry without the match filter.
+if (!parsed) {
+  const describedAny = git(['describe', '--tags', '--abbrev=0'], '');
+  parsed = describedAny ? parseTag(describedAny) : null;
 }
 
+// Fall back to the globally-highest semver tag if HEAD has no ancestor tag.
+if (!parsed) {
+  const semverTags = git(['tag', '--list'], '')
+    .split('\n')
+    .map((t) => parseTag(t.trim()))
+    .filter(Boolean)
+    .sort((a, b) =>
+      a.major !== b.major
+        ? a.major - b.major
+        : a.minor !== b.minor
+          ? a.minor - b.minor
+          : a.patch - b.patch,
+    );
+  if (semverTags.length) parsed = semverTags[semverTags.length - 1];
+}
+
+if (parsed) {
+  baseTag = parsed.tag;
+  base = { major: parsed.major, minor: parsed.minor, patch: parsed.patch };
+}
+
+// --- Replay commits since the base tag to compute the core version -----------
 const range = baseTag ? baseTag + '..HEAD' : 'HEAD';
 const SEP = '<<<COMMIT>>>';
 const FSEP = '<<<F>>>';
@@ -113,17 +156,27 @@ const commits = raw
 const HEADER = /^(\w+)(?:\(([^)]+)\))?(!)?:\s/;
 
 let { major, minor, patch } = base;
-let commitsSince = 0;
+let bumpsSince = 0; // bump-worthy commits (feat/fix/perf/breaking)
+const bumpHistory = []; // stack of applied bumps, so revert can undo the last one
 
 for (const c of commits) {
   const m = HEADER.exec(c.subject);
+  const type = m ? m[1].toLowerCase() : '';
   const hasBreakingFooter = /(^|\n)BREAKING[ -]CHANGE:/i.test(c.body);
-  let bump = 'none';
 
+  // A revert cancels the most recent bump rather than minting a new one.
+  if (type === 'revert' && bumpHistory.length) {
+    const last = bumpHistory.pop();
+    if (last === 'major') major = Math.max(0, major - 1);
+    else if (last === 'minor') minor = Math.max(0, minor - 1);
+    else if (last === 'patch') patch = Math.max(0, patch - 1);
+    bumpsSince = Math.max(0, bumpsSince - 1);
+    continue;
+  }
+
+  let bump = 'none';
   if (m) {
-    const type = m[1].toLowerCase();
-    const bang = m[3] === '!';
-    if (bang || hasBreakingFooter) bump = 'major';
+    if (m[3] === '!' || hasBreakingFooter) bump = 'major';
     else if (type === 'feat') bump = 'minor';
     else if (type === 'fix' || type === 'perf') bump = 'patch';
   } else if (hasBreakingFooter) {
@@ -131,9 +184,8 @@ for (const c of commits) {
   }
 
   if (bump === 'none') continue;
-  commitsSince++;
 
-  // Pre-1.0.0 convention: treat breaking changes as a minor bump.
+  // Pre-1.0.0 convention: breaking changes are a minor bump, not major.
   if (bump === 'major' && major === 0) bump = 'minor';
 
   if (bump === 'major') {
@@ -146,49 +198,100 @@ for (const c of commits) {
   } else {
     patch += 1;
   }
+  bumpsSince += 1;
+  bumpHistory.push(bump);
 }
 
-if (major === 0 && minor === 0 && patch === 0) {
-  // No git tags AND no bump-worthy commits found. This happens on shallow CI
-  // clones. Prefer the version pinned in package.json so deploys reflect the
-  // actual release. Only fall back to 0.1.0 if package.json has no version.
-  if (pkgVersion) {
-    const m = /^(\d+)\.(\d+)\.(\d+)/.exec(pkgVersion);
-    if (m) {
-      major = +m[1];
-      minor = +m[2];
-      patch = +m[3];
-    }
-  }
-  if (major === 0 && minor === 0 && patch === 0) {
-    minor = 1;
-  }
-}
-
-const semver = major + '.' + minor + '.' + patch;
-
+// --- Branch / channel resolution ---------------------------------------------
 const ciSha = process.env.CF_PAGES_COMMIT_SHA || process.env.GITHUB_SHA || '';
 const ciBranch =
   process.env.CF_PAGES_BRANCH || process.env.GITHUB_REF_NAME || process.env.BRANCH || '';
 
+let branch = git(['rev-parse', '--abbrev-ref', 'HEAD'], '');
+if (!branch || branch === 'HEAD') branch = ciBranch || 'unknown'; // detached / CI
+
+const isReleaseBranch = /^(main|master)$/.test(branch) || /^(release|hotfix)\//.test(branch);
+
+/** Sanitize a branch name into valid SemVer prerelease identifiers. */
+function channelId(name) {
+  const cleaned = name
+    .toLowerCase()
+    .replace(/[^0-9a-z-]+/g, '-') // only [0-9a-z-] allowed in identifiers
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+  return cleaned || 'build';
+}
+
+const channel = isReleaseBranch ? 'stable' : branch === 'dev' ? 'dev' : channelId(branch);
+
+// Commit height = commits since the base tag; monotonic along a branch, so it
+// makes a stable, sortable prerelease counter.
+const heightRaw = baseTag
+  ? git(['rev-list', '--count', baseTag + '..HEAD'], '')
+  : git(['rev-list', '--count', 'HEAD'], '');
+const height = /^\d+$/.test(heightRaw) ? +heightRaw : bumpsSince;
+
+// On a prerelease channel with commits but no bump yet, advance one patch so the
+// prerelease sorts ABOVE the released base (1.2.1-dev.3 > 1.2.0), never below it.
+if (!isReleaseBranch && height > 0 && major === base.major && minor === base.minor && patch === base.patch) {
+  patch += 1;
+}
+
+// --- Fallbacks when no git history is available (shallow/tarball builds) ------
+if (major === 0 && minor === 0 && patch === 0) {
+  const m = pkgVersion ? /^(\d+)\.(\d+)\.(\d+)/.exec(pkgVersion) : null;
+  if (m) {
+    major = +m[1];
+    minor = +m[2];
+    patch = +m[3];
+  }
+  if (major === 0 && minor === 0 && patch === 0) minor = 1; // last-resort 0.1.0
+}
+
+const core = `${major}.${minor}.${patch}`;
+
+// --- Assemble prerelease + build metadata ------------------------------------
+const isDirty = hasGit && git(['status', '--porcelain'], '').length > 0;
+
+const prerelease = isReleaseBranch ? '' : `${channel}.${height}`;
+
 const hash = git(['rev-parse', '--short', 'HEAD'], ciSha ? ciSha.slice(0, 7) : 'unknown');
 const fullHash = git(['rev-parse', 'HEAD'], ciSha || 'unknown');
+
+const buildParts = [];
+if (hash && hash !== 'unknown') buildParts.push(hash);
+if (isDirty) buildParts.push('dirty');
+const buildMetadata = buildParts.join('.');
+
+let version = core;
+if (prerelease) version += '-' + prerelease;
+if (buildMetadata) version += '+' + buildMetadata;
+
+// Guardrail: never emit a non-compliant version string.
+if (!SEMVER_RE.test(version)) {
+  console.error('[version] FATAL: computed an invalid SemVer 2.0.0 string: ' + version);
+  process.exit(1);
+}
+
+// --- Remaining metadata ------------------------------------------------------
 const subject = git(['log', '-1', '--pretty=%s'], '');
 const commitDate = git(['log', '-1', '--pretty=%cI'], new Date().toISOString());
-const branch = git(['rev-parse', '--abbrev-ref', 'HEAD'], ciBranch || 'unknown');
 const buildDate = new Date().toISOString();
 
-// Treat a working tree as dirty only when we actually have a git repo to
-// inspect; CI clones with no `.git` should not be reported as "-dev".
-const isDirty = hasGit && git(['status', '--porcelain'], '').length > 0;
-const display = isDirty ? semver + '-dev' : semver;
-
-const version = {
-  version: display,
-  semver,
+const payload = {
+  version,
+  semver: core,
+  major,
+  minor,
+  patch,
+  prerelease: prerelease || null,
+  buildMetadata: buildMetadata || null,
+  channel,
   baseTag: baseTag || null,
-  commitsSinceBase: commitsSince,
+  commitsSinceBase: height,
+  bumpsSinceBase: bumpsSince,
   isDirty,
+  isRelease: isReleaseBranch && !isDirty,
   hash,
   fullHash,
   branch,
@@ -204,16 +307,32 @@ const banner =
 const content =
   banner +
   'export interface AppVersion {\n' +
-  '  /** Display version, e.g. "1.4.2" or "1.4.2-dev" when the tree is dirty. */\n' +
+  '  /** Full SemVer 2.0.0 string, e.g. "1.4.2", "1.4.2-dev.7" or "1.4.2-dev.7+9f1c2ab.dirty". */\n' +
   '  version: string;\n' +
-  '  /** Pure MAJOR.MINOR.PATCH derived from Conventional Commits. */\n' +
+  '  /** Core MAJOR.MINOR.PATCH derived from Conventional Commits. */\n' +
   '  semver: string;\n' +
+  '  /** Numeric MAJOR component. */\n' +
+  '  major: number;\n' +
+  '  /** Numeric MINOR component. */\n' +
+  '  minor: number;\n' +
+  '  /** Numeric PATCH component. */\n' +
+  '  patch: number;\n' +
+  '  /** Prerelease label (e.g. "dev.7"), or null on a stable release branch. */\n' +
+  '  prerelease: string | null;\n' +
+  '  /** Build metadata (e.g. "9f1c2ab.dirty"), or null when unavailable. */\n' +
+  '  buildMetadata: string | null;\n' +
+  '  /** Release channel: "stable", "dev", or a sanitized branch name. */\n' +
+  '  channel: string;\n' +
   '  /** The tag that semver was computed from, or null when no base tag exists. */\n' +
   '  baseTag: string | null;\n' +
-  '  /** Number of bump-worthy commits since baseTag (or since the first commit). */\n' +
+  '  /** Number of commits since baseTag (or since the first commit). */\n' +
   '  commitsSinceBase: number;\n' +
+  '  /** Number of bump-worthy (feat/fix/perf/breaking) commits since baseTag. */\n' +
+  '  bumpsSinceBase: number;\n' +
   '  /** True when the working tree had uncommitted changes at build time. */\n' +
   '  isDirty: boolean;\n' +
+  '  /** True for a clean build on a release branch (main/master/release/hotfix). */\n' +
+  '  isRelease: boolean;\n' +
   '  /** Short commit hash (e.g. "bcff3bb"). */\n' +
   '  hash: string;\n' +
   '  /** Full commit hash. */\n' +
@@ -228,24 +347,11 @@ const content =
   '  buildDate: string;\n' +
   '}\n\n' +
   'export const APP_VERSION: AppVersion = ' +
-  JSON.stringify(version, null, 2) +
+  JSON.stringify(payload, null, 2) +
   ';\n';
 
 mkdirSync(dirname(outFile), { recursive: true });
 writeFileSync(outFile, content, 'utf8');
 console.log(
-  '[version] ' +
-    display +
-    ' (base=' +
-    (baseTag || '0.0.0') +
-    ', +' +
-    commitsSince +
-    ' bumps, ' +
-    hash +
-    ')',
+  `[version] ${version} (base=${baseTag || '0.0.0'}, height=${height}, +${bumpsSince} bumps, ${channel})`,
 );
-
-
-
-
-

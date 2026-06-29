@@ -109,13 +109,21 @@ These all map cleanly to existing schema columns:
 
 ## Implementation notes
 
-- **All aggregations are computed client-side** because Supabase REST
-  does not support GROUP BY or SQL expressions in `select()`. For very
-  large datasets (>10k packages in a window) we should add
-  `database/views` or RPC functions to push the work to Postgres.
-- The dashboard service intentionally keeps **per-feature loaders
-  parallel** in `loadDashboardData`, so each new card only adds latency
-  equal to its own slowest query.
+- **All aggregations are computed server-side** in the
+  `get_dashboard_metrics(p_date_from, p_date_to)` Postgres RPC
+  (`supabase/migrations/20260629120000_dashboard_metrics_rpc.sql`). It
+  returns a single JSON document with every metric, computed across the
+  full tables. This replaced the earlier client-side approach, which
+  pulled every package to the browser and was silently capped at
+  PostgREST's `db.max_rows` (1000) — so dashboards on accounts with more
+  than 1000 orders only ever reflected the most recent 1000.
+- `DashboardService.loadDashboardData` makes **one** RPC call and maps
+  the payload onto its signals. Only presentation concerns (status
+  labels/colours, relative times, chart labels) remain client-side.
+- Time-bucketed metrics (today/week/month counts, daily series, hourly
+  heatmap) are bucketed in the **`Africa/Johannesburg`** wall-clock
+  timezone inside the RPC. Change the `tz` constant in the migration if
+  operating in another region.
 - Heat-map dynamic Tailwind classes are kept as **string literals** so
   Tailwind's content scanner picks them up; do not interpolate class
   fragments.

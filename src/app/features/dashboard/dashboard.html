@@ -9,6 +9,37 @@
       (addViewClick)="onAddView()">
     </app-dashboard-actions>
 
+    <!-- View tabs (Executive is admin-only) -->
+    @if (isAdmin()) {
+      <div class="mb-4 sm:mb-6 inline-flex rounded-lg bg-gray-100 dark:bg-gray-800 p-0.5">
+        <button
+          type="button"
+          (click)="setView('operations')"
+          class="px-4 py-1.5 text-sm font-medium rounded-md transition-colors"
+          [ngClass]="activeView() === 'operations'
+            ? 'bg-white dark:bg-gray-700 text-violet-600 dark:text-violet-400 shadow-sm'
+            : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'">
+          Operations
+        </button>
+        <button
+          type="button"
+          (click)="setView('executive')"
+          class="px-4 py-1.5 text-sm font-medium rounded-md transition-colors inline-flex items-center gap-1.5"
+          [ngClass]="activeView() === 'executive'
+            ? 'bg-white dark:bg-gray-700 text-violet-600 dark:text-violet-400 shadow-sm'
+            : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'">
+          <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
+          </svg>
+          Executive
+        </button>
+      </div>
+    }
+
+    @if (isAdmin() && activeView() === 'executive') {
+      <app-executive-dashboard></app-executive-dashboard>
+    } @else {
+
     <!-- Loading state -->
     @if (isLoading()) {
       <div class="flex items-center justify-center py-12">
@@ -96,14 +127,17 @@
 
         <app-top-items-card
           title="Top Items Shipped"
-          [items]="topShippedItems()">
+          [items]="topShippedItems()"
+          (ordersClick)="onTopShippedItemOrdersClick($event)"
+          (inventoryClick)="onTopShippedItemInventoryClick($event)">
         </app-top-items-card>
 
         <!-- ── Row 8: Inventory Health (6) + (placeholder uses other 6 of receivers row below) ── -->
         <app-inventory-health-card
           title="Inventory Health"
           [data]="inventoryHealth()"
-          (viewInventoryClick)="onViewInventory()">
+          (viewInventoryClick)="onViewInventory()"
+          (inventoryItemClick)="onViewInventory($event)">
         </app-inventory-health-card>
 
         <!-- ── Row 9: Hourly Heatmap (full width) ── -->
@@ -203,6 +237,8 @@
         </div>
 
       </div>
+    }
+
     }
   </div>
 

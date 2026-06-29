@@ -13,7 +13,7 @@ import {
   Validators,
   AbstractControl,
 } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   tablerPackage,
@@ -93,6 +93,7 @@ export class InventoryComponent implements OnInit {
   private readonly inventoryService = inject(InventoryService);
   private readonly toastService = inject(ToastService);
   private readonly fb = inject(FormBuilder);
+  private readonly route = inject(ActivatedRoute);
 
   // =========================================================================
   // Service state
@@ -139,6 +140,7 @@ export class InventoryComponent implements OnInit {
   // Row selection (bulk actions)
   readonly selectedIds = signal<ReadonlySet<string>>(new Set<string>());
   readonly selectedCount = computed(() => this.selectedIds().size);
+  readonly highlightedItemId = signal<string | null>(null);
 
   // =========================================================================
   // Pagination
@@ -253,7 +255,60 @@ export class InventoryComponent implements OnInit {
   // =========================================================================
 
   ngOnInit(): void {
-    void this.inventoryService.loadItems();
+    void this.initializeFromRoute();
+  }
+
+  /** Load inventory and apply any deep-link selection from query params. */
+  private async initializeFromRoute(): Promise<void> {
+    await this.inventoryService.loadItems();
+    this.applyRouteSelection();
+  }
+
+  /** Apply route-driven search/highlight state so linked items are visible. */
+  private applyRouteSelection(): void {
+    const params = this.route.snapshot.queryParamMap;
+    const itemId = params.get('id')?.trim() ?? '';
+    const linkedSearch = params.get('search')?.trim() ?? '';
+
+    if (!itemId && !linkedSearch) {
+      this.highlightedItemId.set(null);
+      return;
+    }
+
+    this.filterCategory.set('');
+    this.filterLowStock.set(false);
+    this.filterOutOfStock.set(false);
+    this.filterBackordered.set(false);
+    this.filterStaleStock.set(false);
+
+    if (linkedSearch) {
+      this.searchQuery.set(linkedSearch);
+    }
+
+    if (!itemId) {
+      this.highlightedItemId.set(null);
+      this.currentPage.set(1);
+      return;
+    }
+
+    const match = this.items().find(item => item.id === itemId);
+    if (!match) {
+      this.highlightedItemId.set(null);
+      this.currentPage.set(1);
+      return;
+    }
+
+    if (!linkedSearch) {
+      this.searchQuery.set(match.name);
+    }
+
+    if (!match.is_active) {
+      this.showInactive.set(true);
+    }
+
+    this.highlightedItemId.set(match.id);
+    const index = this.filteredItems().findIndex(item => item.id === match.id);
+    this.currentPage.set(index >= 0 ? Math.floor(index / this.pageSize()) + 1 : 1);
   }
 
   // =========================================================================
@@ -394,6 +449,7 @@ export class InventoryComponent implements OnInit {
 
   onSearchChange(event: Event): void {
     this.searchQuery.set((event.target as HTMLInputElement).value);
+    this.highlightedItemId.set(null);
     this.currentPage.set(1);
   }
 

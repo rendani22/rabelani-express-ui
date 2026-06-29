@@ -21,6 +21,7 @@ import { timer } from 'rxjs';
 
 import {
   CreatePackageRequest,
+  GetPurchaseOrderByNumberResult,
   Package,
   PackageItemFormValue,
   PackageItemRequest,
@@ -63,6 +64,7 @@ export class CreatePackageModalComponent {
   private readonly destroyRef = inject(DestroyRef);
   private readonly toastService = inject(ToastService);
   private readonly confirmService = inject(ConfirmService);
+  private poLookupRequestSequence = 0;
 
   // =========================================================================
   // Inputs & Outputs
@@ -107,6 +109,22 @@ export class CreatePackageModalComponent {
 
   /** Whether this package should be created as a Draft (suppress outgoing communications) */
   readonly isDraft = signal(false);
+
+  /** State of PO lookup flow in PO mode */
+  readonly poLookupState = signal<'idle' | 'loading' | 'loaded' | 'not_found'>('idle');
+
+  /** Loaded PO lines and selection state */
+  readonly poLines = signal<Array<{
+    purchaseOrderItemId: string;
+    inventoryItemId: string;
+    orderedQuantity: number;
+    allocatedQuantity: number;
+    remainingQuantity: number;
+    selected: boolean;
+  }>>([]);
+
+  /** Maps selected PO line IDs to item form row indexes */
+  readonly poLineItemIndexes = signal<Record<string, number>>({});
 
   /** Error message to display */
   readonly errorMessage = signal<string | null>(null);
@@ -229,6 +247,10 @@ export class CreatePackageModalComponent {
     this.form.controls.poNumber.valueChanges
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => {
+        const state = this.poLookupState();
+        if (state === 'loaded' || state === 'loading') {
+          this.clearPoLookupState(true);
+        }
         if (this.duplicatePackage()) {
           this.duplicatePackage.set(null);
           this.duplicateAcknowledged.set(false);
@@ -240,6 +262,127 @@ export class CreatePackageModalComponent {
   // =========================================================================
   // Form Helpers
   // =========================================================================
+
+  /**
+   * Loads PO lines for the entered PO number and enables PO subset selection mode.
+   */
+  async onPoLookup(): Promise<void> {
+    const poNumber = this.form.controls.poNumber.value.trim();
+    const requestSequence = ++this.poLookupRequestSequence;
+    if (!poNumber) {
+      this.poLookupState.set('idle');
+      this.poLines.set([]);
+      return;
+    }
+
+    this.poLookupState.set('loading');
+    this.poLines.set([]);
+    this.poLineItemIndexes.set({});
+
+    let result: GetPurchaseOrderByNumberResult;
+    try {
+      result = await this.packageService.getPurchaseOrderByNumber(poNumber);
+    } catch {
+      if (!this.isActivePoLookupResponse(requestSequence, poNumber)) return;
+      this.poLookupState.set('not_found');
+      return;
+    }
+
+    if (!this.isActivePoLookupResponse(requestSequence, poNumber)) return;
+
+    if (!result.success) {
+      this.poLookupState.set('not_found');
+      return;
+    }
+
+    const eligible = result.data.items
+      .filter(item => item.remainingQuantity > 0)
+      .map(item => ({
+        purchaseOrderItemId: item.purchaseOrderItemId,
+        inventoryItemId: item.inventoryItemId,
+        orderedQuantity: item.orderedQuantity,
+        allocatedQuantity: item.allocatedQuantity,
+        remainingQuantity: item.remainingQuantity,
+        selected: false,
+      }));
+
+    if (eligible.length === 0) {
+      this.poLookupState.set('not_found');
+      return;
+    }
+
+    this.itemsArray.clear();
+    this.inventorySearches.set({});
+    this.inventoryDropdownOpenIndex.set(null);
+    this.poLines.set(eligible);
+    this.poLookupState.set('loaded');
+  }
+
+  /**
+   * Selects or unselects a PO line for this order and keeps form rows in sync.
+   */
+  onPoLineSelectionChange(purchaseOrderItemId: string, selected: boolean): void {
+    const line = this.poLines().find(l => l.purchaseOrderItemId === purchaseOrderItemId);
+    if (!line) return;
+
+    if (selected) {
+      if (line.selected) return;
+      this.addItemForPoLine(line);
+      return;
+    }
+
+    if (!line.selected) return;
+    this.removeItemForPoLine(line.purchaseOrderItemId);
+  }
+
+  /**
+   * Returns the inventory label for a PO line.
+   */
+  getPoLineLabel(inventoryItemId: string): string {
+    const inv = this.activeInventoryItems().find(i => i.id === inventoryItemId);
+    if (!inv) {
+      return `Inventory item (${inventoryItemId})`;
+    }
+    return this.getInventoryItemLabel(inv);
+  }
+
+  /**
+   * Returns a concise description for PO-mapped item rows.
+   */
+  private getPoLineDescription(inventoryItemId: string): string {
+    const inv = this.activeInventoryItems().find(i => i.id === inventoryItemId);
+    return inv?.name ?? `PO item (${inventoryItemId})`;
+  }
+
+  /**
+   * Returns item-level quantity errors, including PO remaining-cap validation.
+   */
+  getItemError(index: number): string | null {
+    const itemGroup = this.itemsArray.at(index) as FormGroup | undefined;
+    const quantityControl = itemGroup?.get('quantity');
+    if (!quantityControl || !quantityControl.touched) {
+      return null;
+    }
+
+    if (quantityControl.hasError('required')) {
+      return 'Quantity is required';
+    }
+    if (quantityControl.hasError('min')) {
+      return 'Quantity must be at least 1';
+    }
+    if (quantityControl.hasError('max')) {
+      const remaining = quantityControl.getError('max')?.max;
+      return `Quantity exceeds remaining PO quantity${remaining ? ` (${remaining})` : ''}`;
+    }
+    return null;
+  }
+
+  /**
+   * Whether the item row is locked to a selected PO line.
+   */
+  isPoMappedRow(index: number): boolean {
+    return Object.values(this.poLineItemIndexes()).includes(index);
+  }
 
   /**
    * Creates a new item form group
@@ -327,6 +470,7 @@ export class CreatePackageModalComponent {
    * modal body) so the user doesn't have to scroll down manually.
    */
   addItem(): void {
+    if (this.poLookupState() === 'loaded') return;
     this.itemsArray.push(this.createItemGroup());
     const newIndex = this.itemsArray.length - 1;
 
@@ -353,6 +497,22 @@ export class CreatePackageModalComponent {
    * Removes an item at the specified index
    */
   removeItem(index: number): void {
+    const mappedPoLineId = Object.entries(this.poLineItemIndexes()).find(
+      ([, itemIndex]) => itemIndex === index,
+    )?.[0];
+    if (mappedPoLineId) {
+      this.poLines.update(lines => lines.map(line =>
+        line.purchaseOrderItemId === mappedPoLineId
+          ? { ...line, selected: false }
+          : line
+      ));
+      this.poLineItemIndexes.update(map => {
+        const next = { ...map };
+        delete next[mappedPoLineId];
+        return next;
+      });
+    }
+
     this.itemsArray.removeAt(index);
     // Re-key inventory searches: drop the removed index and shift higher indices down.
     this.inventorySearches.update(map => {
@@ -370,6 +530,14 @@ export class CreatePackageModalComponent {
     } else if (openIdx !== null && openIdx > index) {
       this.inventoryDropdownOpenIndex.set(openIdx - 1);
     }
+    this.poLineItemIndexes.update(map => {
+      const next: Record<string, number> = {};
+      for (const [key, idx] of Object.entries(map)) {
+        if (idx < index) next[key] = idx;
+        else if (idx > index) next[key] = idx - 1;
+      }
+      return next;
+    });
   }
 
   /**
@@ -390,6 +558,9 @@ export class CreatePackageModalComponent {
     this.inventorySearches.set({});
     this.inventoryDropdownOpenIndex.set(null);
     this.isDraft.set(false);
+    this.poLookupState.set('idle');
+    this.poLines.set([]);
+    this.poLineItemIndexes.set({});
   }
 
   // ---------------------------------------------------------------------------
@@ -618,21 +789,44 @@ export class CreatePackageModalComponent {
     const { receiverEmail, notes, poNumber, deliveryLocationId, items } =
       this.form.getRawValue();
 
-    // Filter valid items and map to request format
-    const validItems: PackageItemRequest[] = items
-      .filter((item: Record<string, unknown>) => {
+    const validItemsWithIndex = items
+      .map((item: Record<string, unknown>, index) => ({ item, index }))
+      .filter(({ item }) => {
         const desc = item['description'] as string | undefined;
         const qty = item['quantity'] as number | undefined;
         return desc?.trim() && qty && qty > 0;
       })
-      .map((item: Record<string, unknown>) => {
+      .map(({ item, index }) => {
         const invId = (item['inventoryItemId'] as string | undefined)?.trim();
         return {
+          index,
           quantity: item['quantity'] as number,
           description: (item['description'] as string).trim(),
           ...(invId ? { inventory_item_id: invId } : {}),
         };
       });
+    const validItems: PackageItemRequest[] = validItemsWithIndex.map(({ index: _idx, ...item }) => item);
+
+    const validIndexByFormIndex = new Map<number, number>();
+    validItemsWithIndex.forEach((entry, validIndex) => {
+      validIndexByFormIndex.set(entry.index, validIndex);
+    });
+
+    const poAllocations = this.poLines()
+      .filter(line => line.selected)
+      .map(line => {
+        const formIndex = this.poLineItemIndexes()[line.purchaseOrderItemId];
+        if (formIndex === undefined) return null;
+        const validItemIndex = validIndexByFormIndex.get(formIndex);
+        const quantity = Number(items[formIndex]?.['quantity'] ?? 0);
+        if (validItemIndex === undefined || quantity <= 0) return null;
+        return {
+          purchase_order_item_id: line.purchaseOrderItemId,
+          item_index: validItemIndex,
+          quantity,
+        };
+      })
+      .filter((allocation): allocation is NonNullable<typeof allocation> => allocation !== null);
 
     // Build request object with all required and optional fields
     return {
@@ -641,8 +835,75 @@ export class CreatePackageModalComponent {
       ...(poNumber?.trim() && { po_number: poNumber.trim() }),
       ...(deliveryLocationId?.trim() && { delivery_location_id: deliveryLocationId.trim() }),
       ...(validItems.length > 0 && { items: validItems }),
+      ...(poAllocations.length > 0 && { po_allocations: poAllocations }),
       ...(this.isDraft() && { status: PACKAGE_STATUS.DRAFT }),
     };
+  }
+
+  /**
+   * Adds one form row bound to a PO line and applies remaining-quantity caps.
+   */
+  private addItemForPoLine(line: {
+    purchaseOrderItemId: string;
+    inventoryItemId: string;
+    remainingQuantity: number;
+  }): void {
+    const label = this.getPoLineLabel(line.inventoryItemId);
+    const itemGroup = this.createItemGroup({
+      inventoryItemId: line.inventoryItemId,
+      description: this.getPoLineDescription(line.inventoryItemId),
+      quantity: 1,
+    });
+    const quantityControl = itemGroup.get('quantity');
+    quantityControl?.setValidators([
+      Validators.required,
+      Validators.min(1),
+      Validators.max(line.remainingQuantity),
+    ]);
+    quantityControl?.updateValueAndValidity();
+
+    this.itemsArray.push(itemGroup);
+    const index = this.itemsArray.length - 1;
+    this.setInventorySearch(index, label);
+    this.poLineItemIndexes.update(map => ({ ...map, [line.purchaseOrderItemId]: index }));
+    this.poLines.update(lines => lines.map(existing =>
+      existing.purchaseOrderItemId === line.purchaseOrderItemId
+        ? { ...existing, selected: true }
+        : existing
+    ));
+  }
+
+  /**
+   * Removes a PO-mapped row by PO line id and reindexes map.
+   */
+  private removeItemForPoLine(purchaseOrderItemId: string): void {
+    const index = this.poLineItemIndexes()[purchaseOrderItemId];
+    if (index === undefined) return;
+    this.removeItem(index);
+  }
+
+  /**
+   * Clears PO mode state and optionally clears current item rows.
+   */
+  private clearPoLookupState(clearItems: boolean): void {
+    if (clearItems) {
+      this.itemsArray.clear();
+      this.inventorySearches.set({});
+      this.inventoryDropdownOpenIndex.set(null);
+    }
+    this.poLookupState.set('idle');
+    this.poLines.set([]);
+    this.poLineItemIndexes.set({});
+  }
+
+  /**
+   * Guards state mutations so stale PO lookup responses are ignored.
+   */
+  private isActivePoLookupResponse(requestSequence: number, poNumber: string): boolean {
+    return (
+      requestSequence === this.poLookupRequestSequence
+      && this.form.controls.poNumber.value.trim() === poNumber
+    );
   }
 
   /**
@@ -1132,7 +1393,4 @@ export class CreatePackageModalComponent {
     printWindow.document.close();
   }
 }
-
-
-
 

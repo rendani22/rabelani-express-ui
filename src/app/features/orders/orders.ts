@@ -1,5 +1,5 @@
 import { ApplicationRef, ChangeDetectionStrategy, Component, EnvironmentInjector, OnInit, inject, computed, signal } from '@angular/core';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { LayoutComponent } from '../../shared/components/layout/layout.component';
 import { TransactionTableComponent, Transaction } from '../../shared/components/transaction/transaction-table/transaction-table.component';
@@ -44,6 +44,7 @@ export class OrdersComponent implements OnInit {
   private readonly environmentInjector = inject(EnvironmentInjector);
   private readonly onboardingTour = inject(OnboardingTourService);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
 
   /** Map of receiver email (lowercased) → full name for quick lookup. */
   private readonly receiverNamesByEmail = signal<Map<string, string>>(new Map());
@@ -57,7 +58,7 @@ export class OrdersComponent implements OnInit {
   private readonly txCache = new Map<string, { sig: string; tx: Transaction }>();
 
   /** Current search term — kept locally so it survives status filter changes. */
-  private readonly searchTerm = signal<string>('');
+  readonly searchTerm = signal<string>('');
 
   // Modal state
   createPackageModalOpen = false;
@@ -202,14 +203,55 @@ export class OrdersComponent implements OnInit {
   });
 
   async ngOnInit(): Promise<void> {
+    await this.applyInitialRouteState();
+    // Auto-launch the orders onboarding tour for first-time users (no-op if
+    // already completed). Delayed slightly so the table has rendered.
+    setTimeout(() => this.onboardingTour.start('orders'), 700);
+  }
+
+  /**
+   * Applies deep-link state from the current route before first render.
+   * Supports opening a specific package by `id` and filtering by `search`.
+   */
+  private async applyInitialRouteState(): Promise<void> {
+    const params = this.route.snapshot.queryParamMap;
+    const packageId = params.get('id')?.trim() ?? '';
+    const linkedSearch = params.get('search')?.trim() ?? '';
+
+    if (packageId || linkedSearch) {
+      this.statusFilter.set('all');
+    }
+
+    if (linkedSearch) {
+      this.searchTerm.set(linkedSearch);
+      this.currentPage.set(1);
+    }
+
     // Load packages first; receiver names are only used for display, so
     // fetch them in the background (and scoped to the loaded packages)
     // instead of pulling the entire `receiver_profiles` table.
     await this.loadPackages();
     void this.loadReceiversForCurrentPackages();
-    // Auto-launch the orders onboarding tour for first-time users (no-op if
-    // already completed). Delayed slightly so the table has rendered.
-    setTimeout(() => this.onboardingTour.start('orders'), 700);
+
+    if (packageId) {
+      await this.openPackageFromRoute(packageId);
+    }
+  }
+
+  /** Opens the package details panel for a deep-linked package id. */
+  private async openPackageFromRoute(packageId: string): Promise<void> {
+    const existing = this.packageService.packages().find(pkg => pkg.id === packageId);
+    if (existing) {
+      this.selectedPackage.set(existing);
+      this.detailsPanelOpen.set(true);
+      return;
+    }
+
+    const result = await this.packageService.getPackage(packageId);
+    if (result.success) {
+      this.selectedPackage.set(result.data);
+      this.detailsPanelOpen.set(true);
+    }
   }
 
   /**

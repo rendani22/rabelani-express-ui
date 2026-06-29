@@ -3,6 +3,8 @@
     <!-- Orders actions header -->
     <app-orders-actions
       title="Orders"
+      [initialSearchTerm]="searchTerm()"
+      [initialStatus]="statusFilter()"
       (searchChange)="onSearch($event)"
       (statusFilterChange)="onStatusFilterChange($event)"
       [showDateFilters]="false"

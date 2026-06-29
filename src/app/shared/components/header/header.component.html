@@ -13,6 +13,18 @@
           <span class="sr-only">Open sidebar</span>
           <ng-icon name="tablerMenu2" size="24"></ng-icon>
         </button>
+
+        @if (environmentBadge) {
+          <span
+            class="ml-2 inline-flex h-6 items-center justify-center rounded-full border px-2.5 text-[11px] font-semibold uppercase tracking-[0.08em] whitespace-nowrap"
+            [ngClass]="appEnvironment === 'local'
+              ? 'border-sky-200 bg-sky-100 text-sky-700 dark:border-sky-500/30 dark:bg-sky-500/15 dark:text-sky-300'
+              : 'border-amber-200 bg-amber-100 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/15 dark:text-amber-300'"
+            [attr.aria-label]="'Environment: ' + environmentBadge"
+            [title]="'Environment: ' + environmentBadge">
+            {{ environmentBadge }}
+          </span>
+        }
       </div>
 
       <!-- Header: Right side -->
