@@ -777,10 +777,10 @@ serve(async (req) => {
             location_address: locationAddress,
             location_maps_link: locationMapsLink || ''
           })
-           const ccList = (tpl as any).cc && (tpl as any).cc.length ? (tpl as any).cc : undefined
-           const bccList = (tpl as any).bcc && (tpl as any).bcc.length ? (tpl as any).bcc : undefined
+          const ccList = (tpl as any).cc && (tpl as any).cc.length ? (tpl as any).cc : undefined
+          const bccList = (tpl as any).bcc && (tpl as any).bcc.length ? (tpl as any).bcc : undefined
 
-           const emailResponse = await fetchWithTimeout('https://api.resend.com/emails', {
+          const emailResponse = await fetchWithTimeout('https://api.resend.com/emails', {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${resendApiKey}`,
@@ -937,121 +937,160 @@ serve(async (req) => {
     // ------------------------------------------------------------------
     // Send "Package Completed" email when transitioning to `collected`.
     //
-    // Mirrors the branded styling used by the create / ready-for-collection
-    // emails. Email failures must NOT roll back the status update — they
-    // are surfaced via the response payload + audit log.
+    // This email (with its POD PDF attachment) is unrelated to the driver's
+    // UI, and Resend can take several seconds — running it inline made
+    // "Confirm Delivery" wait on the send. We defer it to a background task
+    // via `EdgeRuntime.waitUntil`, so the function returns as soon as the
+    // package + POD are persisted. The outcome is recorded in its own
+    // audit-log entry rather than the HTTP response. Failures must NOT roll
+    // back the status update.
     // ------------------------------------------------------------------
-    let completedEmailSent = false
-    let completedEmailError: string | null = null
+    let completedEmailDeferred = false
     const transitionedToCollected =
       effectiveStatus === 'collected' &&
       existingPackage.status !== 'collected'
 
     if (transitionedToCollected) {
-      try {
-        // Fetch package items for the contents table
-        const { data: itemsData } = await adminClient
-          .from('package_items')
-          .select('id, quantity, description')
-          .eq('package_id', package_id)
+      const sendCompletedEmail = async () => {
+        let completedEmailSent = false
+        let completedEmailError: string | null = null
+        try {
+          // Fetch package items for the contents table
+          const { data: itemsData } = await adminClient
+            .from('package_items')
+            .select('id, quantity, description')
+            .eq('package_id', package_id)
 
-        const packageItems: { id: string; quantity: number; description: string }[] =
-          itemsData ?? []
+          const packageItems: { id: string; quantity: number; description: string }[] =
+            itemsData ?? []
 
-        const resendApiKey = Deno.env.get('RESEND_API_KEY')
-        const supportEmail = Deno.env.get('SUPPORT_EMAIL') || 'rabelanimm@gmail.com'
-        const poNumber: string | null = existingPackage.po_number ?? null
+          const resendApiKey = Deno.env.get('RESEND_API_KEY')
+          const supportEmail = Deno.env.get('SUPPORT_EMAIL') || 'rabelanimm@gmail.com'
+          const poNumber: string | null = existingPackage.po_number ?? null
 
-        if (!resendApiKey) {
-          completedEmailError = 'Email service not configured (RESEND_API_KEY not set)'
-          console.log('Package-completed email skipped:', completedEmailError)
-        } else if (!updatedPackage.receiver_email) {
-          completedEmailError = 'Package has no receiver_email; cannot send notification'
-          console.warn(completedEmailError)
-        } else {
-          // Build POD attachment (priority: pod.pdf_base64 > pods.pdf_url).
-          // Filename MUST match the format used by CompletedOrdersComponent's
-          // bulk ZIP download: `POD-<package_reference>[-<po_number>].pdf`.
-          // A client-supplied `pod.pdf_filename` (already produced with the
-          // same formula in orders.ts) takes precedence so both code paths
-          // end up identical.
-          const podFilename = `${poNumber ? `${poNumber}` : ''}-${updatedPackage.reference} .pdf`
-
-          const attachments: Array<Record<string, string>> = []
-          if (pod?.pdf_base64) {
-            const cleanBase64 = pod.pdf_base64.replace(/^data:application\/pdf;base64,/, '')
-            attachments.push({ filename: podFilename, content: cleanBase64 })
+          if (!resendApiKey) {
+            completedEmailError = 'Email service not configured (RESEND_API_KEY not set)'
+            console.log('Package-completed email skipped:', completedEmailError)
+          } else if (!updatedPackage.receiver_email) {
+            completedEmailError = 'Package has no receiver_email; cannot send notification'
+            console.warn(completedEmailError)
           } else {
-            const { data: podRow } = await adminClient
-              .from('pods')
-              .select('pdf_url')
-              .eq('package_id', package_id)
-              .maybeSingle()
-            if (podRow?.pdf_url) {
-              attachments.push({ filename: podFilename, path: podRow.pdf_url })
+            // Build POD attachment (priority: pod.pdf_base64 > pods.pdf_url).
+            // Filename MUST match the format used by CompletedOrdersComponent's
+            // bulk ZIP download: `POD-<package_reference>[-<po_number>].pdf`.
+            // A client-supplied `pod.pdf_filename` (already produced with the
+            // same formula in orders.ts) takes precedence so both code paths
+            // end up identical.
+            const podFilename = `${poNumber ? `${poNumber}` : ''}-${updatedPackage.reference} .pdf`
+
+            const attachments: Array<Record<string, string>> = []
+            if (pod?.pdf_base64) {
+              const cleanBase64 = pod.pdf_base64.replace(/^data:application\/pdf;base64,/, '')
+              attachments.push({ filename: podFilename, content: cleanBase64 })
+            } else {
+              const { data: podRow } = await adminClient
+                .from('pods')
+                .select('pdf_url')
+                .eq('package_id', package_id)
+                .maybeSingle()
+              if (podRow?.pdf_url) {
+                attachments.push({ filename: podFilename, path: podRow.pdf_url })
+              }
+            }
+
+            // Resolve template from DB (with in-code fallback) and render.
+            const tpl = await resolveTemplate(adminClient, 'package_completed')
+            const rendered = renderEmail(tpl, {
+              ...buildCommonVars((k) => Deno.env.get(k) ?? undefined),
+              reference: updatedPackage.reference,
+              po_number: poNumber || '',
+              items: packageItems.map(i => ({ quantity: i.quantity, description: i.description })),
+              has_items: packageItems.length > 0
+            })
+            const templateCc = (tpl as any).cc && (tpl as any).cc.length ? (tpl as any).cc : undefined
+            const templateBcc = (tpl as any).bcc && (tpl as any).bcc.length ? (tpl as any).bcc : undefined
+
+            const ccAddress = templateCc ?? (Deno.env.get('PACKAGE_COMPLETED_CC') ? [Deno.env.get('PACKAGE_COMPLETED_CC') as string] : (supportEmail ? [supportEmail] : ['rabelanimm@gmail.com']))
+
+            const emailResponse = await fetchWithTimeout('https://api.resend.com/emails', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${resendApiKey}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                from: Deno.env.get('EMAIL_FROM') || 'POD System <noreply@example.com>',
+                to: [updatedPackage.receiver_email],
+                ...(ccAddress ? { cc: ccAddress } : {}),
+                ...(templateBcc ? { bcc: templateBcc } : {}),
+                subject: rendered.subject,
+                ...(attachments.length > 0 ? { attachments } : {}),
+                html: rendered.html
+              })
+            }, RESEND_TIMEOUT_MS)
+
+            if (emailResponse instanceof Response && emailResponse.ok) {
+              completedEmailSent = true
+              await adminClient.from('audit_logs').insert({
+                action: 'PACKAGE_COMPLETED_NOTIFICATION',
+                entity_type: 'package',
+                entity_id: package_id,
+                performed_by: callingUser.id,
+                metadata: {
+                  reference: updatedPackage.reference,
+                  receiver_email: updatedPackage.receiver_email,
+                  notification_type: 'email',
+                  notification_status: 'sent',
+                  email_subject: 'Package Completed',
+                  cc: [ccAddress],
+                  pod_attached: attachments.length > 0,
+                  pod_attachment_filename: attachments[0]?.filename ?? null
+                }
+              })
+            } else {
+              completedEmailError = emailResponse instanceof Response
+                ? `Email API error: ${await emailResponse.text()}`
+                : `Email transport error: ${emailResponse.error}`
+              console.error('Package-completed email send failed:', completedEmailError)
             }
           }
-
-          // Resolve template from DB (with in-code fallback) and render.
-          const tpl = await resolveTemplate(adminClient, 'package_completed')
-          const rendered = renderEmail(tpl, {
-            ...buildCommonVars((k) => Deno.env.get(k) ?? undefined),
-            reference: updatedPackage.reference,
-            po_number: poNumber || '',
-            items: packageItems.map(i => ({ quantity: i.quantity, description: i.description })),
-            has_items: packageItems.length > 0
-          })
-          const templateCc = (tpl as any).cc && (tpl as any).cc.length ? (tpl as any).cc : undefined
-          const templateBcc = (tpl as any).bcc && (tpl as any).bcc.length ? (tpl as any).bcc : undefined
-
-          const ccAddress = templateCc ?? (Deno.env.get('PACKAGE_COMPLETED_CC') ? [Deno.env.get('PACKAGE_COMPLETED_CC') as string] : (supportEmail ? [supportEmail] : ['rabelanimm@gmail.com']))
-
-          const emailResponse = await fetchWithTimeout('https://api.resend.com/emails', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${resendApiKey}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              from: Deno.env.get('EMAIL_FROM') || 'POD System <noreply@example.com>',
-              to: [updatedPackage.receiver_email],
-              ...(ccAddress ? { cc: ccAddress } : {}),
-              ...(templateBcc ? { bcc: templateBcc } : {}),
-              subject: rendered.subject,
-              ...(attachments.length > 0 ? { attachments } : {}),
-              html: rendered.html
-            })
-          }, RESEND_TIMEOUT_MS)
-
-          if (emailResponse instanceof Response && emailResponse.ok) {
-            completedEmailSent = true
-            await adminClient.from('audit_logs').insert({
-              action: 'PACKAGE_COMPLETED_NOTIFICATION',
-              entity_type: 'package',
-              entity_id: package_id,
-              performed_by: callingUser.id,
-              metadata: {
-                reference: updatedPackage.reference,
-                receiver_email: updatedPackage.receiver_email,
-                notification_type: 'email',
-                notification_status: 'sent',
-                email_subject: 'Package Completed',
-                cc: [ccAddress],
-                pod_attached: attachments.length > 0,
-                pod_attachment_filename: attachments[0]?.filename ?? null
-              }
-            })
-          } else {
-            completedEmailError = emailResponse instanceof Response
-              ? `Email API error: ${await emailResponse.text()}`
-              : `Email transport error: ${emailResponse.error}`
-            console.error('Package-completed email send failed:', completedEmailError)
-          }
+        } catch (e: unknown) {
+          const errorMessage = e instanceof Error ? e.message : String(e)
+          completedEmailError = `Email exception: ${errorMessage}`
+          console.error('Package-completed email exception:', e)
         }
-      } catch (e: unknown) {
-        const errorMessage = e instanceof Error ? e.message : String(e)
-        completedEmailError = `Email exception: ${errorMessage}`
-        console.error('Package-completed email exception:', e)
+
+        // Record the (deferred) email outcome on failure so it stays auditable
+        // even though the HTTP response has already been returned. The success
+        // path already inserts its own PACKAGE_COMPLETED_NOTIFICATION entry.
+        if (!completedEmailSent) {
+          await adminClient.from('audit_logs').insert({
+            action: 'PACKAGE_COMPLETED_NOTIFICATION',
+            entity_type: 'package',
+            entity_id: package_id,
+            performed_by: callingUser.id,
+            metadata: {
+              reference: updatedPackage.reference,
+              receiver_email: updatedPackage.receiver_email,
+              notification_type: 'email',
+              notification_status: 'failed',
+              email_subject: 'Package Completed',
+              email_error: completedEmailError
+            }
+          }).catch((auditErr: unknown) => console.error('Completed-email failure audit insert failed:', auditErr))
+        }
+      }
+
+      // Defer the send so "Confirm Delivery" returns without waiting on Resend.
+      const completedEmailTask = sendCompletedEmail()
+      const edgeRuntime = (globalThis as { EdgeRuntime?: { waitUntil(p: Promise<unknown>): void } }).EdgeRuntime
+      if (edgeRuntime?.waitUntil) {
+        edgeRuntime.waitUntil(completedEmailTask)
+        completedEmailDeferred = true
+      } else {
+        // No background-task host (e.g. local dev) — fire and forget so the
+        // request still returns promptly without an unhandled rejection.
+        completedEmailTask.catch((taskErr: unknown) => console.error('Package-completed email task failed:', taskErr))
       }
     }
 
@@ -1158,8 +1197,7 @@ serve(async (req) => {
         ready_email_error: transitionedToReady ? readyEmailError : undefined,
         notified_email_sent: transitionedToNotified ? notifiedEmailSent : undefined,
         notified_email_error: transitionedToNotified ? notifiedEmailError : undefined,
-        completed_email_sent: transitionedToCollected ? completedEmailSent : undefined,
-        completed_email_error: transitionedToCollected ? completedEmailError : undefined,
+        completed_email_deferred: transitionedToCollected ? completedEmailDeferred : undefined,
         items_updated_email_sent: itemChangesSummary ? itemsUpdatedEmailSent : undefined,
         items_updated_email_error: itemChangesSummary ? itemsUpdatedEmailError : undefined,
         item_changes: itemChangesSummary,
@@ -1179,7 +1217,7 @@ serve(async (req) => {
           : transitionedToReady
             ? { email_sent: readyEmailSent, email_error: readyEmailError }
             : transitionedToCollected
-              ? { email_sent: completedEmailSent, email_error: completedEmailError }
+              ? { email_deferred: completedEmailDeferred }
               : {}),
         ...(itemChangesSummary
           ? { items_email_sent: itemsUpdatedEmailSent, items_email_error: itemsUpdatedEmailError }
@@ -1219,4 +1257,3 @@ serve(async (req) => {
     )
   }
 })
-
