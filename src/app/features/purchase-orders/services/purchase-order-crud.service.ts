@@ -41,7 +41,10 @@ export interface UpdatePurchaseOrderInput {
 }
 
 export interface UpdatePurchaseOrderItemInput {
+  /** Empty for a brand-new line being added during the update. */
   readonly purchaseOrderItemId: string;
+  /** Set for new lines; identifies the inventory item to add. */
+  readonly inventoryItemId?: string;
   readonly orderedQuantity: number;
 }
 
@@ -200,9 +203,14 @@ export class PurchaseOrderCrudService {
     const items = input.items
       .map(item => ({
         purchaseOrderItemId: item.purchaseOrderItemId.trim(),
+        inventoryItemId: item.inventoryItemId?.trim() ?? '',
         orderedQuantity: Number(item.orderedQuantity),
       }))
-      .filter(item => item.purchaseOrderItemId.length > 0 && item.orderedQuantity > 0);
+      .filter(
+        item =>
+          (item.purchaseOrderItemId.length > 0 || item.inventoryItemId.length > 0) &&
+          item.orderedQuantity > 0
+      );
 
     if (!purchaseOrderId) {
       return { success: false, error: 'Purchase order id is required' };
@@ -241,7 +249,8 @@ export class PurchaseOrderCrudService {
       p_purchase_order_id: purchaseOrderId,
       p_po_number: poNumber,
       p_items: items.map(item => ({
-        purchase_order_item_id: item.purchaseOrderItemId,
+        purchase_order_item_id: item.purchaseOrderItemId || null,
+        inventory_item_id: item.inventoryItemId || null,
         ordered_quantity: item.orderedQuantity,
       })),
       p_receiver_id: receiverId,

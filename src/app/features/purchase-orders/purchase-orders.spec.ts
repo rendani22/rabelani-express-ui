@@ -92,6 +92,7 @@ describe('PurchaseOrdersComponent', () => {
     items: [
       {
         purchaseOrderItemId: 'poi-1',
+        inventoryItemId: 'inv-1',
         orderedQuantity: 6,
       },
     ],

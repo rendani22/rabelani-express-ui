@@ -42,23 +42,23 @@ export interface AppVersion {
 }
 
 export const APP_VERSION: AppVersion = {
-  "version": "0.77.0-dev.119+8e2e9a1",
-  "semver": "0.77.0",
-  "major": 0,
-  "minor": 77,
+  "version": "1.6.0-dev.23+7fbc218.dirty",
+  "semver": "1.6.0",
+  "major": 1,
+  "minor": 6,
   "patch": 0,
-  "prerelease": "dev.119",
-  "buildMetadata": "8e2e9a1",
+  "prerelease": "dev.23",
+  "buildMetadata": "7fbc218.dirty",
   "channel": "dev",
-  "baseTag": null,
-  "commitsSinceBase": 119,
-  "bumpsSinceBase": 81,
-  "isDirty": false,
+  "baseTag": "v1.0.0",
+  "commitsSinceBase": 23,
+  "bumpsSinceBase": 8,
+  "isDirty": true,
   "isRelease": false,
-  "hash": "8e2e9a1",
-  "fullHash": "8e2e9a1a2d5c4bfd2fe19edd1f05f6644a5e5399",
+  "hash": "7fbc218",
+  "fullHash": "7fbc218c8dd937bf2ace686a82c99f17d05c790d",
   "branch": "dev",
-  "message": "wip",
-  "commitDate": "2026-06-29T20:31:45+02:00",
-  "buildDate": "2026-06-29T18:32:22.221Z"
+  "message": "Merge branch 'dev'",
+  "commitDate": "2026-07-01T09:21:45+02:00",
+  "buildDate": "2026-07-01T11:08:40.731Z"
 };

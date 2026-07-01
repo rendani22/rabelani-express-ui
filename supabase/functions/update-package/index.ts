@@ -37,9 +37,16 @@ interface PackageItemUpdatePayload {
   quantity: number
 }
 
+interface PackageItemCreatePayload {
+  quantity: number
+  description: string
+  inventory_item_id?: string | null
+}
+
 interface PackageItemsDiff {
   updates?: PackageItemUpdatePayload[]
   deletes?: string[]
+  creates?: PackageItemCreatePayload[]
 }
 
 interface UpdatePackageRequest {
@@ -290,7 +297,7 @@ serve(async (req) => {
     // Snapshots used to render the "Package Contents Updated" email.
     let previousItemsSnapshot: { quantity: number; description: string }[] | null = null
     let updatedItemsSnapshot:  { quantity: number; description: string }[] | null = null
-    if (items && (items.updates?.length || items.deletes?.length)) {
+    if (items && (items.updates?.length || items.deletes?.length || items.creates?.length)) {
       const canEditItems = ['pending', 'notified', 'draft'].includes(existingPackage.status)
       if (!canEditItems) {
         return new Response(
@@ -323,6 +330,36 @@ serve(async (req) => {
         }
       }
 
+      // Normalise + validate new items to insert. Each needs a positive integer
+      // quantity and a non-empty description; inventory_item_id is optional.
+      const createPayloads = (items.creates ?? [])
+        .filter((c): c is PackageItemCreatePayload => !!c)
+        .map(c => ({
+          quantity: Number(c.quantity),
+          description: typeof c.description === 'string' ? c.description.trim() : '',
+          inventory_item_id: c.inventory_item_id ? String(c.inventory_item_id) : null
+        }))
+      for (const c of createPayloads) {
+        if (!Number.isInteger(c.quantity) || c.quantity < 1) {
+          return new Response(
+            JSON.stringify({
+              error: 'Invalid item quantity',
+              details: 'New items must have a positive integer quantity'
+            }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+        if (!c.description) {
+          return new Response(
+            JSON.stringify({
+              error: 'Invalid item',
+              details: 'New items must have a description'
+            }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+      }
+
       // Snapshot the FULL set of package_items BEFORE any mutation so the
       // notification email can render an accurate "previous contents" table.
       {
@@ -342,34 +379,34 @@ serve(async (req) => {
       // Load existing package_items belonging to this package and only the
       // ones we're being asked to mutate (defends against cross-package ids).
       const allTargetIds = Array.from(new Set([...updateIds, ...deleteIds]))
-      if (allTargetIds.length === 0) {
-        // Nothing to do — fall through to the normal update path.
-      } else {
-        const { data: targetRows, error: targetErr } = await adminClient
-          .from('package_items')
-          .select('id, quantity, inventory_item_id, description, package_id')
-          .in('id', allTargetIds)
+      const hasWork = allTargetIds.length > 0 || createPayloads.length > 0
+      if (hasWork) {
+        const targetMap = new Map<string, { id: string; quantity: number; inventory_item_id: string | null; description: string; package_id: string }>()
+        if (allTargetIds.length > 0) {
+          const { data: targetRows, error: targetErr } = await adminClient
+            .from('package_items')
+            .select('id, quantity, inventory_item_id, description, package_id')
+            .in('id', allTargetIds)
 
-        if (targetErr) {
-          return new Response(
-            JSON.stringify({ error: 'Failed to load package items', details: targetErr.message }),
-            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          )
-        }
-
-        const targetMap = new Map<string, { id: string; quantity: number; inventory_item_id: string | null; description: string; package_id: string }>(
-          (targetRows ?? []).map((r: any) => [r.id, r])
-        )
-        for (const id of allTargetIds) {
-          const row = targetMap.get(id)
-          if (!row || row.package_id !== package_id) {
+          if (targetErr) {
             return new Response(
-              JSON.stringify({
-                error: 'Invalid package item',
-                details: `Item ${id} does not belong to package ${package_id}`
-              }),
-              { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+              JSON.stringify({ error: 'Failed to load package items', details: targetErr.message }),
+              { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             )
+          }
+
+          for (const r of (targetRows ?? []) as any[]) targetMap.set(r.id, r)
+          for (const id of allTargetIds) {
+            const row = targetMap.get(id)
+            if (!row || row.package_id !== package_id) {
+              return new Response(
+                JSON.stringify({
+                  error: 'Invalid package item',
+                  details: `Item ${id} does not belong to package ${package_id}`
+                }),
+                { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+              )
+            }
           }
         }
 
@@ -393,10 +430,16 @@ serve(async (req) => {
             accDelta(row.inventory_item_id, row.quantity) // full return
           }
         }
+        for (const c of createPayloads) {
+          if (c.inventory_item_id) {
+            accDelta(c.inventory_item_id, -c.quantity) // consume newly-added stock
+          }
+        }
 
         // Apply inventory adjustments BEFORE mutating package_items so a
         // stock failure leaves the package items unchanged.
         const movementInserts: Array<Record<string, unknown>> = []
+        const invMap = new Map<string, { id: string; name: string; quantity: number }>()
         if (inventoryDeltas.size > 0) {
           const invIds = Array.from(inventoryDeltas.keys())
           const { data: invRows, error: invErr } = await adminClient
@@ -411,9 +454,21 @@ serve(async (req) => {
             )
           }
 
-          const invMap = new Map<string, { id: string; name: string; quantity: number }>(
-            (invRows ?? []).map((r: any) => [r.id, r])
-          )
+          for (const r of (invRows ?? []) as any[]) invMap.set(r.id, r)
+
+          // A new item that references inventory must reference a real row —
+          // fail cleanly rather than tripping the package_items FK on insert.
+          for (const c of createPayloads) {
+            if (c.inventory_item_id && !invMap.has(c.inventory_item_id)) {
+              return new Response(
+                JSON.stringify({
+                  error: 'Invalid inventory item',
+                  details: `Inventory item ${c.inventory_item_id} does not exist`
+                }),
+                { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+              )
+            }
+          }
 
           // Negative inventory is intentionally allowed (see migration
           // 20260517123000_allow_negative_inventory), so we only validate row
@@ -449,7 +504,7 @@ serve(async (req) => {
           }
         }
 
-        // Mutate package_items: updates first, then deletes.
+        // Mutate package_items: updates, then deletes, then inserts.
         for (const u of updatePayloads) {
           const row = targetMap.get(u.id)!
           if (row.quantity === u.quantity) continue
@@ -472,6 +527,23 @@ serve(async (req) => {
           if (delErr) {
             return new Response(
               JSON.stringify({ error: 'Failed to delete package items', details: delErr.message }),
+              { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+          }
+        }
+        if (createPayloads.length > 0) {
+          const insertRows = createPayloads.map(c => ({
+            package_id,
+            quantity: c.quantity,
+            description: c.description,
+            inventory_item_id: c.inventory_item_id
+          }))
+          const { error: insErr } = await adminClient
+            .from('package_items')
+            .insert(insertRows)
+          if (insErr) {
+            return new Response(
+              JSON.stringify({ error: 'Failed to add package items', details: insErr.message }),
               { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             )
           }
@@ -528,6 +600,11 @@ serve(async (req) => {
             const row = targetMap.get(id)!
             return { id, quantity: row.quantity, inventory_item_id: row.inventory_item_id, description: row.description }
           }),
+          creates: createPayloads.map(c => ({
+            quantity: c.quantity,
+            description: c.description,
+            inventory_item_id: c.inventory_item_id
+          })),
           inventory_deltas: Object.fromEntries(inventoryDeltas),
           remaining_item_count: remainingItemCountAfterEdits,
           forced_status: forcedStatusAfterItemEdits

@@ -11,7 +11,7 @@ import {
   ValidatorFn,
   Validators,
 } from '@angular/forms';
-import { ReceiverService } from '../../../../core';
+import { InventoryItem, InventoryService, ReceiverProfile, ReceiverService } from '../../../../core';
 
 export interface PurchaseOrderEditLineValue {
   readonly purchaseOrderItemId: string;
@@ -31,7 +31,10 @@ export interface PurchaseOrderEditFormValue {
 }
 
 export interface UpdatePurchaseOrderLineValue {
+  /** Empty for a brand-new line that is being added during the edit. */
   readonly purchaseOrderItemId: string;
+  /** Set for new lines; carries the chosen inventory item. */
+  readonly inventoryItemId: string;
   readonly orderedQuantity: number;
 }
 
@@ -85,6 +88,7 @@ const minAllowedQuantityValidator = (minAllowedQuantity: number): ValidatorFn =>
 export class EditPurchaseOrderModalComponent {
   private readonly fb = inject(FormBuilder);
   private readonly receiverService = inject(ReceiverService);
+  private readonly inventoryService = inject(InventoryService);
 
   readonly isOpen = input(false);
   readonly purchaseOrder = input<PurchaseOrderEditFormValue | null>(null);
@@ -93,6 +97,9 @@ export class EditPurchaseOrderModalComponent {
   readonly updated = output<UpdatePurchaseOrderRequest>();
 
   readonly errorMessage = signal<string | null>(null);
+  readonly inventoryItems = this.inventoryService.items;
+  readonly inventorySearch = signal('');
+  readonly customerSearch = signal('');
 
   /** Customers (receiver profiles) available for selection, sorted by name. */
   readonly customers = computed(() =>
@@ -102,6 +109,60 @@ export class EditPurchaseOrderModalComponent {
         `${a.name} ${a.surname}`.localeCompare(`${b.name} ${b.surname}`)
       )
   );
+
+  /** Customers filtered by the type-ahead search (name, surname, email or phone). */
+  readonly filteredCustomers = computed(() => {
+    const search = this.customerSearch().trim().toLowerCase();
+    const customers = this.customers();
+    if (!search) return customers;
+    return customers.filter(customer =>
+      `${customer.name} ${customer.surname}`.toLowerCase().includes(search) ||
+      customer.email.toLowerCase().includes(search) ||
+      (customer.phone ?? '').toLowerCase().includes(search)
+    );
+  });
+
+  /**
+   * Lookup of customers by id, for resolving the selected customer's display label.
+   * Built from the full receiver list so a prefilled but now-inactive customer still resolves.
+   */
+  private readonly customerDetails = computed(() => {
+    const map = new Map<string, ReceiverProfile>();
+    for (const customer of this.receiverService.receiverList()) {
+      map.set(customer.id, customer);
+    }
+    return map;
+  });
+
+  /** IDs of inventory items already on the PO (existing lines + new lines). */
+  private readonly selectedItemIds = computed(() => {
+    return new Set(this.itemsArray.value.map(item => item.inventoryItemId).filter(Boolean));
+  });
+
+  /** Inventory items available to add, filtered by search and excluding those already on the PO. */
+  readonly filteredInventoryItems = computed(() => {
+    const search = this.inventorySearch().toLowerCase();
+    const selected = this.selectedItemIds();
+
+    return this.inventoryItems().filter(item => {
+      if (selected.has(item.id)) return false;
+      if (!search) return true;
+      return (
+        item.name.toLowerCase().includes(search) ||
+        (item.sku ?? '').toLowerCase().includes(search) ||
+        item.id.toLowerCase().includes(search)
+      );
+    });
+  });
+
+  /** Lookup of inventory item details by id, for display in form lines. */
+  readonly itemDetails = computed(() => {
+    const map = new Map<string, InventoryItem>();
+    for (const item of this.inventoryItems()) {
+      map.set(item.id, item);
+    }
+    return map;
+  });
 
   readonly form = this.fb.nonNullable.group({
     poNumber: this.fb.nonNullable.control('', [Validators.required, trimRequired]),
@@ -120,12 +181,79 @@ export class EditPurchaseOrderModalComponent {
     effect(() => {
       const isOpen = this.isOpen();
       const purchaseOrder = this.purchaseOrder();
-      if (!isOpen) return;
-      // Load customers so the dropdown can resolve the selected receiver
+      if (!isOpen) {
+        this.inventorySearch.set('');
+        this.customerSearch.set('');
+        return;
+      }
+      // Load customers + inventory so the dropdowns can resolve/add items
       this.receiverService.loadAllReceivers();
+      this.inventoryService.loadItems();
       if (!purchaseOrder) return;
       this.prefillForm(purchaseOrder);
     });
+  }
+
+  /** True for a line that is being newly added (has no persisted PO item id yet). */
+  isNewLine(index: number): boolean {
+    return !this.itemsArray.at(index)?.controls.purchaseOrderItemId.value;
+  }
+
+  addLine(): void {
+    this.itemsArray.push(
+      this.fb.nonNullable.group({
+        purchaseOrderItemId: this.fb.nonNullable.control(''),
+        inventoryItemId: this.fb.nonNullable.control('', [Validators.required, trimRequired]),
+        minAllowedQuantity: this.fb.nonNullable.control(1),
+        orderedQuantity: this.fb.nonNullable.control(1, [
+          Validators.required,
+          Validators.min(1),
+          minAllowedQuantityValidator(1),
+        ]),
+      })
+    );
+    this.itemsArray.markAsDirty();
+  }
+
+  removeLine(index: number): void {
+    if (index < 0 || index >= this.itemsArray.length) return;
+    // Only newly-added lines can be removed; existing lines are preserved.
+    if (!this.isNewLine(index)) return;
+    this.itemsArray.removeAt(index);
+    this.itemsArray.markAsTouched();
+    this.itemsArray.updateValueAndValidity();
+  }
+
+  selectInventoryItem(itemId: string, lineIndex: number): void {
+    this.itemsArray.at(lineIndex)?.controls.inventoryItemId.setValue(itemId);
+    this.inventorySearch.set('');
+  }
+
+  selectCustomer(customerId: string): void {
+    const control = this.form.controls.receiverId;
+    control.setValue(customerId);
+    control.markAsTouched();
+    this.customerSearch.set('');
+  }
+
+  clearCustomer(): void {
+    this.form.controls.receiverId.setValue('');
+    this.customerSearch.set('');
+  }
+
+  getSelectedCustomerName(customerId: string): string {
+    const customer = this.customerDetails().get(customerId);
+    return customer ? `${customer.name} ${customer.surname}` : 'Unknown customer';
+  }
+
+  getSelectedCustomerEmail(customerId: string): string {
+    return this.customerDetails().get(customerId)?.email ?? '';
+  }
+
+  getSelectedItemName(itemId: string): string {
+    const item = this.itemDetails().get(itemId);
+    if (item) return `${item.name}${item.sku ? ` (${item.sku})` : ''}`;
+    return itemId || 'Unknown Item';
   }
 
   getFieldError(fieldName: 'poNumber' | 'receiverId' | 'poValue' | 'poDate'): string | null {
@@ -144,9 +272,17 @@ export class EditPurchaseOrderModalComponent {
     return null;
   }
 
-  getLineFieldError(index: number): string | null {
-    const control = this.itemsArray.at(index)?.controls.orderedQuantity;
+  getLineFieldError(
+    index: number,
+    field: 'orderedQuantity' | 'inventoryItemId' = 'orderedQuantity'
+  ): string | null {
+    const control = this.itemsArray.at(index)?.controls[field];
     if (!control || !control.touched || !control.errors) return null;
+
+    if (field === 'inventoryItemId') {
+      if (control.errors['required']) return 'Inventory item is required';
+      return null;
+    }
 
     if (control.errors['required']) return 'Ordered quantity is required';
     if (control.errors['minAllowedQuantity']) {
@@ -178,6 +314,7 @@ export class EditPurchaseOrderModalComponent {
       poNumber: value.poNumber.trim(),
       items: value.items.map(item => ({
         purchaseOrderItemId: item.purchaseOrderItemId.trim(),
+        inventoryItemId: item.inventoryItemId.trim(),
         orderedQuantity: Number(item.orderedQuantity),
       })),
       receiverId: value.receiverId.trim(),
@@ -191,6 +328,8 @@ export class EditPurchaseOrderModalComponent {
     this.form.reset();
     this.itemsArray.clear();
     this.errorMessage.set(null);
+    this.inventorySearch.set('');
+    this.customerSearch.set('');
     this.closeModal.emit();
   }
 

@@ -190,11 +190,44 @@ describe('PurchaseOrderCrudService', () => {
     expect(rpc).toHaveBeenCalledWith('update_purchase_order_with_items', {
       p_purchase_order_id: 'po-1',
       p_po_number: 'PO-2001',
-      p_items: [{ purchase_order_item_id: 'poi-1', ordered_quantity: 8 }],
+      p_items: [{ purchase_order_item_id: 'poi-1', inventory_item_id: null, ordered_quantity: 8 }],
       p_receiver_id: 'rec-1',
       p_po_value: 2500.75,
       p_po_date: '2026-06-28',
       p_details: 'updated notes',
+    });
+    expect(single).toHaveBeenCalledTimes(1);
+  });
+
+  it('maps a newly added line (no purchase_order_item_id) to the rpc contract', async () => {
+    const single = vi.fn().mockResolvedValue({ data: { purchase_order_id: 'po-1' }, error: null });
+    rpc.mockReturnValue({ single });
+
+    const result = await service.updatePurchaseOrder({
+      purchaseOrderId: 'po-1',
+      poNumber: 'PO-2001',
+      items: [
+        { purchaseOrderItemId: 'poi-1', inventoryItemId: '', orderedQuantity: 8 },
+        { purchaseOrderItemId: '', inventoryItemId: ' inv-9 ', orderedQuantity: 4 },
+      ],
+      receiverId: 'rec-1',
+      poValue: 1000,
+      poDate: '2026-06-28',
+      details: null,
+    });
+
+    expect(result).toEqual({ success: true });
+    expect(rpc).toHaveBeenCalledWith('update_purchase_order_with_items', {
+      p_purchase_order_id: 'po-1',
+      p_po_number: 'PO-2001',
+      p_items: [
+        { purchase_order_item_id: 'poi-1', inventory_item_id: null, ordered_quantity: 8 },
+        { purchase_order_item_id: null, inventory_item_id: 'inv-9', ordered_quantity: 4 },
+      ],
+      p_receiver_id: 'rec-1',
+      p_po_value: 1000,
+      p_po_date: '2026-06-28',
+      p_details: null,
     });
     expect(single).toHaveBeenCalledTimes(1);
   });

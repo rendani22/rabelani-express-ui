@@ -62,27 +62,67 @@
             </div>
 
             <!-- Customer -->
-            <div>
-              <label for="editReceiverId" class="block text-sm font-medium mb-1.5 text-gray-700 dark:text-gray-300">
+            <div class="relative">
+              <label for="editReceiverSearch" class="block text-sm font-medium mb-1.5 text-gray-700 dark:text-gray-300">
                 Customer <span class="text-red-500" aria-hidden="true">*</span>
               </label>
-              <select
-                id="editReceiverId"
-                formControlName="receiverId"
-                class="w-full px-3 py-2.5 rounded-lg border text-sm shadow-sm transition-colors
-                       bg-white dark:bg-gray-800/30
-                       border-gray-200 dark:border-gray-700/60
-                       text-gray-800 dark:text-gray-100
-                       hover:border-gray-300 dark:hover:border-gray-600
-                       focus:border-violet-500 dark:focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
-                [class.border-red-400]="getFieldError('receiverId')"
-                [class.text-gray-400]="!form.controls.receiverId.value"
-              >
-                <option value="" disabled>Select a customer…</option>
-                @for (customer of customers(); track customer.id) {
-                  <option [value]="customer.id">{{ customer.name }} {{ customer.surname }} — {{ customer.email }}</option>
+              @if (!form.controls.receiverId.value) {
+                <input
+                  id="editReceiverSearch"
+                  type="text"
+                  [value]="customerSearch()"
+                  (input)="customerSearch.set($any($event.target).value)"
+                  placeholder="Search by name, email or phone…"
+                  autocomplete="off"
+                  class="w-full px-3 py-2.5 rounded-lg border text-sm shadow-sm transition-colors
+                         bg-white dark:bg-gray-800/30
+                         border-gray-200 dark:border-gray-700/60
+                         text-gray-800 dark:text-gray-100
+                         placeholder:text-gray-400 dark:placeholder:text-gray-500
+                         hover:border-gray-300 dark:hover:border-gray-600
+                         focus:border-violet-500 dark:focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                  [class.border-red-400]="getFieldError('receiverId')"
+                  [attr.aria-invalid]="getFieldError('receiverId') ? 'true' : null"
+                />
+
+                <!-- Dropdown list of filtered customers -->
+                @if (customerSearch()) {
+                  <div class="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700/60 rounded-lg shadow-lg z-50 max-h-48 overflow-y-auto">
+                    @if (filteredCustomers().length > 0) {
+                      @for (customer of filteredCustomers(); track customer.id) {
+                        <button
+                          type="button"
+                          (click)="selectCustomer(customer.id)"
+                          class="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors border-b border-gray-100 dark:border-gray-700 last:border-0">
+                          <div class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ customer.name }} {{ customer.surname }}</div>
+                          <div class="text-xs text-gray-600 dark:text-gray-400">{{ customer.email }}</div>
+                        </button>
+                      }
+                    } @else {
+                      <div class="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">No matching customers</div>
+                    }
+                  </div>
                 }
-              </select>
+              } @else {
+                <!-- Selected customer display -->
+                <div class="flex items-center justify-between px-3 py-2.5 rounded-lg bg-white dark:bg-gray-800/30 border border-gray-200 dark:border-gray-700/60">
+                  <div class="flex-1 min-w-0">
+                    <div class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                      {{ getSelectedCustomerName(form.controls.receiverId.value) }}
+                    </div>
+                    <div class="text-xs text-gray-500 dark:text-gray-400 truncate">
+                      {{ getSelectedCustomerEmail(form.controls.receiverId.value) }}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    (click)="clearCustomer()"
+                    class="ml-2 px-2 py-1 text-xs text-gray-500 hover:text-red-500 transition-colors shrink-0"
+                  >
+                    Change
+                  </button>
+                </div>
+              }
               @if (getFieldError('receiverId'); as error) {
                 <p class="text-xs mt-1 text-red-500" role="alert">{{ error }}</p>
               }
@@ -160,52 +200,185 @@
             ></textarea>
           </div>
 
-          <div formArrayName="items" class="space-y-3">
-            @for (line of itemsArray.controls; track $index; let i = $index) {
-              <div [formGroupName]="i" class="p-3 rounded-lg border border-gray-200 dark:border-gray-700/60 bg-gray-50 dark:bg-gray-800/30">
-                <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
-                  <div class="sm:col-span-6">
-                    <label class="block text-xs font-medium mb-1 text-gray-600 dark:text-gray-300">Inventory Item</label>
-                    <input
-                      type="text"
-                      formControlName="inventoryItemId"
-                      readonly
-                      class="w-full px-3 py-2 rounded-lg border text-sm bg-gray-100 dark:bg-gray-700/40 border-gray-200 dark:border-gray-700/60 text-gray-700 dark:text-gray-200"
-                    />
-                  </div>
+          <div>
+            <label class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+              PO Line Items <span class="text-red-500" aria-hidden="true">*</span>
+            </label>
 
-                  <div class="sm:col-span-3">
-                    <label class="block text-xs font-medium mb-1 text-gray-600 dark:text-gray-300">Min allowed</label>
-                    <input
-                      type="number"
-                      formControlName="minAllowedQuantity"
-                      readonly
-                      class="w-full px-3 py-2 rounded-lg border text-sm bg-gray-100 dark:bg-gray-700/40 border-gray-200 dark:border-gray-700/60 text-gray-700 dark:text-gray-200"
-                    />
-                  </div>
+            <div formArrayName="items" class="space-y-3">
+              @for (line of itemsArray.controls; track $index; let i = $index) {
+                <div [formGroupName]="i" class="p-3 rounded-lg border border-gray-200 dark:border-gray-700/60 bg-gray-50 dark:bg-gray-800/30">
+                  @if (isNewLine(i)) {
+                    <!-- Newly-added line: pick an inventory item + quantity -->
+                    <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 items-start">
+                      <div class="sm:col-span-7 relative">
+                        @if (!line.controls.inventoryItemId.value) {
+                          <label [for]="'editInventorySearch-' + i" class="block text-xs font-medium mb-1 text-gray-600 dark:text-gray-300">
+                            Select Inventory Item
+                          </label>
+                          <input
+                            [id]="'editInventorySearch-' + i"
+                            type="text"
+                            [value]="inventorySearch()"
+                            (input)="inventorySearch.set($any($event.target).value)"
+                            placeholder="Search by name, SKU, or ID…"
+                            class="w-full px-3 py-2 rounded-lg border text-sm shadow-sm transition-colors
+                                   bg-white dark:bg-gray-800/30
+                                   border-gray-200 dark:border-gray-700/60
+                                   text-gray-800 dark:text-gray-100
+                                   placeholder:text-gray-400 dark:placeholder:text-gray-500
+                                   hover:border-gray-300 dark:hover:border-gray-600
+                                   focus:border-violet-500 dark:focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                            [class.border-red-400]="getLineFieldError(i, 'inventoryItemId')"
+                          />
 
-                  <div class="sm:col-span-3">
-                    <label [for]="'orderedQuantity-' + i" class="block text-xs font-medium mb-1 text-gray-600 dark:text-gray-300">Ordered Qty</label>
-                    <input
-                      [id]="'orderedQuantity-' + i"
-                      type="number"
-                      [attr.min]="line.controls.minAllowedQuantity.value"
-                      formControlName="orderedQuantity"
-                      class="w-full px-3 py-2 rounded-lg border text-sm shadow-sm transition-colors
-                             bg-white dark:bg-gray-800/30
-                             border-gray-200 dark:border-gray-700/60
-                             text-gray-800 dark:text-gray-100
-                             hover:border-gray-300 dark:hover:border-gray-600
-                             focus:border-violet-500 dark:focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
-                      [class.border-red-400]="getLineFieldError(i)"
-                    />
-                    @if (getLineFieldError(i); as error) {
-                      <p class="text-xs mt-1 text-red-500" role="alert">{{ error }}</p>
-                    }
-                  </div>
+                          @if (inventorySearch()) {
+                            <div class="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700/60 rounded-lg shadow-lg z-50 max-h-48 overflow-y-auto">
+                              @if (filteredInventoryItems().length > 0) {
+                                @for (item of filteredInventoryItems(); track item.id) {
+                                  <button
+                                    type="button"
+                                    (click)="selectInventoryItem(item.id, i)"
+                                    class="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors border-b border-gray-100 dark:border-gray-700 last:border-0">
+                                    <div class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ item.name }}</div>
+                                    <div class="text-xs text-gray-600 dark:text-gray-400">
+                                      @if (item.sku) {
+                                        <span>SKU: {{ item.sku }}</span>
+                                        <span class="mx-1">·</span>
+                                      }
+                                      <span>
+                                        Stock:
+                                        <strong [class]="item.quantity <= 0 ? 'text-red-500' : 'text-gray-700 dark:text-gray-300'">
+                                          {{ item.quantity }}
+                                        </strong>
+                                        {{ item.unit }}
+                                      </span>
+                                    </div>
+                                  </button>
+                                }
+                              } @else {
+                                <div class="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">No matching items</div>
+                              }
+                            </div>
+                          }
+
+                          @if (getLineFieldError(i, 'inventoryItemId'); as error) {
+                            <p class="text-xs mt-1 text-red-500" role="alert">{{ error }}</p>
+                          }
+                        } @else {
+                          <label class="block text-xs font-medium mb-1 text-gray-600 dark:text-gray-300">Inventory Item</label>
+                          <div class="flex items-center justify-between px-3 py-2 rounded-lg bg-white dark:bg-gray-800/30 border border-gray-200 dark:border-gray-700/60">
+                            <div class="flex-1">
+                              <div class="text-sm font-medium text-gray-900 dark:text-gray-100">
+                                {{ getSelectedItemName(line.controls.inventoryItemId.value) }}
+                              </div>
+                              <div class="text-xs text-gray-500 dark:text-gray-400">
+                                Stock: {{ itemDetails().get(line.controls.inventoryItemId.value)?.quantity ?? 0 }} {{ itemDetails().get(line.controls.inventoryItemId.value)?.unit ?? '' }}
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              (click)="line.controls.inventoryItemId.setValue('')"
+                              class="ml-2 px-2 py-1 text-xs text-gray-500 hover:text-red-500 transition-colors"
+                            >
+                              Change
+                            </button>
+                          </div>
+                        }
+                      </div>
+
+                      <div class="sm:col-span-3">
+                        <label [for]="'orderedQuantity-' + i" class="block text-xs font-medium mb-1 text-gray-600 dark:text-gray-300">Ordered Qty</label>
+                        <input
+                          [id]="'orderedQuantity-' + i"
+                          type="number"
+                          min="1"
+                          formControlName="orderedQuantity"
+                          class="w-full px-3 py-2 rounded-lg border text-sm shadow-sm transition-colors
+                                 bg-white dark:bg-gray-800/30
+                                 border-gray-200 dark:border-gray-700/60
+                                 text-gray-800 dark:text-gray-100
+                                 hover:border-gray-300 dark:hover:border-gray-600
+                                 focus:border-violet-500 dark:focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                          [class.border-red-400]="getLineFieldError(i)"
+                        />
+                        @if (getLineFieldError(i); as error) {
+                          <p class="text-xs mt-1 text-red-500" role="alert">{{ error }}</p>
+                        }
+                      </div>
+
+                      <div class="sm:col-span-2 sm:pt-6">
+                        <button
+                          type="button"
+                          (click)="removeLine(i)"
+                          class="w-full px-3 py-2 text-sm font-medium rounded-lg border transition-colors
+                                 bg-white dark:bg-gray-800
+                                 border-gray-200 dark:border-gray-700/60
+                                 text-gray-700 dark:text-gray-300
+                                 hover:bg-gray-50 dark:hover:bg-gray-700/50
+                                 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  } @else {
+                    <!-- Existing line: quantity editable, item fixed -->
+                    <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+                      <div class="sm:col-span-6">
+                        <label class="block text-xs font-medium mb-1 text-gray-600 dark:text-gray-300">Inventory Item</label>
+                        <div class="w-full px-3 py-2 rounded-lg border text-sm bg-gray-100 dark:bg-gray-700/40 border-gray-200 dark:border-gray-700/60 text-gray-700 dark:text-gray-200 truncate">
+                          {{ getSelectedItemName(line.controls.inventoryItemId.value) }}
+                        </div>
+                      </div>
+
+                      <div class="sm:col-span-3">
+                        <label class="block text-xs font-medium mb-1 text-gray-600 dark:text-gray-300">Min allowed</label>
+                        <input
+                          type="number"
+                          formControlName="minAllowedQuantity"
+                          readonly
+                          class="w-full px-3 py-2 rounded-lg border text-sm bg-gray-100 dark:bg-gray-700/40 border-gray-200 dark:border-gray-700/60 text-gray-700 dark:text-gray-200"
+                        />
+                      </div>
+
+                      <div class="sm:col-span-3">
+                        <label [for]="'orderedQuantity-' + i" class="block text-xs font-medium mb-1 text-gray-600 dark:text-gray-300">Ordered Qty</label>
+                        <input
+                          [id]="'orderedQuantity-' + i"
+                          type="number"
+                          [attr.min]="line.controls.minAllowedQuantity.value"
+                          formControlName="orderedQuantity"
+                          class="w-full px-3 py-2 rounded-lg border text-sm shadow-sm transition-colors
+                                 bg-white dark:bg-gray-800/30
+                                 border-gray-200 dark:border-gray-700/60
+                                 text-gray-800 dark:text-gray-100
+                                 hover:border-gray-300 dark:hover:border-gray-600
+                                 focus:border-violet-500 dark:focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                          [class.border-red-400]="getLineFieldError(i)"
+                        />
+                        @if (getLineFieldError(i); as error) {
+                          <p class="text-xs mt-1 text-red-500" role="alert">{{ error }}</p>
+                        }
+                      </div>
+                    </div>
+                  }
                 </div>
-              </div>
-            }
+              }
+            </div>
+
+            <button
+              type="button"
+              (click)="addLine()"
+              class="mt-3 w-full px-3 py-2 text-sm font-medium rounded-lg border border-dashed transition-colors
+                     bg-white dark:bg-gray-800
+                     border-gray-300 dark:border-gray-600
+                     text-gray-700 dark:text-gray-300
+                     hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:border-violet-400 dark:hover:border-violet-500
+                     focus:outline-none focus:ring-2 focus:ring-violet-500"
+            >
+              + Add Line
+            </button>
           </div>
 
           <footer class="px-5 py-4 -mx-5 -mb-4 border-t border-gray-200 dark:border-gray-700/60">

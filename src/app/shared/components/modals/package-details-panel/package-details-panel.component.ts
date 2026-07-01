@@ -11,6 +11,7 @@ import {
   PackageService,
   StaffService,
   InventoryService,
+  InventoryItem,
   isPackageEditable,
   getAllowedManualStatusTransitions,
 } from '../../../../core';
@@ -193,7 +194,7 @@ interface TimelineEntry {
               <div class="px-6 py-5 border-b border-gray-200 dark:border-gray-700">
                 <div class="flex items-center justify-between mb-3">
                   <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                    Items ({{ editMode() ? draftItems().length : (pkg.items?.length ?? 0) }})
+                    Items ({{ editMode() ? (draftItems().length + newItems().length) : (pkg.items?.length ?? 0) }})
                   </h3>
                   <div class="flex items-center gap-2">
                     @if (canEditItems() && !editMode()) {
@@ -271,7 +272,7 @@ interface TimelineEntry {
                             <p class="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
                               Stock: {{ stockHintFor(draft.inventory_item_id) }}
                               @if (draft.quantity > (originalQuantityFor(draft.id) ?? 0) + (stockHintFor(draft.inventory_item_id) ?? 0)) {
-                                <span class="text-red-600 dark:text-red-400 ml-1">(insufficient)</span>
+                                <span class="text-amber-600 dark:text-amber-400 ml-1">(backorder)</span>
                               }
                             </p>
                           }
@@ -321,6 +322,119 @@ interface TimelineEntry {
                       </li>
                     }
                   </ul>
+
+                  <!-- New items being added -->
+                  @if (newItems().length > 0) {
+                    <ul class="space-y-2 mt-2">
+                      @for (n of newItems(); track n.tempId) {
+                        <li class="flex items-center gap-2 p-3 rounded-lg bg-violet-50 dark:bg-violet-900/10 border border-violet-100 dark:border-violet-900/30">
+                          <div class="flex-1 min-w-0">
+                            @if (!n.inventoryItemId) {
+                              <div class="relative">
+                                <input
+                                  type="text"
+                                  class="w-full text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                                  [placeholder]="isPoRestricted() ? 'Search PO items by name, SKU or ID…' : 'Search inventory by name, SKU or ID…'"
+                                  [ngModel]="n.search"
+                                  (ngModelChange)="setNewItemSearch(n.tempId, $event)"
+                                  aria-label="Search inventory item"
+                                />
+                                @if (n.search.trim()) {
+                                  <div class="absolute z-20 left-0 right-0 mt-1 max-h-48 overflow-y-auto rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg">
+                                    @for (inv of filteredInventoryFor(n.search); track inv.id) {
+                                      <button
+                                        type="button"
+                                        class="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 border-b border-gray-100 dark:border-gray-700 last:border-0"
+                                        (click)="selectNewItemInventory(n.tempId, inv.id)"
+                                      >
+                                        <span class="block text-sm text-gray-900 dark:text-white">{{ inv.name }}</span>
+                                        <span class="block text-[11px] text-gray-500 dark:text-gray-400">
+                                          @if (inv.sku) { SKU: {{ inv.sku }} · }
+                                          Stock:
+                                          <span [class.text-red-500]="inv.quantity <= 0">{{ inv.quantity }}</span>
+                                          {{ inv.unit }}
+                                        </span>
+                                      </button>
+                                    } @empty {
+                                      <p class="px-3 py-2 text-xs text-gray-500 dark:text-gray-400">No matching items</p>
+                                    }
+                                  </div>
+                                }
+                              </div>
+                            } @else {
+                              <div class="flex items-center justify-between gap-2">
+                                <div class="min-w-0">
+                                  <p class="text-sm text-gray-900 dark:text-white truncate" [title]="newItemLabel(n.inventoryItemId)">
+                                    {{ newItemLabel(n.inventoryItemId) }}
+                                  </p>
+                                  @if (stockHintFor(n.inventoryItemId) !== null) {
+                                    <p class="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
+                                      Stock: {{ stockHintFor(n.inventoryItemId) }}
+                                      @if (n.quantity > (stockHintFor(n.inventoryItemId) ?? 0)) {
+                                        <span class="text-amber-600 dark:text-amber-400 ml-1">(backorder)</span>
+                                      }
+                                    </p>
+                                  }
+                                </div>
+                                <button
+                                  type="button"
+                                  class="shrink-0 text-xs text-violet-600 dark:text-violet-400 hover:text-violet-700 font-medium"
+                                  (click)="clearNewItemInventory(n.tempId)"
+                                >Change</button>
+                              </div>
+                            }
+                          </div>
+
+                          <div class="flex items-center gap-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md">
+                            <button
+                              type="button"
+                              class="px-2 py-1 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white disabled:text-gray-300 dark:disabled:text-gray-600"
+                              [disabled]="n.quantity <= 1"
+                              (click)="setNewItemQty(n.tempId, n.quantity - 1)"
+                              aria-label="Decrease quantity"
+                            >−</button>
+                            <input
+                              type="number"
+                              class="w-12 text-center text-sm bg-transparent border-0 focus:outline-none focus:ring-0 text-gray-900 dark:text-white"
+                              min="1"
+                              [ngModel]="n.quantity"
+                              (ngModelChange)="setNewItemQty(n.tempId, $event)"
+                            />
+                            <button
+                              type="button"
+                              class="px-2 py-1 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+                              (click)="setNewItemQty(n.tempId, n.quantity + 1)"
+                              aria-label="Increase quantity"
+                            >+</button>
+                          </div>
+                          <button
+                            type="button"
+                            class="p-1.5 text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 transition-colors rounded"
+                            (click)="removeNewItem(n.tempId)"
+                            title="Remove item"
+                            aria-label="Remove new item"
+                          >
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3"></path>
+                            </svg>
+                          </button>
+                        </li>
+                      }
+                    </ul>
+                  }
+
+                  <button
+                    type="button"
+                    class="mt-2 w-full inline-flex items-center justify-center gap-1 px-3 py-2 text-xs font-medium rounded-md border border-dashed border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:border-violet-400 dark:hover:border-violet-500 transition-colors"
+                    (click)="addNewItem()"
+                  >
+                    + Add item
+                  </button>
+                  @if (isPoRestricted()) {
+                    <p class="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
+                      This order is linked to PO {{ package?.po_number }}; only items on that PO can be added.
+                    </p>
+                  }
 
                   @if (itemEditError()) {
                     <p class="mt-2 text-xs text-red-600 dark:text-red-400">{{ itemEditError() }}</p>
@@ -941,6 +1055,64 @@ export class PackageDetailsPanelComponent implements OnChanges {
   /** Snapshot of original quantities keyed by item id, used for stock-cap math. */
   private readonly originalQuantities = signal<Record<string, number>>({});
 
+  /** Brand-new items being added during this edit (not yet persisted). */
+  readonly newItems = signal<Array<{
+    tempId: string;
+    inventoryItemId: string;
+    description: string;
+    quantity: number;
+    /** Current typeahead text while no item is chosen yet. */
+    search: string;
+  }>>([]);
+  /** Monotonic counter for generating stable temp ids for new item rows. */
+  private newItemSeq = 0;
+
+  /**
+   * When this order was created from a loaded PO, only inventory items on that
+   * PO may be added. Holds the allowed inventory ids; `null` means the order is
+   * not PO-backed and any inventory item may be added.
+   */
+  readonly poInventoryIds = signal<Set<string> | null>(null);
+
+  /** True when new items are constrained to the originating PO's inventory. */
+  isPoRestricted(): boolean {
+    return this.poInventoryIds() !== null;
+  }
+
+  /** Inventory ids already used by existing (non-deleted) or new rows. */
+  private usedInventoryIds(): Set<string> {
+    const ids = new Set<string>();
+    for (const d of this.draftItems()) {
+      if (!d.deleted && d.inventory_item_id) ids.add(d.inventory_item_id);
+    }
+    for (const n of this.newItems()) {
+      if (n.inventoryItemId) ids.add(n.inventoryItemId);
+    }
+    return ids;
+  }
+
+  /**
+   * Inventory items matching a typeahead query, excluding those already on the
+   * package. Matches on name, SKU or id; an empty query returns the first few
+   * available items so the list isn't overwhelming.
+   */
+  filteredInventoryFor(search: string): InventoryItem[] {
+    const used = this.usedInventoryIds();
+    const poIds = this.poInventoryIds();
+    const needle = (search ?? '').trim().toLowerCase();
+    const available = this.inventoryService.items().filter(i =>
+      !used.has(i.id) && (poIds === null || poIds.has(i.id))
+    );
+    const matches = !needle
+      ? available
+      : available.filter(i =>
+          i.name.toLowerCase().includes(needle) ||
+          (i.sku ?? '').toLowerCase().includes(needle) ||
+          i.id.toLowerCase().includes(needle)
+        );
+    return matches.slice(0, 8);
+  }
+
   /** True when the notes free-text is being edited inline. */
   readonly editingNotes = signal(false);
   /** Working copy of the notes text while editing. */
@@ -976,6 +1148,7 @@ export class PackageDetailsPanelComponent implements OnChanges {
 
   /** Returns true if the user has any pending changes vs the original items. */
   hasDraftChanges(): boolean {
+    if (this.newItems().length > 0) return true;
     const drafts = this.draftItems();
     const originals = this.originalQuantities();
     return drafts.some(d => d.deleted || d.quantity !== (originals[d.id] ?? d.quantity));
@@ -993,16 +1166,18 @@ export class PackageDetailsPanelComponent implements OnChanges {
    */
   areDraftsValid(): boolean {
     const drafts = this.draftItems();
-    const originals = this.originalQuantities();
     for (const d of drafts) {
       if (d.deleted) continue;
       if (!Number.isInteger(d.quantity) || d.quantity < 1) return false;
-      if (d.inventory_item_id) {
-        const stock = this.stockHintFor(d.inventory_item_id);
-        const original = originals[d.id] ?? 0;
-        const additional = d.quantity - original;
-        if (stock !== null && stock > 0 && additional > stock) return false;
-      }
+      // Quantities above the current stock are allowed for existing items too —
+      // the server permits negative inventory (backorder).
+    }
+    // New items: an inventory item must be chosen and the quantity must be a
+    // positive integer. Quantities above the current stock are allowed — the
+    // server permits negative inventory (backorder).
+    for (const n of this.newItems()) {
+      if (!n.inventoryItemId) return false;
+      if (!Number.isInteger(n.quantity) || n.quantity < 1) return false;
     }
     return true;
   }
@@ -1024,10 +1199,58 @@ export class PackageDetailsPanelComponent implements OnChanges {
     this.originalQuantities.set(
       Object.fromEntries(items.map(i => [i.id, i.quantity]))
     );
+    this.newItems.set([]);
+    this.poInventoryIds.set(null);
     this.itemEditError.set(null);
     this.editMode.set(true);
     // Refresh inventory cache so stock hints are accurate.
     void this.inventoryService.loadItems();
+    // If this order was created from a loaded PO, restrict addable items to it.
+    void this.loadPoInventoryIds(pkg.id, pkg.po_number ?? null, items.map(i => i.id));
+  }
+
+  /**
+   * Resolve the set of inventory items an order may add during edit.
+   *
+   * Only orders that were genuinely created from a loaded PO are restricted —
+   * these have `purchase_order_item_allocations` linking their package items
+   * back to the PO. An order that merely carries a free-text / "global" PO
+   * number (with no allocations) is left unrestricted. Any lookup failure also
+   * leaves the restriction off so it never blocks editing.
+   */
+  private async loadPoInventoryIds(
+    packageId: string,
+    poNumber: string | null,
+    itemIds: string[]
+  ): Promise<void> {
+    const trimmed = poNumber?.trim();
+    if (!trimmed || itemIds.length === 0) {
+      this.poInventoryIds.set(null);
+      return;
+    }
+    const isStale = () => this.package?.id !== packageId || !this.editMode();
+    try {
+      // Was this order created FROM a PO? Only then do allocations exist.
+      const { data: allocRows, error: allocErr } = await this.supabaseService.client
+        .from('purchase_order_item_allocations')
+        .select('id')
+        .in('package_item_id', itemIds)
+        .limit(1);
+      if (isStale()) return;
+      if (allocErr || !allocRows || allocRows.length === 0) {
+        this.poInventoryIds.set(null);
+        return;
+      }
+
+      // PO-backed → restrict to the originating PO's full item list.
+      const result = await this.packageService.getPurchaseOrderByNumber(trimmed);
+      if (isStale()) return;
+      this.poInventoryIds.set(
+        result.success ? new Set(result.data.items.map(i => i.inventoryItemId)) : null
+      );
+    } catch {
+      if (!isStale()) this.poInventoryIds.set(null);
+    }
   }
 
   /** Discard drafts and exit edit mode. */
@@ -1035,6 +1258,8 @@ export class PackageDetailsPanelComponent implements OnChanges {
     if (this.savingItems()) return;
     this.editMode.set(false);
     this.draftItems.set([]);
+    this.newItems.set([]);
+    this.poInventoryIds.set(null);
     this.originalQuantities.set({});
     this.itemEditError.set(null);
   }
@@ -1076,6 +1301,60 @@ export class PackageDetailsPanelComponent implements OnChanges {
     );
   }
 
+  /** Append a blank new-item row and refresh inventory for the picker. */
+  addNewItem(): void {
+    this.newItems.update(rows => [
+      ...rows,
+      { tempId: `new-${++this.newItemSeq}`, inventoryItemId: '', description: '', quantity: 1, search: '' },
+    ]);
+    void this.inventoryService.loadItems();
+  }
+
+  /** Update the typeahead text for a new row. */
+  setNewItemSearch(tempId: string, value: string): void {
+    this.newItems.update(rows =>
+      rows.map(r => (r.tempId === tempId ? { ...r, search: value } : r))
+    );
+  }
+
+  /** Choose the inventory item for a new row; its name seeds the description. */
+  selectNewItemInventory(tempId: string, inventoryItemId: string): void {
+    const inv = this.inventoryService.items().find(i => i.id === inventoryItemId);
+    this.newItems.update(rows =>
+      rows.map(r =>
+        r.tempId === tempId
+          ? { ...r, inventoryItemId, description: inv ? inv.name : r.description, search: '' }
+          : r
+      )
+    );
+  }
+
+  /** Clear a new row's selection so a different item can be typed. */
+  clearNewItemInventory(tempId: string): void {
+    this.newItems.update(rows =>
+      rows.map(r => (r.tempId === tempId ? { ...r, inventoryItemId: '', search: '' } : r))
+    );
+  }
+
+  /** Display label for a chosen inventory item on a new row. */
+  newItemLabel(inventoryItemId: string): string {
+    const inv = this.inventoryService.items().find(i => i.id === inventoryItemId);
+    return inv ? `${inv.name}${inv.sku ? ` (${inv.sku})` : ''}` : 'Selected item';
+  }
+
+  /** Set a new row's quantity, clamped to >= 1. */
+  setNewItemQty(tempId: string, value: number | string): void {
+    const next = Math.max(1, Math.floor(Number(value) || 1));
+    this.newItems.update(rows =>
+      rows.map(r => (r.tempId === tempId ? { ...r, quantity: next } : r))
+    );
+  }
+
+  /** Remove a new-item row entirely. */
+  removeNewItem(tempId: string): void {
+    this.newItems.update(rows => rows.filter(r => r.tempId !== tempId));
+  }
+
   /** Persist the items diff via the update-package edge function. */
   async saveItemEdits(): Promise<void> {
     const pkg = this.package;
@@ -1088,15 +1367,22 @@ export class PackageDetailsPanelComponent implements OnChanges {
       .filter(d => !d.deleted && d.quantity !== (originals[d.id] ?? d.quantity))
       .map(d => ({ id: d.id, quantity: d.quantity }));
     const deletes = drafts.filter(d => d.deleted).map(d => d.id);
+    const creates = this.newItems()
+      .filter(n => n.inventoryItemId && Number.isInteger(n.quantity) && n.quantity >= 1)
+      .map(n => ({
+        quantity: n.quantity,
+        description: n.description.trim() || 'Item',
+        inventory_item_id: n.inventoryItemId,
+      }));
 
-    if (updates.length === 0 && deletes.length === 0) return;
+    if (updates.length === 0 && deletes.length === 0 && creates.length === 0) return;
 
     this.savingItems.set(true);
     this.itemEditError.set(null);
 
     try {
       const result = await this.packageService.updatePackage(pkg.id, {
-        items: { updates, deletes },
+        items: { updates, deletes, creates },
       });
 
       if (!result.success) {
@@ -1128,6 +1414,8 @@ export class PackageDetailsPanelComponent implements OnChanges {
       );
       this.editMode.set(false);
       this.draftItems.set([]);
+      this.newItems.set([]);
+      this.poInventoryIds.set(null);
       this.originalQuantities.set({});
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unexpected error.';
