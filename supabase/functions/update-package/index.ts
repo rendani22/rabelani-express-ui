@@ -976,12 +976,13 @@ serve(async (req) => {
             console.warn(completedEmailError)
           } else {
             // Build POD attachment (priority: pod.pdf_base64 > pods.pdf_url).
-            // Filename MUST match the format used by CompletedOrdersComponent's
-            // bulk ZIP download: `POD-<package_reference>[-<po_number>].pdf`.
-            // A client-supplied `pod.pdf_filename` (already produced with the
-            // same formula in orders.ts) takes precedence so both code paths
-            // end up identical.
-            const podFilename = `${poNumber ? `${poNumber}` : ''}-${updatedPackage.reference} .pdf`
+            // A client-supplied `pod.pdf_filename` (produced with the same
+            // formula in orders.ts) takes precedence so both code paths end up
+            // identical; otherwise fall back to `<po_number>-<reference>.pdf`,
+            // dropping the PO segment entirely when the package has no PO number.
+            const podFilename =
+              pod?.pdf_filename?.trim() ||
+              `${poNumber ? `${poNumber}-` : ''}${updatedPackage.reference}.pdf`
 
             const attachments: Array<Record<string, string>> = []
             if (pod?.pdf_base64) {
