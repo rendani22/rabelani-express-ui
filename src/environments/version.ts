@@ -42,23 +42,23 @@ export interface AppVersion {
 }
 
 export const APP_VERSION: AppVersion = {
-  "version": "1.0.0+5b578b6.dirty",
-  "semver": "1.0.0",
+  "version": "1.0.1+63c8283.dirty",
+  "semver": "1.0.1",
   "major": 1,
   "minor": 0,
-  "patch": 0,
+  "patch": 1,
   "prerelease": null,
-  "buildMetadata": "5b578b6.dirty",
+  "buildMetadata": "63c8283.dirty",
   "channel": "stable",
   "baseTag": "v1.0.0",
-  "commitsSinceBase": 0,
-  "bumpsSinceBase": 0,
+  "commitsSinceBase": 3,
+  "bumpsSinceBase": 1,
   "isDirty": true,
   "isRelease": false,
-  "hash": "5b578b6",
-  "fullHash": "5b578b6dadb8723e1526505936070eb479782e87",
+  "hash": "63c8283",
+  "fullHash": "63c82837858858c455e7c0b149431f48dce6685b",
   "branch": "main",
-  "message": "feat: AddGlobal PO (#13)",
-  "commitDate": "2026-06-29T20:47:56+02:00",
-  "buildDate": "2026-06-29T19:57:27.255Z"
+  "message": "fix: improve POD filename generation logic",
+  "commitDate": "2026-07-01T08:07:08+02:00",
+  "buildDate": "2026-07-01T06:16:47.135Z"
 };

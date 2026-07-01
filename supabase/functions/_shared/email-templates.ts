@@ -342,6 +342,7 @@ const CONTENTS_UPDATED_HTML = `
                   </table>
                   {{/has_previous_items}}
                   {{^has_previous_items}}<p><em>No items.</em></p>{{/has_previous_items}}
+                  {{#notes}}<h3>Notes</h3><p style="white-space: pre-wrap;">{{notes}}</p>{{/notes}}
                   <p>Thank you for your Order.</p>
                 </div>
                 <div style="background:#242424; color:#ccc; padding: 16px; text-align:center;">

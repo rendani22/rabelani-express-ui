@@ -26,6 +26,15 @@ interface StatusHistoryEntry {
   readonly note?: string;
 }
 
+/** A single package audit-log row (admin-only view) */
+interface AuditLogEntry {
+  readonly id: string;
+  readonly action: string;
+  readonly performed_by?: string;
+  readonly metadata?: Record<string, unknown> | null;
+  readonly created_at: string;
+}
+
 /** Fallback timeline entry derived from the package model when no history table exists */
 interface TimelineEntry {
   readonly label: string;
@@ -338,12 +347,54 @@ interface TimelineEntry {
             }
 
             <!-- Notes -->
-            @if (pkg.notes) {
+            @if (pkg.notes || canEditNotes()) {
               @let parsedNotes = parseNotes(pkg.notes);
               <div class="px-6 py-5 border-b border-gray-200 dark:border-gray-700">
-                <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
-                  Notes
-                </h3>
+                <div class="flex items-center justify-between mb-3">
+                  <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                    Notes
+                  </h3>
+                  @if (canEditNotes() && !editingNotes()) {
+                    <button
+                      type="button"
+                      class="inline-flex items-center gap-1 text-xs text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300"
+                      (click)="enterNotesEdit()"
+                      title="Edit notes"
+                    >
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                      </svg>
+                      {{ pkg.notes ? 'Edit' : 'Add' }}
+                    </button>
+                  }
+                </div>
+
+                @if (editingNotes()) {
+                  <textarea
+                    rows="4"
+                    class="w-full text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white p-3 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                    placeholder="Add a note for this order…"
+                    [ngModel]="draftNotes()"
+                    (ngModelChange)="draftNotes.set($event)"
+                  ></textarea>
+                  @if (notesEditError()) {
+                    <p class="text-xs text-red-600 dark:text-red-400 mt-2">{{ notesEditError() }}</p>
+                  }
+                  <div class="flex items-center justify-end gap-2 mt-3">
+                    <button
+                      type="button"
+                      class="px-3 py-1.5 text-xs text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white disabled:opacity-50"
+                      [disabled]="savingNotes()"
+                      (click)="cancelNotesEdit()"
+                    >Cancel</button>
+                    <button
+                      type="button"
+                      class="px-3 py-1.5 text-xs rounded-md bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-50"
+                      [disabled]="savingNotes()"
+                      (click)="saveNotesEdit()"
+                    >{{ savingNotes() ? 'Saving…' : 'Save' }}</button>
+                  </div>
+                } @else {
 
                 @if (parsedNotes.photoUrls.length) {
                   <div class="mb-3">
@@ -384,8 +435,12 @@ interface TimelineEntry {
 
                 @if (parsedNotes.text) {
                   <p class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{{ parsedNotes.text }}</p>
-                } @else if (!parsedNotes.photoUrls.length) {
+                } @else if (pkg.notes && !parsedNotes.photoUrls.length) {
                   <p class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{{ pkg.notes }}</p>
+                } @else if (!parsedNotes.photoUrls.length) {
+                  <p class="text-sm text-gray-400 dark:text-gray-500 italic">No notes yet.</p>
+                }
+
                 }
               </div>
             }
@@ -487,11 +542,19 @@ interface TimelineEntry {
 
             <!-- Timeline / Activity Log -->
             <div class="px-6 py-5">
-              <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
-                Activity
-              </h3>
+              <div class="flex items-center justify-between mb-4">
+                <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                  Activity
+                </h3>
+                @if (!loadingHistory() && statusHistory().length > 0) {
+                  <span class="inline-flex items-center rounded-full bg-gray-100 dark:bg-gray-700 px-2 py-0.5 text-[11px] font-medium text-gray-500 dark:text-gray-400">
+                    {{ statusHistory().length }} {{ statusHistory().length === 1 ? 'event' : 'events' }}
+                  </span>
+                }
+              </div>
+
               @if (loadingHistory()) {
-                <div class="flex items-center justify-center py-4">
+                <div class="flex items-center justify-center py-6">
                   <svg class="animate-spin h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24">
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
@@ -499,37 +562,109 @@ interface TimelineEntry {
                 </div>
               } @else if (statusHistory().length > 0) {
                 <!-- Supabase history entries -->
-                <div class="relative pl-6 border-l-2 border-gray-200 dark:border-gray-700 space-y-4">
+                <ol class="relative ml-1.5 space-y-4 border-l border-gray-200 dark:border-gray-700">
                   @for (entry of statusHistory(); track entry.changed_at) {
-                    <div class="relative">
-                      <div class="absolute -left-[25px] w-4 h-4 rounded-full border-2 border-white dark:border-gray-800"
-                           [class]="getHistoryDotColor(entry.status)"></div>
-                      <p class="text-sm font-medium text-gray-900 dark:text-white">{{ getStatusLabel(entry.status) }}</p>
-                      <p class="text-xs text-gray-500 dark:text-gray-400">{{ formatDateTime(entry.changed_at) }}</p>
+                    <li class="relative pl-4">
+                      <span
+                        class="absolute -left-[5px] top-1.5 h-2.5 w-2.5 rounded-full ring-2 ring-white dark:ring-gray-800"
+                        [class]="getHistoryDotColor(entry.status)"
+                      ></span>
+                      <div class="flex items-baseline justify-between gap-2">
+                        <p class="text-sm font-medium text-gray-900 dark:text-white">{{ getStatusLabel(entry.status) }}</p>
+                        <time class="shrink-0 text-[11px] text-gray-400 dark:text-gray-500">{{ formatDateTime(entry.changed_at) }}</time>
+                      </div>
+                      <p class="text-xs text-gray-500 dark:text-gray-400">
+                        @if (actorFor(entry.changed_by); as actor) {
+                          <span [class.italic]="!actor.known">{{ actor.name }}</span>
+                        } @else {
+                          <span class="italic">System</span>
+                        }
+                      </p>
                       @if (entry.note) {
-                        <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5 italic">{{ entry.note }}</p>
+                        <p class="mt-0.5 text-xs italic text-gray-400 dark:text-gray-500">{{ entry.note }}</p>
                       }
-                    </div>
+                    </li>
                   }
-                </div>
+                </ol>
               } @else {
                 <!-- Derived timeline fallback -->
-                <div class="relative pl-6 border-l-2 border-gray-200 dark:border-gray-700 space-y-4">
+                <ol class="relative ml-1.5 space-y-4 border-l border-gray-200 dark:border-gray-700">
                   @for (entry of derivedTimeline(); track entry.label) {
                     @if (entry.completed) {
-                      <div class="relative">
-                        <div class="absolute -left-[25px] w-4 h-4 rounded-full border-2 border-white dark:border-gray-800"
-                             [class]="entry.color"></div>
-                        <p class="text-sm font-medium text-gray-900 dark:text-white">{{ entry.label }}</p>
-                        @if (entry.timestamp) {
-                          <p class="text-xs text-gray-500 dark:text-gray-400">{{ formatDateTime(entry.timestamp) }}</p>
-                        }
-                      </div>
+                      <li class="relative pl-4">
+                        <span
+                          class="absolute -left-[5px] top-1.5 h-2.5 w-2.5 rounded-full ring-2 ring-white dark:ring-gray-800"
+                          [class]="entry.color"
+                        ></span>
+                        <div class="flex items-baseline justify-between gap-2">
+                          <p class="text-sm font-medium text-gray-900 dark:text-white">{{ entry.label }}</p>
+                          @if (entry.timestamp) {
+                            <time class="shrink-0 text-[11px] text-gray-400 dark:text-gray-500">{{ formatDateTime(entry.timestamp) }}</time>
+                          }
+                        </div>
+                      </li>
                     }
                   }
-                </div>
+                </ol>
               }
             </div>
+
+            <!-- Audit Log (admin only) -->
+            @if (isAdmin()) {
+              <div class="px-6 py-5 border-t border-gray-200 dark:border-gray-700">
+                <button
+                  type="button"
+                  class="flex w-full items-center justify-between text-left"
+                  (click)="toggleAuditLog()"
+                  [attr.aria-expanded]="auditOpen()"
+                >
+                  <span class="inline-flex items-center gap-2 text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                    Audit Log
+                    <span class="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:bg-amber-500/20 dark:text-amber-300">Admin</span>
+                  </span>
+                  <svg class="h-4 w-4 text-gray-400 transition-transform" [class.rotate-180]="auditOpen()" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                  </svg>
+                </button>
+
+                @if (auditOpen()) {
+                  <div class="mt-4">
+                    @if (loadingAudit()) {
+                      <div class="flex items-center justify-center py-6">
+                        <svg class="animate-spin h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24">
+                          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                        </svg>
+                      </div>
+                    } @else if (auditLog().length > 0) {
+                      <ol class="relative ml-1.5 space-y-4 border-l border-gray-200 dark:border-gray-700">
+                        @for (entry of auditLog(); track entry.id) {
+                          <li class="relative pl-4">
+                            <span class="absolute -left-[5px] top-1.5 h-2.5 w-2.5 rounded-full bg-gray-300 ring-2 ring-white dark:bg-gray-600 dark:ring-gray-800"></span>
+                            <div class="flex items-baseline justify-between gap-2">
+                              <p class="text-sm font-medium text-gray-900 dark:text-white">{{ formatAuditAction(entry.action) }}</p>
+                              <time class="shrink-0 text-[11px] text-gray-400 dark:text-gray-500">{{ formatDateTime(entry.created_at) }}</time>
+                            </div>
+                            @if (auditStatusChange(entry); as change) {
+                              <p class="text-xs text-gray-500 dark:text-gray-400">{{ change }}</p>
+                            }
+                            <p class="text-xs text-gray-500 dark:text-gray-400">
+                              @if (actorFor(entry.performed_by); as actor) {
+                                <span [class.italic]="!actor.known">{{ actor.name }}</span>
+                              } @else {
+                                <span class="italic">System</span>
+                              }
+                            </p>
+                          </li>
+                        }
+                      </ol>
+                    } @else {
+                      <p class="text-sm italic text-gray-400 dark:text-gray-500">No audit entries.</p>
+                    }
+                  </div>
+                }
+              </div>
+            }
           </div>
 
           <!-- Footer Actions -->
@@ -740,6 +875,23 @@ export class PackageDetailsPanelComponent implements OnChanges {
   /** Loading state for history */
   readonly loadingHistory = signal(false);
 
+  /**
+   * Resolved staff details for the `changed_by` user ids referenced by the
+   * status history, keyed by auth user id. Populated lazily after the history
+   * loads so each activity entry can show who performed the action.
+   */
+  readonly historyActors = signal<Record<string, { name: string; email: string }>>({});
+
+  /** True when the current user is an admin (gates the audit-log view). */
+  readonly isAdmin = this.staffService.isAdmin;
+
+  /** Package audit-log rows, loaded lazily when an admin expands the section. */
+  readonly auditLog = signal<AuditLogEntry[]>([]);
+  /** Loading state for the audit log. */
+  readonly loadingAudit = signal(false);
+  /** Whether the (admin-only) audit-log section is expanded. */
+  readonly auditOpen = signal(false);
+
   /** POD lock status for delivered/collected packages */
   readonly podStatus = signal<PackageLockStatus | null>(null);
 
@@ -789,8 +941,25 @@ export class PackageDetailsPanelComponent implements OnChanges {
   /** Snapshot of original quantities keyed by item id, used for stock-cap math. */
   private readonly originalQuantities = signal<Record<string, number>>({});
 
+  /** True when the notes free-text is being edited inline. */
+  readonly editingNotes = signal(false);
+  /** Working copy of the notes text while editing. */
+  readonly draftNotes = signal('');
+  /** True while the notes save call is in flight. */
+  readonly savingNotes = signal(false);
+  /** Inline error from the last notes save attempt. */
+  readonly notesEditError = signal<string | null>(null);
+
   /** True when the package is in a state where item edits are allowed. */
   canEditItems(): boolean {
+    return !!this.package && isPackageEditable(this.package);
+  }
+
+  /**
+   * True when the package notes may be edited from the UI — limited to the
+   * `draft`, `pending` and `notified` statuses (same rule as item edits).
+   */
+  canEditNotes(): boolean {
     return !!this.package && isPackageEditable(this.package);
   }
 
@@ -814,8 +983,13 @@ export class PackageDetailsPanelComponent implements OnChanges {
 
   /**
    * Validate drafts before save. Quantities must be positive integers; for
-   * inventory-linked items, the additional consumption must not exceed the
+   * inventory-linked items, any *additional* consumption must not exceed the
    * cached stock (defensive — the server is the source of truth).
+   *
+   * Back-ordered items (stock <= 0) are still editable: decreases/removals are
+   * always allowed, and further backordering is permitted so the server can
+   * reconcile the negative inventory. The cap therefore only applies to
+   * increases measured against genuinely-available (positive) stock.
    */
   areDraftsValid(): boolean {
     const drafts = this.draftItems();
@@ -826,7 +1000,8 @@ export class PackageDetailsPanelComponent implements OnChanges {
       if (d.inventory_item_id) {
         const stock = this.stockHintFor(d.inventory_item_id);
         const original = originals[d.id] ?? 0;
-        if (stock !== null && d.quantity - original > stock) return false;
+        const additional = d.quantity - original;
+        if (stock !== null && stock > 0 && additional > stock) return false;
       }
     }
     return true;
@@ -963,6 +1138,61 @@ export class PackageDetailsPanelComponent implements OnChanges {
     }
   }
 
+  /** Enter notes edit mode, seeding the draft from the current notes. */
+  enterNotesEdit(): void {
+    const pkg = this.package;
+    if (!pkg || !this.canEditNotes()) return;
+    this.draftNotes.set(pkg.notes ?? '');
+    this.notesEditError.set(null);
+    this.editingNotes.set(true);
+  }
+
+  /** Discard the notes draft and exit edit mode. */
+  cancelNotesEdit(): void {
+    if (this.savingNotes()) return;
+    this.editingNotes.set(false);
+    this.draftNotes.set('');
+    this.notesEditError.set(null);
+  }
+
+  /** Persist the edited notes via the update-package edge function. */
+  async saveNotesEdit(): Promise<void> {
+    const pkg = this.package;
+    if (!pkg || !this.canEditNotes() || this.savingNotes()) return;
+
+    const next = this.draftNotes().trim();
+    if (next === (pkg.notes ?? '').trim()) {
+      this.cancelNotesEdit();
+      return;
+    }
+
+    this.savingNotes.set(true);
+    this.notesEditError.set(null);
+
+    try {
+      const result = await this.packageService.updatePackage(pkg.id, { notes: next });
+
+      if (!result.success) {
+        const message = result.error || 'Failed to save notes.';
+        this.notesEditError.set(message);
+        this.toastService.error(message);
+        return;
+      }
+
+      this.package = result.data.package as Package;
+      this.packageUpdated.emit(this.package);
+      this.toastService.success('Notes updated.');
+      this.editingNotes.set(false);
+      this.draftNotes.set('');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unexpected error.';
+      this.notesEditError.set(message);
+      this.toastService.error(message);
+    } finally {
+      this.savingNotes.set(false);
+    }
+  }
+
   /**
    * List of statuses an admin/collection user is allowed to set on the
    * current package (forward-only, excludes `collected`).
@@ -1001,6 +1231,9 @@ export class PackageDetailsPanelComponent implements OnChanges {
       this.draftItems.set([]);
       this.originalQuantities.set({});
       this.itemEditError.set(null);
+      // Collapse and clear the audit log so it reloads for the new package.
+      this.auditOpen.set(false);
+      this.auditLog.set([]);
     }
   }
 
@@ -1055,12 +1288,137 @@ export class PackageDetailsPanelComponent implements OnChanges {
         return;
       }
 
-      this.statusHistory.set((data ?? []) as StatusHistoryEntry[]);
+      const entries = (data ?? []) as StatusHistoryEntry[];
+      this.statusHistory.set(entries);
+      void this.resolveActorNames(entries.map(e => e.changed_by));
     } catch {
       this.statusHistory.set([]);
     } finally {
       this.loadingHistory.set(false);
     }
+  }
+
+  /**
+   * Resolve a set of auth user ids to staff names and merge them into the
+   * shared `historyActors` cache, so both the Activity timeline and the audit
+   * log can attribute actions. Best-effort: on any failure (or RLS denial) the
+   * ids simply remain unresolved and fall back to a neutral label. Ids already
+   * cached are skipped.
+   */
+  private async resolveActorNames(rawIds: readonly (string | undefined)[]): Promise<void> {
+    const existing = this.historyActors();
+    const ids = [...new Set(rawIds.filter((v): v is string => !!v && !(v in existing)))];
+    if (ids.length === 0) return;
+    try {
+      const { data, error } = await this.supabaseService.client
+        .from('staff_profiles')
+        .select('user_id, full_name, email')
+        .in('user_id', ids);
+
+      if (error || !data) return;
+
+      const additions: Record<string, { name: string; email: string }> = {};
+      for (const row of data as Array<{ user_id: string; full_name: string | null; email: string | null }>) {
+        additions[row.user_id] = { name: row.full_name ?? '', email: row.email ?? '' };
+      }
+      this.historyActors.update(prev => ({ ...prev, ...additions }));
+    } catch {
+      /* best-effort — leave ids unresolved */
+    }
+  }
+
+  /**
+   * Load the package audit log (admin-only). Lazily invoked when the section
+   * is first expanded. Reads directly from `audit_logs`; RLS already limits
+   * this table to active staff, and the UI further gates the view to admins.
+   */
+  private async loadAuditLog(packageId: string): Promise<void> {
+    this.loadingAudit.set(true);
+    try {
+      const { data, error } = await this.supabaseService.client
+        .from('audit_logs')
+        .select('id, action, performed_by, metadata, created_at')
+        .eq('entity_type', 'package')
+        .eq('entity_id', packageId)
+        .order('created_at', { ascending: false });
+
+      if (error || !data) {
+        this.auditLog.set([]);
+        return;
+      }
+
+      const entries = data as AuditLogEntry[];
+      this.auditLog.set(entries);
+      void this.resolveActorNames(entries.map(e => e.performed_by));
+    } catch {
+      this.auditLog.set([]);
+    } finally {
+      this.loadingAudit.set(false);
+    }
+  }
+
+  /** Expand/collapse the audit-log section, loading it on first open. */
+  toggleAuditLog(): void {
+    const open = !this.auditOpen();
+    this.auditOpen.set(open);
+    if (open && this.package && this.auditLog().length === 0 && !this.loadingAudit()) {
+      void this.loadAuditLog(this.package.id);
+    }
+  }
+
+  /** Human-readable label for an audit action code. */
+  formatAuditAction(action: string): string {
+    const labels: Record<string, string> = {
+      PACKAGE_CREATED: 'Package created',
+      PACKAGE_UPDATED: 'Package updated',
+      PACKAGE_ITEMS_UPDATED_NOTIFICATION: 'Items updated — receiver notified',
+      PACKAGE_PREPARED_NOTIFICATION: 'Preparation email sent',
+      PACKAGE_READY_NOTIFICATION: 'Ready-for-collection email sent',
+      PACKAGE_COMPLETED_NOTIFICATION: 'Completion email sent',
+      PACKAGE_UPDATE_DENIED: 'Update denied',
+    };
+    if (labels[action]) return labels[action];
+    // Fallback: humanise the raw code (e.g. FOO_BAR -> "Foo bar").
+    const words = action.toLowerCase().replace(/_/g, ' ').trim();
+    return words.charAt(0).toUpperCase() + words.slice(1);
+  }
+
+  /**
+   * Extract a short "previous → new" status summary from an audit row's
+   * metadata, when both are present and differ. Returns null otherwise.
+   */
+  auditStatusChange(entry: AuditLogEntry): string | null {
+    const meta = entry.metadata;
+    if (!meta) return null;
+    const prev = meta['previous_status'];
+    const next = meta['new_status'];
+    if (typeof prev === 'string' && typeof next === 'string' && prev !== next) {
+      return `${this.getStatusLabel(prev)} → ${this.getStatusLabel(next)}`;
+    }
+    return null;
+  }
+
+  /**
+   * Resolve the display name + avatar initials for the actor of an activity
+   * entry. Returns `null` for system-generated changes (no `changed_by`).
+   */
+  actorFor(changedBy?: string): { name: string; initials: string; known: boolean } | null {
+    if (!changedBy) return null;
+    const actor = this.historyActors()[changedBy];
+    const name = (actor?.name || actor?.email || '').trim();
+    if (!name) {
+      return { name: 'Unknown user', initials: '?', known: false };
+    }
+    return { name, initials: this.initialsOf(name), known: true };
+  }
+
+  /** Build up-to-two-letter initials from a name or email for the avatar. */
+  private initialsOf(value: string): string {
+    const base = value.includes('@') ? value.split('@')[0] : value;
+    const parts = base.trim().split(/[\s._-]+/).filter(Boolean);
+    if (parts.length === 0) return '?';
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
   }
 
   /**

@@ -355,7 +355,7 @@ serve(async (req) => {
           // Update package status to notified
           await adminClient
             .from('packages')
-            .update({ status: 'notified' })
+            .update({ status: 'notified', status_changed_by: callingUser.id })
             .eq('id', newPackage.id)
 
           newPackage.status = 'notified'

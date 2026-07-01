@@ -545,6 +545,11 @@ serve(async (req) => {
     if (effectiveStatus !== undefined) {
       updateData.status = effectiveStatus
 
+      // Attribute the status change to the caller. The record_package_status_change
+      // trigger runs under service_role (auth.uid() is null here), so it reads this
+      // column to populate package_status_history.changed_by.
+      updateData.status_changed_by = callingUser.id
+
       // If marking as collected, set collected_at and collected_by
       if (effectiveStatus === 'collected') {
         updateData.collected_at = pod?.collected_at ?? new Date().toISOString()
@@ -1125,6 +1130,7 @@ serve(async (req) => {
             ...buildCommonVars((k) => Deno.env.get(k) ?? undefined),
             reference: updatedPackage.reference,
             po_number: poNumber || '',
+            notes: updatedPackage.notes || '',
             updated_items: updatedItems,
             has_updated_items: updatedItems.length > 0,
             previous_items: previousItems,
