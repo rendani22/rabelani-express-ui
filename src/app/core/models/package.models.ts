@@ -108,6 +108,13 @@ export interface PackageItemUpdate {
 export interface UpdatePackageItemsPayload {
   readonly updates?: readonly PackageItemUpdate[];
   readonly deletes?: readonly string[];
+  /**
+   * New package_items to insert on the existing package. Each carries a
+   * description, quantity and optional `inventory_item_id`; linked inventory is
+   * consumed server-side (negative stock allowed) with a movement row logged,
+   * exactly like the create-package flow.
+   */
+  readonly creates?: readonly PackageItemRequest[];
 }
 
 /** Request payload for updating a package */

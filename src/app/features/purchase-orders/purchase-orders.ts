@@ -229,7 +229,7 @@ export class PurchaseOrdersComponent implements OnInit {
   }
 
   canEdit(po: PurchaseOrder): boolean {
-    return po.source === 'purchase_order' && po.derivedStatus !== 'completed';
+    return po.source === 'purchase_order';
   }
 
   async onOpenEditPo(po: PurchaseOrder): Promise<void> {
@@ -308,6 +308,7 @@ export class PurchaseOrdersComponent implements OnInit {
         poNumber: request.poNumber,
         items: request.items.map(item => ({
           purchaseOrderItemId: item.purchaseOrderItemId,
+          inventoryItemId: item.inventoryItemId,
           orderedQuantity: item.orderedQuantity,
         })),
         receiverId: request.receiverId || null,

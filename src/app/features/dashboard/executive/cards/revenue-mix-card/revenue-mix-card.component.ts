@@ -12,13 +12,14 @@ import { CommonModule } from '@angular/common';
 import { Chart, registerables } from 'chart.js';
 import { ZarCurrencyPipe } from '../../../../../shared/pipes/zar-currency.pipe';
 import { RevenueSummary } from '../../../services/executive-dashboard.service';
+import { readExecChartTheme } from '../chart-theme';
 
 Chart.register(...registerables);
 
 /**
- * Revenue status: realized (collected) value, average order value, and a
- * doughnut contrasting value already collected against value sitting at the
- * collection point still awaiting pickup (pipeline).
+ * Revenue status — realized (collected) value and average order value above a
+ * ring contrasting value already in the bank (brass) against value sitting at
+ * the collection point still awaiting pickup (ink). A ledger key sits below.
  */
 @Component({
   selector: 'app-revenue-mix-card',
@@ -26,20 +27,20 @@ Chart.register(...registerables);
   imports: [CommonModule, ZarCurrencyPipe],
   host: { class: 'col-span-12 lg:col-span-4 block' },
   template: `
-    <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl h-full flex flex-col">
-      <header class="px-4 sm:px-5 py-4 border-b border-gray-100 dark:border-gray-700/60">
-        <h2 class="font-semibold text-gray-800 dark:text-gray-100">{{ title }}</h2>
+    <section class="ex-card h-full flex flex-col">
+      <header class="px-4 sm:px-6 py-4 border-b" style="border-color: var(--ex-rule)">
+        <span class="ex-eyebrow">{{ title }}</span>
       </header>
 
-      <div class="p-4 sm:p-5 flex-1 flex flex-col gap-4">
-        <div class="grid grid-cols-2 gap-3">
-          <div class="flex flex-col">
-            <span class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Collected Value</span>
-            <span class="text-xl font-bold text-gray-800 dark:text-gray-100">{{ summary.totalValue | zar }}</span>
+      <div class="p-4 sm:p-6 flex-1 flex flex-col gap-5">
+        <div class="grid grid-cols-2 gap-4">
+          <div class="flex flex-col gap-1">
+            <span class="ex-eyebrow">Collected</span>
+            <span class="font-display text-xl ex-ink leading-none">{{ summary.totalValue | zar: 'compact' }}</span>
           </div>
-          <div class="flex flex-col">
-            <span class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Avg / Order</span>
-            <span class="text-xl font-bold text-gray-800 dark:text-gray-100">{{ summary.avgOrderValue | zar }}</span>
+          <div class="flex flex-col gap-1">
+            <span class="ex-eyebrow">Avg / Order</span>
+            <span class="font-display text-xl ex-ink leading-none">{{ summary.avgOrderValue | zar: 'compact' }}</span>
           </div>
         </div>
 
@@ -47,32 +48,32 @@ Chart.register(...registerables);
           @if (summary.totalValue > 0 || summary.pipelineValue > 0) {
             <canvas #chartCanvas></canvas>
             <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-              <span class="text-lg font-bold text-gray-800 dark:text-gray-100">{{ summary.totalOrders }}</span>
-              <span class="text-[11px] text-gray-500 dark:text-gray-400">collected</span>
+              <span class="font-display text-2xl ex-ink leading-none">{{ summary.totalOrders }}</span>
+              <span class="ex-eyebrow mt-1">collected</span>
             </div>
           } @else {
-            <div class="flex items-center justify-center h-full text-gray-500 dark:text-gray-400 text-sm">
+            <div class="flex items-center justify-center h-full ex-muted text-sm">
               No collected-order value yet
             </div>
           }
         </div>
 
-        <div class="flex flex-col gap-2 text-sm">
+        <div class="flex flex-col gap-2.5 text-sm pt-1">
           <div class="flex items-center justify-between">
-            <span class="flex items-center gap-2 text-gray-600 dark:text-gray-300">
-              <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Collected (realized)
+            <span class="flex items-center gap-2 ex-ink-soft">
+              <span class="ex-marker bg-gold"></span> Collected · realized
             </span>
-            <span class="font-medium text-gray-800 dark:text-gray-100">{{ summary.totalValue | zar }}</span>
+            <span class="font-ledger ex-ink">{{ summary.totalValue | zar }}</span>
           </div>
           <div class="flex items-center justify-between">
-            <span class="flex items-center gap-2 text-gray-600 dark:text-gray-300">
-              <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span> Awaiting collection
+            <span class="flex items-center gap-2 ex-ink-soft">
+              <span class="ex-marker" style="background: var(--ex-ink-soft)"></span> Awaiting collection
             </span>
-            <span class="font-medium text-gray-800 dark:text-gray-100">{{ summary.pipelineValue | zar }}</span>
+            <span class="font-ledger ex-ink">{{ summary.pipelineValue | zar }}</span>
           </div>
         </div>
       </div>
-    </div>
+    </section>
   `,
   styles: [],
 })
@@ -116,8 +117,10 @@ export class RevenueMixCardComponent implements AfterViewInit, OnChanges, OnDest
 
   private initChart(): void {
     if (!this.chartCanvas?.nativeElement || this.summary.totalValue + this.summary.pipelineValue <= 0) return;
-    const ctx = this.chartCanvas.nativeElement.getContext('2d');
+    const canvas = this.chartCanvas.nativeElement;
+    const ctx = canvas.getContext('2d');
     if (!ctx) return;
+    const theme = readExecChartTheme(canvas);
 
     this.chart = new Chart(ctx, {
       type: 'doughnut',
@@ -126,8 +129,9 @@ export class RevenueMixCardComponent implements AfterViewInit, OnChanges, OnDest
         datasets: [
           {
             data: [Math.round(this.summary.totalValue), Math.round(this.summary.pipelineValue)],
-            backgroundColor: ['rgb(16, 185, 129)', 'rgb(245, 158, 11)'],
-            borderWidth: 0,
+            backgroundColor: [theme.gold, theme.inkSoft],
+            borderColor: theme.rule,
+            borderWidth: 2,
             hoverOffset: 4,
           },
         ],
@@ -135,10 +139,16 @@ export class RevenueMixCardComponent implements AfterViewInit, OnChanges, OnDest
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        cutout: '70%',
+        cutout: '72%',
         plugins: {
           legend: { display: false },
           tooltip: {
+            backgroundColor: theme.ink,
+            titleColor: '#fff',
+            bodyColor: '#fff',
+            padding: 10,
+            titleFont: { family: theme.mono, size: 11 },
+            bodyFont: { family: theme.mono, size: 11 },
             callbacks: {
               label: item => `${item.label}: ${this.formatZar(Number(item.parsed))}`,
             },

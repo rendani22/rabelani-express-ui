@@ -11,7 +11,7 @@ import {
   ValidatorFn,
   Validators,
 } from '@angular/forms';
-import { InventoryService, InventoryItem, ReceiverService } from '../../../../core';
+import { InventoryService, InventoryItem, ReceiverProfile, ReceiverService } from '../../../../core';
 
 export interface CreatePurchaseOrderLine {
   readonly inventoryItemId: string;
@@ -68,6 +68,9 @@ export class CreatePurchaseOrderModalComponent {
   readonly selectedFile = signal<File | null>(null);
   readonly fileError = signal<string | null>(null);
 
+  /** Free-text search for the customer type-ahead. */
+  readonly customerSearch = signal('');
+
   /** Customers (receiver profiles) available for selection, sorted by name. */
   readonly customers = computed(() =>
     [...this.receiverService.receiverList()]
@@ -76,6 +79,27 @@ export class CreatePurchaseOrderModalComponent {
         `${a.name} ${a.surname}`.localeCompare(`${b.name} ${b.surname}`)
       )
   );
+
+  /** Customers filtered by the type-ahead search (name, surname, email or phone). */
+  readonly filteredCustomers = computed(() => {
+    const search = this.customerSearch().trim().toLowerCase();
+    const customers = this.customers();
+    if (!search) return customers;
+    return customers.filter(customer =>
+      `${customer.name} ${customer.surname}`.toLowerCase().includes(search) ||
+      customer.email.toLowerCase().includes(search) ||
+      (customer.phone ?? '').toLowerCase().includes(search)
+    );
+  });
+
+  /** Lookup of customers by id, for resolving the selected customer's display label. */
+  private readonly customerDetails = computed(() => {
+    const map = new Map<string, ReceiverProfile>();
+    for (const customer of this.customers()) {
+      map.set(customer.id, customer);
+    }
+    return map;
+  });
 
   /** Today's date as `YYYY-MM-DD`, used as the default PO date. */
   private readonly today = new Date().toISOString().slice(0, 10);
@@ -134,8 +158,9 @@ export class CreatePurchaseOrderModalComponent {
         this.inventoryService.loadItems();
         this.receiverService.loadAllReceivers();
       } else {
-        // Reset search when modal closes
+        // Reset searches when modal closes
         this.inventorySearch.set('');
+        this.customerSearch.set('');
       }
     });
   }
@@ -155,6 +180,27 @@ export class CreatePurchaseOrderModalComponent {
     this.itemsArray.removeAt(index);
     this.itemsArray.markAsTouched();
     this.itemsArray.updateValueAndValidity();
+  }
+
+  selectCustomer(customerId: string): void {
+    const control = this.form.controls.receiverId;
+    control.setValue(customerId);
+    control.markAsTouched();
+    this.customerSearch.set('');
+  }
+
+  clearCustomer(): void {
+    this.form.controls.receiverId.setValue('');
+    this.customerSearch.set('');
+  }
+
+  getSelectedCustomerName(customerId: string): string {
+    const customer = this.customerDetails().get(customerId);
+    return customer ? `${customer.name} ${customer.surname}` : 'Unknown customer';
+  }
+
+  getSelectedCustomerEmail(customerId: string): string {
+    return this.customerDetails().get(customerId)?.email ?? '';
   }
 
   selectInventoryItem(itemId: string, lineIndex: number): void {
@@ -258,6 +304,7 @@ export class CreatePurchaseOrderModalComponent {
     this.itemsArray.clear();
     this.errorMessage.set(null);
     this.inventorySearch.set('');
+    this.customerSearch.set('');
     this.selectedFile.set(null);
     this.fileError.set(null);
     this.closeModal.emit();
