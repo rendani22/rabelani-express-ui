@@ -1,72 +1,86 @@
-<!-- Executive (CEO) revenue view — admin only -->
-<div class="flex flex-col gap-4 lg:gap-6">
+<!-- Executive (CEO) revenue view — admin only. "Executive Report" identity. -->
+<div class="exec-report flex flex-col gap-5 lg:gap-6">
 
-  <!-- Section heading + refresh -->
-  <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2">
-    <div class="flex flex-col">
-      <h2 class="text-lg font-bold text-gray-800 dark:text-gray-100">Executive Summary</h2>
-      <p class="text-sm text-gray-500 dark:text-gray-400">
-        Revenue realized on collection — collected-order value, priced from inventory.
+  <!-- Masthead -->
+  <header class="flex flex-col gap-3">
+    <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+      <div class="flex flex-col gap-1.5">
+        <p class="ex-eyebrow">Rabelani Express · Executive Report</p>
+        <h1 class="font-display text-3xl sm:text-[2.6rem] font-semibold leading-[1.05] ex-ink">
+          Executive Summary
+        </h1>
+      </div>
+      <button
+        type="button"
+        (click)="onRefresh()"
+        [disabled]="isLoading()"
+        class="group inline-flex items-center gap-2 self-start text-xs font-medium disabled:opacity-50 transition-colors ex-ink-soft hover:text-[color:var(--ex-gold)]"
+      >
+        <svg class="w-3.5 h-3.5" [class.animate-spin]="isLoading()" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+        <span class="font-ledger uppercase tracking-wider">Refresh</span>
         @if (lastUpdated()) {
-          <span class="text-gray-400 dark:text-gray-500">· as of {{ lastUpdated() | date: 'short' }}</span>
+          <span class="font-ledger ex-muted">· {{ lastUpdated() | date: 'HH:mm' }}</span>
         }
-      </p>
+      </button>
     </div>
-    <button
-      type="button"
-      (click)="onRefresh()"
-      [disabled]="isLoading()"
-      class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 disabled:opacity-50 transition-colors self-start"
-    >
-      <svg class="w-4 h-4" [class.animate-spin]="isLoading()" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-      </svg>
-      Refresh
-    </button>
-  </div>
+
+    <p class="text-sm ex-ink-soft max-w-2xl">
+      Order to cash — realized revenue, the pipeline behind it, and what needs attention.
+    </p>
+
+    <div class="ex-masthead-rule w-full"></div>
+  </header>
 
   @if (summary().truncated) {
-    <div class="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 px-4 py-2 text-sm text-amber-800 dark:text-amber-300">
+    <div class="ex-card ex-inset px-4 py-2.5 text-sm ex-watch flex items-center gap-2">
+      <span class="ex-marker bg-watch"></span>
       Showing the most recent collected orders only — totals may be partial.
     </div>
   }
 
   @if (error()) {
-    <div class="rounded-lg bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800/50 px-4 py-3 text-sm text-rose-700 dark:text-rose-300">
-      Failed to load executive analytics: {{ error() }}
+    <div class="ex-card px-4 py-3 text-sm ex-risk border-[color:var(--ex-risk)] flex items-center gap-2">
+      <span class="ex-marker bg-risk"></span>
+      Couldn't load the executive report: {{ error() }}
     </div>
   }
 
   @if (isLoading() && !loaded()) {
-    <div class="flex items-center justify-center py-16">
+    <div class="flex items-center justify-center py-20">
       <div class="flex flex-col items-center gap-3">
-        <svg class="animate-spin h-8 w-8 text-violet-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        <svg class="animate-spin h-7 w-7 ex-gold" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"></circle>
+          <path class="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
         </svg>
-        <span class="text-sm text-gray-500 dark:text-gray-400">Crunching the numbers…</span>
+        <span class="ex-eyebrow">Closing the books…</span>
       </div>
     </div>
   } @else {
     <div class="grid grid-cols-12 gap-4 lg:gap-6">
-      <!-- Row 1: revenue KPIs (full width) -->
-      <app-revenue-kpi-card [kpis]="kpis()"></app-revenue-kpi-card>
+      <!-- The lede: auto-written briefing (the hook) -->
+      <app-executive-briefing-card [briefings]="briefings()"></app-executive-briefing-card>
 
-      <!-- Row 2: value-over-time trend (8) + revenue mix (4) -->
-      <app-revenue-trend-card
-        title="Revenue Over Time"
-        [trends]="trends()">
-      </app-revenue-trend-card>
+      <!-- Key figures over time -->
+      <app-revenue-kpi-card [kpis]="kpis()" [trends]="trends()"></app-revenue-kpi-card>
 
-      <app-revenue-mix-card
-        title="Revenue Status"
-        [summary]="summary()">
-      </app-revenue-mix-card>
+      <!-- Business health scorecard -->
+      <app-health-scorecard-card [metrics]="scorecard()"></app-health-scorecard-card>
 
-      <!-- Row 3: top customers (6) + top items (6) -->
+      <!-- Revenue over time (8) + revenue status (4) -->
+      <app-revenue-trend-card title="Revenue Over Time" [trends]="trends()"></app-revenue-trend-card>
+      <app-revenue-mix-card title="Revenue Status" [summary]="summary()"></app-revenue-mix-card>
+
+      <!-- Fulfilment funnel (8) + forward order book (4) -->
+      <app-fulfilment-funnel-card title="Order to Cash" [funnel]="funnel()"></app-fulfilment-funnel-card>
+      <app-order-book-card title="Forward Order Book" [orderBook]="orderBook()"></app-order-book-card>
+
+      <!-- Top customers (6) + top items (6) -->
       <app-top-revenue-customers-card
         title="Top Customers by Value"
         [customers]="topCustomers()"
+        [concentration]="concentration()"
         (customerClick)="onCustomerClick($event)">
       </app-top-revenue-customers-card>
 
@@ -75,6 +89,31 @@
         [items]="topItems()"
         (itemClick)="onItemClick($event)">
       </app-top-revenue-items-card>
+
+      <!-- Inventory position (full width) -->
+      <app-inventory-position-card
+        title="Inventory Position"
+        [position]="inventory()"
+        (viewInventoryClick)="onViewInventory()"
+        (inventoryItemClick)="onViewInventory($event)">
+      </app-inventory-position-card>
     </div>
+
+    <!-- Operations band — the delivery side of the business, below the money. -->
+    <section class="flex flex-col gap-4 lg:gap-6 mt-2">
+      <div class="flex items-center gap-4">
+        <span class="ex-eyebrow whitespace-nowrap">Operations</span>
+        <span class="flex-1 h-px" style="background: var(--ex-rule)"></span>
+      </div>
+
+      <div class="grid grid-cols-12 gap-4 lg:gap-6">
+        <!-- Returns (8) + POD compliance (4) -->
+        <app-returns-card title="Returns" [returns]="returns()"></app-returns-card>
+        <app-pod-compliance-card title="POD Compliance" [podCompliance]="podCompliance()"></app-pod-compliance-card>
+
+        <!-- Delivery geography (full width) -->
+        <app-delivery-geography-card title="Delivery Geography" [geography]="geography()"></app-delivery-geography-card>
+      </div>
+    </section>
   }
 </div>

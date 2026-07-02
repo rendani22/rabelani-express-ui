@@ -42,23 +42,23 @@ export interface AppVersion {
 }
 
 export const APP_VERSION: AppVersion = {
-  "version": "1.6.0-dev.23+7fbc218.dirty",
-  "semver": "1.6.0",
+  "version": "1.7.0-dev.24+442999a.dirty",
+  "semver": "1.7.0",
   "major": 1,
-  "minor": 6,
+  "minor": 7,
   "patch": 0,
-  "prerelease": "dev.23",
-  "buildMetadata": "7fbc218.dirty",
+  "prerelease": "dev.24",
+  "buildMetadata": "442999a.dirty",
   "channel": "dev",
   "baseTag": "v1.0.0",
-  "commitsSinceBase": 23,
-  "bumpsSinceBase": 8,
+  "commitsSinceBase": 24,
+  "bumpsSinceBase": 9,
   "isDirty": true,
   "isRelease": false,
-  "hash": "7fbc218",
-  "fullHash": "7fbc218c8dd937bf2ace686a82c99f17d05c790d",
+  "hash": "442999a",
+  "fullHash": "442999a9b492ba8583b0b5e2a78f1874649f6359",
   "branch": "dev",
-  "message": "Merge branch 'dev'",
-  "commitDate": "2026-07-01T09:21:45+02:00",
-  "buildDate": "2026-07-01T11:08:40.731Z"
+  "message": "feat(purchase-orders): support adding new items to purchase orders",
+  "commitDate": "2026-07-01T13:21:57+02:00",
+  "buildDate": "2026-07-02T10:21:23.249Z"
 };

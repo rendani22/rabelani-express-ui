@@ -1,4 +1,5 @@
 @import 'flatpickr/dist/flatpickr.min.css';
+@import './app/features/dashboard/executive/executive-report.css';
 
 @tailwind base;
 @tailwind components;

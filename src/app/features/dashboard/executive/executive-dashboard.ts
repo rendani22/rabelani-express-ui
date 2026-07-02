@@ -6,11 +6,19 @@ import {
   TopRevenueCustomer,
   TopRevenueItem,
 } from '../services/executive-dashboard.service';
+import { ExecutiveBriefingCardComponent } from './cards/executive-briefing-card/executive-briefing-card.component';
+import { HealthScorecardCardComponent } from './cards/health-scorecard-card/health-scorecard-card.component';
 import { RevenueKpiCardComponent } from './cards/revenue-kpi-card/revenue-kpi-card.component';
 import { RevenueTrendCardComponent } from './cards/revenue-trend-card/revenue-trend-card.component';
 import { RevenueMixCardComponent } from './cards/revenue-mix-card/revenue-mix-card.component';
+import { FulfilmentFunnelCardComponent } from './cards/fulfilment-funnel-card/fulfilment-funnel-card.component';
+import { OrderBookCardComponent } from './cards/order-book-card/order-book-card.component';
+import { InventoryPositionCardComponent } from './cards/inventory-position-card/inventory-position-card.component';
 import { TopRevenueCustomersCardComponent } from './cards/top-revenue-customers-card/top-revenue-customers-card.component';
 import { TopRevenueItemsCardComponent } from './cards/top-revenue-items-card/top-revenue-items-card.component';
+import { DeliveryGeographyCardComponent } from './cards/delivery-geography-card/delivery-geography-card.component';
+import { ReturnsCardComponent } from './cards/returns-card/returns-card.component';
+import { PodComplianceCardComponent } from './cards/pod-compliance-card/pod-compliance-card.component';
 
 /**
  * Executive (CEO) revenue view. Admin-only — rendered behind the "Executive"
@@ -23,11 +31,19 @@ import { TopRevenueItemsCardComponent } from './cards/top-revenue-items-card/top
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
+    ExecutiveBriefingCardComponent,
+    HealthScorecardCardComponent,
     RevenueKpiCardComponent,
     RevenueTrendCardComponent,
     RevenueMixCardComponent,
+    FulfilmentFunnelCardComponent,
+    OrderBookCardComponent,
+    InventoryPositionCardComponent,
     TopRevenueCustomersCardComponent,
     TopRevenueItemsCardComponent,
+    DeliveryGeographyCardComponent,
+    ReturnsCardComponent,
+    PodComplianceCardComponent,
   ],
   templateUrl: './executive-dashboard.html',
   styleUrl: './executive-dashboard.css',
@@ -45,6 +61,15 @@ export class ExecutiveDashboard implements OnInit {
   readonly trends = this.service.trends;
   readonly topCustomers = this.service.topCustomers;
   readonly topItems = this.service.topItems;
+  readonly briefings = this.service.briefings;
+  readonly scorecard = this.service.scorecard;
+  readonly funnel = this.service.funnel;
+  readonly orderBook = this.service.orderBook;
+  readonly inventory = this.service.inventory;
+  readonly concentration = this.service.concentration;
+  readonly geography = this.service.geography;
+  readonly podCompliance = this.service.podCompliance;
+  readonly returns = this.service.returns;
 
   async ngOnInit(): Promise<void> {
     await this.service.load();
@@ -62,6 +87,12 @@ export class ExecutiveDashboard implements OnInit {
     if (!item.inventoryItemId) return;
     this.router.navigate(['/inventory'], {
       queryParams: { id: item.inventoryItemId, search: item.description },
+    });
+  }
+
+  onViewInventory(item?: { id: string; name: string }): void {
+    this.router.navigate(['/inventory'], {
+      queryParams: item ? { id: item.id, search: item.name } : undefined,
     });
   }
 }
