@@ -47,6 +47,7 @@
     "@angular/router": "^21.1.0",
     "@ng-icons/core": "^33.1.0",
     "@ng-icons/tabler-icons": "^33.1.0",
+    "@rendani22/logger": "^1.0.0",
     "@sentry/angular": "^10.53.1",
     "@supabase/supabase-js": "^2.95.3",
     "@tabler/icons": "^3.36.1",

@@ -1,3 +1,5 @@
+import { APP_VERSION } from './version';
+
 export const environment = {
   appEnvironment: 'prod',
   production: true,
@@ -10,5 +12,11 @@ export const environment = {
   sentry: {
     dsn: 'https://85727d583c28765c78595a52696d74fb@o4509984646823936.ingest.de.sentry.io/4511446249111632',
     tracesSampleRate: 0.05
-  }
+  },
+  // livecode-OPS error-monitoring ingest config. Consumed by provideLivecodeOps().
+  // TODO(livecode-ops): replace the placeholder URL/key with the real ingest values.
+  opsIngestUrl: 'https://livecode-ops.vercel.app/api/logs/ingest',
+  opsIngestKey: 'lcops_wVxg6dCNPcfx7By4WoiF4JurCcCcQwaq',
+  opsAppName: 'rabelani-express-ui',
+  opsRelease: APP_VERSION.version
 };
