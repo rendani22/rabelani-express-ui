@@ -49,7 +49,7 @@ import { PACKAGE_STATUS } from '../../../../core';
                         [ngClass]="getStatusBadgeClass(pkg.status)">
                     {{ pkg.statusLabel }}
                   </span>
-                  <span class="text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap">
+                  <span class="text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap tabular-nums">
                     {{ pkg.timeAgo }}
                   </span>
                 </div>

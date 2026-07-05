@@ -114,20 +114,29 @@ import { AlertSeverity, AlertVariant } from '../shared/alert.types';
     }
 
     .toast-close {
-      margin-left: 0.75rem;
+      /* Compensating margins keep the icon optically where it was while the
+         padding grows the hit area from 16px toward the 40px minimum. */
+      margin-left: 0.5rem;
+      margin-right: -0.25rem;
       flex-shrink: 0;
       opacity: 0.7;
       cursor: pointer;
       background: transparent;
       border: none;
-      padding: 0;
+      padding: 0.375rem;
+      border-radius: 0.375rem;
       display: flex;
       align-items: center;
       justify-content: center;
+      transition: opacity 150ms ease, transform 150ms ease;
     }
 
     .toast-close:hover {
       opacity: 1;
+    }
+
+    .toast-close:active {
+      transform: scale(0.96);
     }
 
     .close-icon {
@@ -234,16 +243,15 @@ import { AlertSeverity, AlertVariant } from '../shared/alert.types';
       color: #6366f1;
     }
 
-    /* Dark mode support */
-    @media (prefers-color-scheme: dark) {
-      .toast-outlined-warning,
-      .toast-outlined-success,
-      .toast-outlined-error,
-      .toast-outlined-info {
-        background-color: #1f2937;
-        border-color: #374151;
-        color: #f3f4f6;
-      }
+    /* Dark mode support — class-based, follows the app ThemeService toggle
+       (.dark on <html>) rather than the OS prefers-color-scheme setting. */
+    :host-context(.dark) .toast-outlined-warning,
+    :host-context(.dark) .toast-outlined-success,
+    :host-context(.dark) .toast-outlined-error,
+    :host-context(.dark) .toast-outlined-info {
+      background-color: #1f2937;
+      border-color: #374151;
+      color: #f3f4f6;
     }
   `],
 })

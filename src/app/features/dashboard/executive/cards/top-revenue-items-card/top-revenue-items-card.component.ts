@@ -33,19 +33,19 @@ import { TopRevenueItem } from '../../../services/executive-dashboard.service';
                 >
                   <div class="flex items-center justify-between gap-3">
                     <span class="flex items-baseline gap-3 min-w-0">
-                      <span class="font-display text-base ex-gold w-6 flex-shrink-0">{{ i + 1 }}</span>
+                      <span class="font-display text-base ex-gold w-6 flex-shrink-0 tabular-nums">{{ i + 1 }}</span>
                       <span class="truncate text-sm ex-ink transition-colors group-hover:text-[color:var(--ex-gold)]">
                         {{ item.description }}
                       </span>
                     </span>
-                    <span class="flex-shrink-0 font-ledger text-sm ex-ink">{{ item.value | zar }}</span>
+                    <span class="flex-shrink-0 font-ledger text-sm ex-ink tabular-nums">{{ item.value | zar }}</span>
                   </div>
                   <div class="flex items-center gap-3 pl-9">
                     <div class="flex-1 h-1 ex-track rounded-[1px]">
                       <div class="ex-track-fill h-1 rounded-[1px]" [style.width.%]="share(item)"></div>
                     </div>
                     <span class="flex-shrink-0 font-ledger text-[11px] ex-muted">
-                      {{ item.quantity }} units · {{ item.orders }} {{ item.orders === 1 ? 'order' : 'orders' }}
+                      <span class="tabular-nums">{{ item.quantity }}</span> units · <span class="tabular-nums">{{ item.orders }}</span> {{ item.orders === 1 ? 'order' : 'orders' }}
                     </span>
                   </div>
                 </button>

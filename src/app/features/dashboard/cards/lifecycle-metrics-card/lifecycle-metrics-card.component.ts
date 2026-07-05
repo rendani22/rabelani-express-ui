@@ -18,7 +18,7 @@ import { LifecycleMetrics } from '../../services/dashboard.service';
     <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl h-full flex flex-col">
       <header class="px-4 sm:px-5 py-4 border-b border-gray-100 dark:border-gray-700/60 flex items-center justify-between">
         <h2 class="font-semibold text-gray-800 dark:text-gray-100">{{ title }}</h2>
-        <span class="text-xs text-gray-500 dark:text-gray-400">
+        <span class="text-xs text-gray-500 dark:text-gray-400 tabular-nums">
           based on {{ metrics.completedSampleSize }} completed
         </span>
       </header>
@@ -26,22 +26,22 @@ import { LifecycleMetrics } from '../../services/dashboard.service';
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <div class="flex flex-col gap-1">
             <span class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Create → Pickup</span>
-            <span class="text-2xl font-bold text-amber-500">{{ display(metrics.avgCreateToPickupHours) }}</span>
+            <span class="text-2xl font-bold text-amber-500 tabular-nums">{{ display(metrics.avgCreateToPickupHours) }}</span>
             <span class="text-[11px] text-gray-400">warehouse turnaround</span>
           </div>
           <div class="flex flex-col gap-1">
             <span class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Pickup → Receive</span>
-            <span class="text-2xl font-bold text-blue-500">{{ display(metrics.avgPickupToReceiveHours) }}</span>
+            <span class="text-2xl font-bold text-blue-500 tabular-nums">{{ display(metrics.avgPickupToReceiveHours) }}</span>
             <span class="text-[11px] text-gray-400">in-transit time</span>
           </div>
           <div class="flex flex-col gap-1">
             <span class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Receive → Collect</span>
-            <span class="text-2xl font-bold text-purple-500">{{ display(metrics.avgReceiveToCollectHours) }}</span>
+            <span class="text-2xl font-bold text-purple-500 tabular-nums">{{ display(metrics.avgReceiveToCollectHours) }}</span>
             <span class="text-[11px] text-gray-400">dwell at collection</span>
           </div>
           <div class="flex flex-col gap-1">
             <span class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">End-to-End</span>
-            <span class="text-2xl font-bold text-emerald-600">{{ display(metrics.avgTotalCycleHours) }}</span>
+            <span class="text-2xl font-bold text-emerald-600 tabular-nums">{{ display(metrics.avgTotalCycleHours) }}</span>
             <span class="text-[11px] text-gray-400">total cycle</span>
           </div>
         </div>

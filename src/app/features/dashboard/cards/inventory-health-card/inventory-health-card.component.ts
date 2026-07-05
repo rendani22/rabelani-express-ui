@@ -25,13 +25,13 @@ import { InventoryHealth } from '../../services/dashboard.service';
       <div class="p-4 sm:p-5 grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div class="rounded-lg p-3 bg-violet-50 dark:bg-violet-500/10">
           <div class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Active SKUs</div>
-          <div class="text-2xl font-bold text-gray-800 dark:text-gray-100">{{ data.activeItems }}</div>
-          <div class="text-[11px] text-gray-400">of {{ data.totalItems }} total</div>
+          <div class="text-2xl font-bold text-gray-800 dark:text-gray-100 tabular-nums">{{ data.activeItems }}</div>
+          <div class="text-[11px] text-gray-400 tabular-nums">of {{ data.totalItems }} total</div>
         </div>
         <div class="rounded-lg p-3"
              [ngClass]="data.outOfStock > 0 ? 'bg-rose-50 dark:bg-rose-500/10' : 'bg-gray-50 dark:bg-gray-700/30'">
           <div class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Out of Stock</div>
-          <div class="text-2xl font-bold"
+          <div class="text-2xl font-bold tabular-nums"
                [ngClass]="data.outOfStock > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-gray-700 dark:text-gray-200'">
             {{ data.outOfStock }}
           </div>
@@ -40,7 +40,7 @@ import { InventoryHealth } from '../../services/dashboard.service';
         <div class="rounded-lg p-3"
              [ngClass]="data.lowStock > 0 ? 'bg-amber-50 dark:bg-amber-500/10' : 'bg-gray-50 dark:bg-gray-700/30'">
           <div class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Low Stock</div>
-          <div class="text-2xl font-bold"
+          <div class="text-2xl font-bold tabular-nums"
                [ngClass]="data.lowStock > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-gray-700 dark:text-gray-200'">
             {{ data.lowStock }}
           </div>
@@ -48,10 +48,10 @@ import { InventoryHealth } from '../../services/dashboard.service';
         </div>
         <div class="rounded-lg p-3 bg-emerald-50 dark:bg-emerald-500/10">
           <div class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Stock Value</div>
-          <div class="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+          <div class="text-2xl font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
             R{{ data.totalValue | number: '1.0-0' }}
           </div>
-          <div class="text-[11px] text-gray-400">{{ data.totalQuantity | number }} units</div>
+          <div class="text-[11px] text-gray-400 tabular-nums">{{ data.totalQuantity | number }} units</div>
         </div>
       </div>
 
@@ -67,7 +67,7 @@ import { InventoryHealth } from '../../services/dashboard.service';
                   (click)="inventoryItemClick.emit({ id: item.id, name: item.name })">
                   {{ item.name }}
                 </button>
-                <span class="font-mono text-xs"
+                <span class="font-mono text-xs tabular-nums"
                       [ngClass]="item.quantity === 0 ? 'text-rose-600 dark:text-rose-400' : 'text-amber-600 dark:text-amber-400'">
                   {{ item.quantity }} / {{ item.threshold }}
                 </span>

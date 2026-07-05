@@ -36,10 +36,10 @@ Chart.register(...registerables);
         @if (orderBook.available) {
           <div class="flex flex-col gap-1">
             <span class="ex-eyebrow">Open Order Book</span>
-            <span class="font-display text-3xl ex-ink leading-none">{{ orderBook.openValue | zar: 'compact' }}</span>
+            <span class="font-display text-3xl ex-ink leading-none tabular-nums">{{ orderBook.openValue | zar: 'compact' }}</span>
             <span class="font-ledger text-[11px] ex-muted mt-1">
-              {{ orderBook.openCount }} open {{ orderBook.openCount === 1 ? 'PO' : 'POs' }} ·
-              {{ orderBook.completedValue | zar: 'compact' }} completed
+              <span class="tabular-nums">{{ orderBook.openCount }}</span> open {{ orderBook.openCount === 1 ? 'PO' : 'POs' }} ·
+              <span class="tabular-nums">{{ orderBook.completedValue | zar: 'compact' }}</span> completed
             </span>
           </div>
 

@@ -35,9 +35,7 @@
 
     <!-- Status filter dropdown -->
     <div class="relative" data-tour-orders="status-filter" (clickOutside)="closeStatusDropdown()">
-      <button
-        (click)="toggleStatusDropdown()"
-        class="btn flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600 focus:ring-2 focus:ring-violet-500">
+      <app-button variant="secondary" (click)="toggleStatusDropdown()">
         <svg class="h-4 w-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
           <path fill-rule="evenodd" d="M2.628 1.601C5.028 1.206 7.49 1 10 1s4.973.206 7.372.601a.75.75 0 01.628.74v2.288a2.25 2.25 0 01-.659 1.59l-4.682 4.683a2.25 2.25 0 00-.659 1.59v3.037c0 .684-.31 1.33-.844 1.757l-1.937 1.55A.75.75 0 018 18.25v-5.757a2.25 2.25 0 00-.659-1.591L2.659 6.22A2.25 2.25 0 012 4.629V2.34a.75.75 0 01.628-.74z" clip-rule="evenodd" />
         </svg>
@@ -45,7 +43,7 @@
         <svg class="h-4 w-4 text-gray-400 transition-transform" [class.rotate-180]="statusDropdownOpen()" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
           <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
         </svg>
-      </button>
+      </app-button>
 
       <!-- Dropdown menu -->
       @if (statusDropdownOpen()) {
@@ -84,32 +82,36 @@
     </div>
 
     <!-- Refresh button -->
-    <button
+    <app-button
+      variant="secondary"
+      [iconOnly]="true"
+      ariaLabel="Refresh"
       (click)="onRefresh()"
       data-tour-orders="refresh"
-      class="btn flex items-center justify-center p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-gray-600 focus:ring-2 focus:ring-violet-500"
       title="Refresh">
       <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
         <path fill-rule="evenodd" d="M15.312 11.424a5.5 5.5 0 01-9.201 2.466l-.312-.311h2.433a.75.75 0 000-1.5H3.989a.75.75 0 00-.75.75v4.242a.75.75 0 001.5 0v-2.43l.31.31a7 7 0 0011.712-3.138.75.75 0 00-1.449-.39zm1.23-3.723a.75.75 0 00.219-.53V2.929a.75.75 0 00-1.5 0V5.36l-.31-.31A7 7 0 003.239 8.188a.75.75 0 101.448.389A5.5 5.5 0 0113.89 6.11l.311.31h-2.432a.75.75 0 000 1.5h4.243a.75.75 0 00.53-.219z" clip-rule="evenodd" />
       </svg>
-    </button>
+    </app-button>
 
      <!-- View completed orders button -->
-     <button
+     <app-button
+       variant="secondary"
+       class="hidden sm:inline-flex"
        (click)="onViewCompleted()"
-       class="btn hidden sm:inline-flex items-center justify-center px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-900"
        title="View Completed Orders">
-       <svg class="h-4 w-4 mr-2 text-gray-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+       <svg class="h-4 w-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
          <path d="M4 3a1 1 0 000 2h12a1 1 0 100-2H4zM3 7a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm1 4a1 1 0 000 2h8a1 1 0 100-2H4z" />
        </svg>
        Completed
-     </button>
+     </app-button>
 
-     <!-- View deleted orders button -->
+     <!-- View deleted orders button — kept raw: red-outline "danger-subtle" variant
+          isn't modelled by app-button; scale-on-press applied in place for parity. -->
      @if (canViewDeleted) {
        <button
          (click)="onViewDeleted()"
-         class="btn hidden sm:inline-flex items-center justify-center px-3 py-2 bg-white dark:bg-gray-800 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10"
+         class="btn hidden sm:inline-flex items-center justify-center px-3 py-2 bg-white dark:bg-gray-800 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10 transition active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
          title="View Deleted Orders">
          <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3"></path>
@@ -119,15 +121,15 @@
      }
 
     <!-- Add Package button -->
-    <button
+    <app-button
+      variant="primary"
       (click)="onAddPackage()"
-      data-tour-orders="add-package"
-      class="btn flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium rounded-lg transition-colors focus:ring-2 focus:ring-violet-500 focus:ring-offset-2">
+      data-tour-orders="add-package">
       <svg class="h-4 w-4 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
         <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
       </svg>
       <span class="hidden xs:inline">Add Order</span>
-    </button>
+    </app-button>
   </div>
 </div>
 

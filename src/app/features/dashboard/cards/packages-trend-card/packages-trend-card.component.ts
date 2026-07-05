@@ -16,11 +16,11 @@ Chart.register(...registerables);
         <h2 class="font-semibold text-gray-800 dark:text-gray-100">{{ title }}</h2>
         <div class="flex items-center gap-3">
           <div class="flex items-center">
-            <span class="text-xl sm:text-2xl font-bold text-gray-800 dark:text-gray-100 mr-2">{{ totalCount }}</span>
+            <span class="text-xl sm:text-2xl font-bold text-gray-800 dark:text-gray-100 mr-2 tabular-nums">{{ totalCount }}</span>
             <span class="text-xs sm:text-sm text-gray-500 dark:text-gray-400">this week</span>
           </div>
           @if (changePercent !== undefined) {
-            <span class="text-sm font-medium px-2 py-1 rounded-full"
+            <span class="text-sm font-medium px-2 py-1 rounded-full tabular-nums"
                   [ngClass]="changePercent >= 0 ? 'bg-green-100 text-green-600 dark:bg-green-500/20 dark:text-green-400' : 'bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400'">
               {{ changePercent >= 0 ? '+' : '' }}{{ changePercent }}%
             </span>

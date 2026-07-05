@@ -49,13 +49,13 @@ Chart.register(...registerables);
             <div class="flex items-center justify-between gap-2">
               <span class="ex-eyebrow">{{ kpi.label }}</span>
               @if (kpi.deltaPercent !== null) {
-                <span class="ex-delta" [class.ex-delta--up]="kpi.deltaUp" [class.ex-delta--down]="!kpi.deltaUp">
+                <span class="ex-delta tabular-nums" [class.ex-delta--up]="kpi.deltaUp" [class.ex-delta--down]="!kpi.deltaUp">
                   {{ kpi.deltaUp ? '▲' : '▼' }}&#8202;{{ absPercent(kpi.deltaPercent) }}%
                 </span>
               }
             </div>
 
-            <span class="font-display text-2xl sm:text-[1.7rem] leading-none ex-ink">
+            <span class="font-display text-2xl sm:text-[1.7rem] leading-none ex-ink tabular-nums">
               {{ kpi.value | zar: 'compact' }}
             </span>
 
@@ -64,8 +64,8 @@ Chart.register(...registerables);
             </div>
 
             <div class="flex items-center justify-between font-ledger text-[11px] ex-muted">
-              <span>{{ kpi.orders }} {{ kpi.orders === 1 ? 'order' : 'orders' }}</span>
-              <span>avg {{ kpi.avgOrderValue | zar: 'compact' }}</span>
+              <span><span class="tabular-nums">{{ kpi.orders }}</span> {{ kpi.orders === 1 ? 'order' : 'orders' }}</span>
+              <span>avg <span class="tabular-nums">{{ kpi.avgOrderValue | zar: 'compact' }}</span></span>
             </div>
           </div>
         }

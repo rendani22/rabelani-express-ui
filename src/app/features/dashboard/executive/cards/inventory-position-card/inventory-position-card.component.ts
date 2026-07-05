@@ -33,13 +33,13 @@ import { InventoryPosition } from '../../../services/executive-dashboard.service
             <div class="grid grid-cols-3 lg:grid-cols-1 gap-5 lg:border-r lg:pr-6" style="border-color: var(--ex-rule)">
               <div class="flex flex-col gap-1">
                 <span class="ex-eyebrow">Stock Value</span>
-                <span class="font-display text-2xl ex-ink leading-none">{{ position.stockValue | zar: 'compact' }}</span>
-                <span class="font-ledger text-[11px] ex-muted mt-0.5">{{ position.activeItems }} active items</span>
+                <span class="font-display text-2xl ex-ink leading-none tabular-nums">{{ position.stockValue | zar: 'compact' }}</span>
+                <span class="font-ledger text-[11px] ex-muted mt-0.5"><span class="tabular-nums">{{ position.activeItems }}</span> active items</span>
               </div>
               <div class="flex flex-col gap-1">
                 <span class="ex-eyebrow">Low Stock</span>
                 <span
-                  class="font-display text-2xl leading-none"
+                  class="font-display text-2xl leading-none tabular-nums"
                   [style.color]="position.lowStock > 0 ? 'var(--ex-watch)' : 'var(--ex-ink)'"
                 >{{ position.lowStock }}</span>
                 <span class="font-ledger text-[11px] ex-muted mt-0.5">near threshold</span>
@@ -47,7 +47,7 @@ import { InventoryPosition } from '../../../services/executive-dashboard.service
               <div class="flex flex-col gap-1">
                 <span class="ex-eyebrow">Out of Stock</span>
                 <span
-                  class="font-display text-2xl leading-none"
+                  class="font-display text-2xl leading-none tabular-nums"
                   [style.color]="position.outOfStock > 0 ? 'var(--ex-risk)' : 'var(--ex-ink)'"
                 >{{ position.outOfStock }}</span>
                 <span class="font-ledger text-[11px] ex-muted mt-0.5">fulfilment risk</span>
@@ -70,7 +70,7 @@ import { InventoryPosition } from '../../../services/executive-dashboard.service
                           {{ item.name }}
                         </span>
                         <span
-                          class="flex-shrink-0 font-ledger text-[11px]"
+                          class="flex-shrink-0 font-ledger text-[11px] tabular-nums"
                           [style.color]="item.quantity === 0 ? 'var(--ex-risk)' : 'var(--ex-watch)'"
                         >
                           {{ item.quantity }} / {{ item.threshold }}

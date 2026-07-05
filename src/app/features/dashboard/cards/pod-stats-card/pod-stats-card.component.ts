@@ -17,7 +17,7 @@ import { PodStats } from '../../services/dashboard.service';
         <!-- Main POD count -->
         <div class="flex items-center justify-between bg-violet-50 dark:bg-violet-500/10 rounded-xl p-4">
           <div>
-            <div class="text-3xl font-bold text-violet-600 dark:text-violet-400">{{ podStats.total }}</div>
+            <div class="text-3xl font-bold text-violet-600 dark:text-violet-400 tabular-nums">{{ podStats.total }}</div>
             <div class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mt-1">Total PODs</div>
           </div>
           <div class="w-12 h-12 rounded-xl bg-violet-100 dark:bg-violet-500/20 flex items-center justify-center">
@@ -31,19 +31,19 @@ import { PodStats } from '../../services/dashboard.service';
         <!-- Stats grid -->
         <div class="grid grid-cols-2 gap-3">
           <div class="bg-gray-50 dark:bg-gray-700/30 rounded-lg p-3 text-center">
-            <div class="text-xl font-bold text-green-600 dark:text-green-400">{{ podStats.withPdf }}</div>
+            <div class="text-xl font-bold text-green-600 dark:text-green-400 tabular-nums">{{ podStats.withPdf }}</div>
             <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">PDF Generated</div>
           </div>
           <div class="bg-gray-50 dark:bg-gray-700/30 rounded-lg p-3 text-center">
-            <div class="text-xl font-bold text-blue-600 dark:text-blue-400">{{ podStats.locked }}</div>
+            <div class="text-xl font-bold text-blue-600 dark:text-blue-400 tabular-nums">{{ podStats.locked }}</div>
             <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">Locked PODs</div>
           </div>
           <div class="bg-gray-50 dark:bg-gray-700/30 rounded-lg p-3 text-center">
-            <div class="text-xl font-bold text-amber-600 dark:text-amber-400">{{ podStats.today }}</div>
+            <div class="text-xl font-bold text-amber-600 dark:text-amber-400 tabular-nums">{{ podStats.today }}</div>
             <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">Today</div>
           </div>
           <div class="bg-gray-50 dark:bg-gray-700/30 rounded-lg p-3 text-center">
-            <div class="text-xl font-bold text-purple-600 dark:text-purple-400">{{ podStats.thisWeek }}</div>
+            <div class="text-xl font-bold text-purple-600 dark:text-purple-400 tabular-nums">{{ podStats.thisWeek }}</div>
             <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">This Week</div>
           </div>
         </div>
@@ -52,7 +52,7 @@ import { PodStats } from '../../services/dashboard.service';
         <div class="pt-1">
           <div class="flex items-center justify-between mb-1.5">
             <span class="text-sm text-gray-600 dark:text-gray-300">PDF Generation Rate</span>
-            <span class="text-sm font-medium text-gray-800 dark:text-gray-100">{{ pdfRate }}%</span>
+            <span class="text-sm font-medium text-gray-800 dark:text-gray-100 tabular-nums">{{ pdfRate }}%</span>
           </div>
           <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
             <div class="bg-green-500 h-2 rounded-full transition-all duration-500"

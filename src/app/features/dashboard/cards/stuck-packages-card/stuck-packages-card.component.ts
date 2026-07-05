@@ -17,7 +17,7 @@ import { StuckPackage } from '../../services/dashboard.service';
     <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl h-full flex flex-col">
       <header class="px-4 sm:px-5 py-4 border-b border-gray-100 dark:border-gray-700/60 flex items-center justify-between">
         <h2 class="font-semibold text-gray-800 dark:text-gray-100">{{ title }}</h2>
-        <span class="text-xs px-2 py-0.5 rounded-full"
+        <span class="text-xs px-2 py-0.5 rounded-full tabular-nums"
               [class.bg-rose-100]="packages.length > 0"
               [class.text-rose-700]="packages.length > 0"
               [class.bg-emerald-100]="packages.length === 0"
@@ -39,10 +39,10 @@ import { StuckPackage } from '../../services/dashboard.service';
                   <div class="text-xs text-gray-400 dark:text-gray-500 truncate">{{ p.receiverEmail }}</div>
                 </div>
                 <div class="text-right">
-                  <div class="text-xs font-medium" [ngClass]="severityText(p.hoursStuck, p.thresholdHours)">
+                  <div class="text-xs font-medium tabular-nums" [ngClass]="severityText(p.hoursStuck, p.thresholdHours)">
                     {{ formatHours(p.hoursStuck) }} stuck
                   </div>
-                  <div class="text-[11px] text-gray-400">{{ p.statusLabel }} · SLA {{ p.thresholdHours }}h</div>
+                  <div class="text-[11px] text-gray-400">{{ p.statusLabel }} · SLA <span class="tabular-nums">{{ p.thresholdHours }}</span>h</div>
                 </div>
               </button>
             }

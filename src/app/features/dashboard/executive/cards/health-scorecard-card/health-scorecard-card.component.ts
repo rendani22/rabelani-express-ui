@@ -39,11 +39,11 @@ import { HealthLevel, HealthMetric } from '../../../services/executive-dashboard
             }
 
             <div class="flex items-baseline gap-2 flex-shrink-0 justify-end min-w-[6rem] text-right">
-              <span class="font-display text-xl sm:text-2xl leading-none" [style.color]="color(m.level)">
+              <span class="font-display text-xl sm:text-2xl leading-none tabular-nums" [style.color]="color(m.level)">
                 {{ m.display }}
               </span>
               @if (m.deltaPercent !== null) {
-                <span class="ex-delta" [class.ex-delta--up]="m.deltaUp" [class.ex-delta--down]="!m.deltaUp">
+                <span class="ex-delta tabular-nums" [class.ex-delta--up]="m.deltaUp" [class.ex-delta--down]="!m.deltaUp">
                   {{ m.deltaUp ? '▲' : '▼' }}&#8202;{{ absPercent(m.deltaPercent) }}%
                 </span>
               }

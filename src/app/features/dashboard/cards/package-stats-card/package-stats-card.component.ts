@@ -69,13 +69,13 @@ export interface StatItem {
                   </svg>
                 </div>
                 @if (stat.changePercent !== undefined) {
-                  <span class="text-xs font-medium px-1.5 py-0.5 rounded-full"
+                  <span class="text-xs font-medium px-1.5 py-0.5 rounded-full tabular-nums"
                         [ngClass]="stat.changePercent >= 0 ? 'bg-green-100 text-green-600 dark:bg-green-500/20 dark:text-green-400' : 'bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400'">
                     {{ stat.changePercent >= 0 ? '+' : '' }}{{ stat.changePercent }}%
                   </span>
                 }
               </div>
-              <div class="text-2xl font-bold text-gray-800 dark:text-gray-100">{{ stat.value }}</div>
+              <div class="text-2xl font-bold text-gray-800 dark:text-gray-100 tabular-nums">{{ stat.value }}</div>
               <div class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mt-1">{{ stat.label }}</div>
               @if (stat.subtitle) {
                 <div class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{{ stat.subtitle }}</div>

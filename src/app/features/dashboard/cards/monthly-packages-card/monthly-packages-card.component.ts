@@ -30,7 +30,7 @@ Chart.register(...registerables);
         <div class="flex items-center gap-3">
           <div class="flex items-center">
             <span
-              class="text-xl sm:text-2xl font-bold text-gray-800 dark:text-gray-100 mr-2"
+              class="text-xl sm:text-2xl font-bold text-gray-800 dark:text-gray-100 mr-2 tabular-nums"
               >{{ totalCount }}</span
             >
             <span class="text-xs sm:text-sm text-gray-500 dark:text-gray-400"
