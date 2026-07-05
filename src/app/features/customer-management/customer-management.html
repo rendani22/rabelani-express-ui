@@ -83,12 +83,14 @@
       <!-- Customer cards -->
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
         @for (receiver of filteredReceivers(); track trackByReceiverId($index, receiver)) {
-          <app-user-card
-            [user]="mapReceiverToUser(receiver)"
-            [menuOptions]="getMenuOptions(receiver)"
-            [showSendEmail]="true"
-            [showEditProfile]="false"
-            (actionClick)="onCardAction($event)"
+          <app-customer-card
+            [receiver]="receiver"
+            (viewHistory)="onViewPackages($event)"
+            (email)="emailReceiver($event)"
+            (editDetails)="onEditCustomer($event)"
+            (manageContacts)="onManageContacts($event)"
+            (deactivate)="onDeactivate($event)"
+            (reactivate)="onReactivate($event)"
           />
         } @empty {
           <div class="col-span-full flex flex-col items-center justify-center py-16 text-center">

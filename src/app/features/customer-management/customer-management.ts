@@ -2,7 +2,7 @@ import { Component, inject, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LayoutComponent } from '../../shared/components/layout/layout.component';
 import { ReceiverService, ReceiverProfile, Package, PACKAGE_STATUS } from '../../core';
-import { UserCardComponent, User, UserCardAction, UserCardMenuOption } from '../../shared/components/user-card';
+import { CustomerCardComponent } from './customer-card/customer-card.component';
 import { AddCustomerModalComponent, EditCustomerModalComponent, ManageContactsModalComponent } from '../../shared/components/modals';
 import { ToastService } from '../../shared/components/toast/toast.service';
 import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
@@ -15,7 +15,7 @@ import { SupabaseService } from '../../shared/services/supabase.service';
 @Component({
   selector: 'app-customer-management',
   standalone: true,
-  imports: [CommonModule, LayoutComponent, UserCardComponent, AddCustomerModalComponent, EditCustomerModalComponent, ManageContactsModalComponent, ConfirmDialogComponent, ButtonComponent],
+  imports: [CommonModule, LayoutComponent, CustomerCardComponent, AddCustomerModalComponent, EditCustomerModalComponent, ManageContactsModalComponent, ConfirmDialogComponent, ButtonComponent],
   templateUrl: './customer-management.html',
   styleUrl: './customer-management.css'
 })
@@ -65,23 +65,6 @@ export class CustomerManagementComponent implements OnInit {
   /** Search query for filtering customers */
   readonly searchQuery = signal('');
 
-  /** Menu options for active customer cards */
-  readonly menuOptions: UserCardMenuOption[] = [
-    { label: 'View Packages', action: 'viewPackages' },
-    { label: 'Edit Details', action: 'editDetails' },
-    { label: 'Manage Contacts', action: 'manageContacts' },
-    { label: 'Send Email', action: 'sendEmail' },
-    { label: 'Deactivate', action: 'deactivate', isDanger: true }
-  ];
-
-  /** Menu options for inactive customer cards */
-  readonly inactiveMenuOptions: UserCardMenuOption[] = [
-    { label: 'Edit Details', action: 'editDetails' },
-    { label: 'Manage Contacts', action: 'manageContacts' },
-    { label: 'Send Email', action: 'sendEmail' },
-    { label: 'Reactivate', action: 'reactivate' }
-  ];
-
   /** Directory overview — a Total anchor with active/inactive demoted. */
   readonly stats = computed(() => {
     const list = this.receiverList();
@@ -123,81 +106,10 @@ export class CustomerManagementComponent implements OnInit {
   }
 
   /**
-   * Map ReceiverProfile to User interface for card display.
+   * Open the mail client for a receiver.
    */
-  mapReceiverToUser(receiver: ReceiverProfile): User {
-    const fullName = `${receiver.name} ${receiver.surname}`;
-    return {
-      id: receiver.id,
-      name: fullName,
-      avatar: this.generateAvatarUrl(fullName),
-      country: '',
-      countryFlag: '',
-      bio: '',
-      email: receiver.email,
-      phone: receiver.phone || undefined,
-      // Drives the card's built-in status dot instead of a redundant ✅/⛔ emoji.
-      isActive: receiver.is_active,
-      // Surface a badge only for the exceptional (inactive) case.
-      role: receiver.is_active ? undefined : 'Inactive',
-    };
-  }
-
-  /**
-   * Get the original ReceiverProfile by ID.
-   */
-  getReceiverById(id: string | number): ReceiverProfile | undefined {
-    return this.filteredReceivers().find(r => r.id === id);
-  }
-
-  /**
-   * Get menu options based on receiver active status.
-   */
-  getMenuOptions(receiver: ReceiverProfile): UserCardMenuOption[] {
-    return receiver.is_active ? this.menuOptions : this.inactiveMenuOptions;
-  }
-
-  /**
-   * Handle user card action events.
-   */
-  async onCardAction(action: UserCardAction): Promise<void> {
-    const receiver = this.getReceiverById(action.userId);
-    if (!receiver) return;
-
-    switch (action.actionType) {
-      case 'sendEmail':
-        window.location.href = `mailto:${receiver.email}`;
-        break;
-      case 'menuOption':
-        await this.handleMenuOption(action.menuOption, receiver);
-        break;
-    }
-  }
-
-  /**
-   * Handle menu option selection.
-   */
-  private async handleMenuOption(option: string | undefined, receiver: ReceiverProfile): Promise<void> {
-    switch (option) {
-      case 'viewPackages':
-        await this.onViewPackages(receiver);
-        break;
-      case 'editDetails':
-        this.onEditCustomer(receiver);
-        break;
-      case 'manageContacts':
-        this.onManageContacts(receiver);
-        break;
-      case 'sendEmail':
-        window.location.href = `mailto:${receiver.email}`;
-        break;
-      case 'deactivate':
-        await this.onDeactivate(receiver);
-        break;
-      case 'reactivate':
-        await this.onReactivate(receiver);
-        break;
-    }
+  emailReceiver(receiver: ReceiverProfile): void {
+    window.location.href = `mailto:${receiver.email}`;
   }
 
   /**
