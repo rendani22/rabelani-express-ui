@@ -19,7 +19,7 @@ import { TopReceiver } from '../../services/dashboard.service';
             @for (receiver of receivers; track receiver.email; let i = $index) {
               <div class="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/20 transition-colors">
                 <!-- Rank badge -->
-                <div class="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold"
+                <div class="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold tabular-nums"
                      [ngClass]="getRankClass(i)">
                   {{ i + 1 }}
                 </div>
@@ -39,7 +39,7 @@ import { TopReceiver } from '../../services/dashboard.service';
                          [ngClass]="getBarClass(i)"
                          [style.width.%]="getPercent(receiver.count)"></div>
                   </div>
-                  <span class="text-sm font-semibold text-gray-800 dark:text-gray-100 w-5 text-right">
+                  <span class="text-sm font-semibold text-gray-800 dark:text-gray-100 w-5 text-right tabular-nums">
                     {{ receiver.count }}
                   </span>
                 </div>

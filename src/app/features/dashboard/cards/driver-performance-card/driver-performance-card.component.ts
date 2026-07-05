@@ -24,11 +24,11 @@ import { DriverPerformance } from '../../services/dashboard.service';
           <div class="space-y-2">
             @for (d of drivers; track d.driverUserId; let i = $index) {
               <div class="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/20 transition-colors">
-                <div class="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold"
+                <div class="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold tabular-nums"
                      [ngClass]="rankClass(i)">{{ i + 1 }}</div>
                 <div class="min-w-0 flex-1">
                   <div class="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">{{ d.name }}</div>
-                  <div class="text-xs text-gray-400 dark:text-gray-500">
+                  <div class="text-xs text-gray-400 dark:text-gray-500 tabular-nums">
                     {{ d.pickups }} pickups · {{ d.delivered }} delivered
                     @if (d.inTransit > 0) {
                       · {{ d.inTransit }} in transit
@@ -36,7 +36,7 @@ import { DriverPerformance } from '../../services/dashboard.service';
                   </div>
                 </div>
                 <div class="text-right flex-shrink-0">
-                  <div class="text-sm font-semibold text-gray-800 dark:text-gray-100">
+                  <div class="text-sm font-semibold text-gray-800 dark:text-gray-100 tabular-nums">
                     @if (d.avgDeliveryHours !== null) {
                       {{ d.avgDeliveryHours }}h
                     } @else {

@@ -6,6 +6,7 @@ import { UserCardComponent, User, UserCardAction, UserCardMenuOption } from '../
 import { AddCustomerModalComponent, EditCustomerModalComponent, ManageContactsModalComponent } from '../../shared/components/modals';
 import { ToastService } from '../../shared/components/toast/toast.service';
 import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
+import { ButtonComponent } from '../../shared/components/button/button.component';
 import { SupabaseService } from '../../shared/services/supabase.service';
 
 /**
@@ -14,7 +15,7 @@ import { SupabaseService } from '../../shared/services/supabase.service';
 @Component({
   selector: 'app-customer-management',
   standalone: true,
-  imports: [CommonModule, LayoutComponent, UserCardComponent, AddCustomerModalComponent, EditCustomerModalComponent, ManageContactsModalComponent, ConfirmDialogComponent],
+  imports: [CommonModule, LayoutComponent, UserCardComponent, AddCustomerModalComponent, EditCustomerModalComponent, ManageContactsModalComponent, ConfirmDialogComponent, ButtonComponent],
   templateUrl: './customer-management.html',
   styleUrl: './customer-management.css'
 })
@@ -81,6 +82,13 @@ export class CustomerManagementComponent implements OnInit {
     { label: 'Reactivate', action: 'reactivate' }
   ];
 
+  /** Directory overview — a Total anchor with active/inactive demoted. */
+  readonly stats = computed(() => {
+    const list = this.receiverList();
+    const active = list.filter(r => r.is_active).length;
+    return { total: list.length, active, inactive: list.length - active };
+  });
+
   /** Filtered receiver list based on search query */
   readonly filteredReceivers = computed(() => {
     const query = this.searchQuery().toLowerCase();
@@ -123,9 +131,15 @@ export class CustomerManagementComponent implements OnInit {
       id: receiver.id,
       name: fullName,
       avatar: this.generateAvatarUrl(fullName),
-      country: receiver.is_active ? 'Active' : 'Inactive',
-      countryFlag: receiver.is_active ? '✅' : '⛔',
-      bio: `${receiver.email}${receiver.phone ? ' • ' + receiver.phone : ''}${receiver.is_active ? '' : ' • Inactive'}`
+      country: '',
+      countryFlag: '',
+      bio: '',
+      email: receiver.email,
+      phone: receiver.phone || undefined,
+      // Drives the card's built-in status dot instead of a redundant ✅/⛔ emoji.
+      isActive: receiver.is_active,
+      // Surface a badge only for the exceptional (inactive) case.
+      role: receiver.is_active ? undefined : 'Inactive',
     };
   }
 
@@ -257,6 +271,22 @@ export class CustomerManagementComponent implements OnInit {
   }
 
   /**
+   * Solid dot colour for a package's node on the history timeline.
+   */
+  getStatusDot(status: string): string {
+    const dots: Record<string, string> = {
+      [PACKAGE_STATUS.PENDING]: 'bg-amber-400',
+      [PACKAGE_STATUS.NOTIFIED]: 'bg-blue-400',
+      [PACKAGE_STATUS.IN_TRANSIT]: 'bg-indigo-400',
+      [PACKAGE_STATUS.READY_FOR_COLLECTION]: 'bg-purple-400',
+      [PACKAGE_STATUS.DELIVERED]: 'bg-green-500',
+      [PACKAGE_STATUS.COLLECTED]: 'bg-green-500',
+      [PACKAGE_STATUS.RETURNED]: 'bg-red-400',
+    };
+    return dots[status] ?? 'bg-gray-400';
+  }
+
+  /**
    * Format a date string for display.
    */
   formatDate(dateString: string): string {
@@ -358,7 +388,7 @@ export class CustomerManagementComponent implements OnInit {
   /**
    * Generate avatar URL from name.
    */
-  private generateAvatarUrl(name: string): string {
+  generateAvatarUrl(name: string): string {
     const encodedName = encodeURIComponent(name);
     return `https://ui-avatars.com/api/?name=${encodedName}&background=8b5cf6&color=fff&size=128`;
   }

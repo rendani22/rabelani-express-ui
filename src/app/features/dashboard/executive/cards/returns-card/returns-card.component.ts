@@ -32,11 +32,11 @@ Chart.register(...registerables);
         <div class="flex flex-col gap-1">
           <span class="ex-eyebrow">{{ title }}</span>
           <span class="font-ledger text-xs ex-muted">
-            {{ returns.returnedTotal }} of {{ returns.ordersTotal }} orders returned
+            <span class="tabular-nums">{{ returns.returnedTotal }}</span> of <span class="tabular-nums">{{ returns.ordersTotal }}</span> orders returned
           </span>
         </div>
         <div class="flex items-baseline gap-2">
-          <span class="font-display text-3xl leading-none" [style.color]="levelColor(returns.level)">
+          <span class="font-display text-3xl leading-none tabular-nums" [style.color]="levelColor(returns.level)">
             {{ returns.returnRate }}%
           </span>
           @if (returns.trendingUp) {
@@ -68,9 +68,9 @@ Chart.register(...registerables);
                   <li class="flex items-center justify-between gap-3 py-2 border-t first:border-t-0" style="border-color: var(--ex-rule)">
                     <span class="truncate text-sm ex-ink-soft">{{ loc.name }}</span>
                     <span class="flex items-baseline gap-2 flex-shrink-0">
-                      <span class="font-ledger text-[11px] ex-muted">{{ loc.count }}</span>
+                      <span class="font-ledger text-[11px] ex-muted tabular-nums">{{ loc.count }}</span>
                       <span
-                        class="font-ledger text-sm"
+                        class="font-ledger text-sm tabular-nums"
                         [style.color]="loc.rate >= 2 * returns.returnRate ? 'var(--ex-risk)' : 'var(--ex-ink)'"
                       >{{ loc.rate }}%</span>
                     </span>

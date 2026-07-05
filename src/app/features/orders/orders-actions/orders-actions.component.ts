@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PACKAGE_STATUS } from '../../../core';
 import { ClickOutsideDirective } from '../../../shared/directives/outside-click.directive';
+import { ButtonComponent } from '../../../shared/components/button/button.component';
 import { Subject, debounceTime, distinctUntilChanged, takeUntil } from 'rxjs';
 
 /** Status filter option */
@@ -17,7 +18,7 @@ interface StatusOption {
 @Component({
   selector: 'app-orders-actions',
   standalone: true,
-  imports: [CommonModule, FormsModule, ClickOutsideDirective],
+  imports: [CommonModule, FormsModule, ClickOutsideDirective, ButtonComponent],
   templateUrl: './orders-actions.component.html',
   styleUrls: ['./orders-actions.component.css']
 })

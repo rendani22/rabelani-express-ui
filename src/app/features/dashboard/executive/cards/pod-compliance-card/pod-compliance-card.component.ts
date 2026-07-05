@@ -38,7 +38,7 @@ Chart.register(...registerables);
             <div class="relative w-[104px] h-[104px] flex-shrink-0">
               <canvas #gaugeCanvas></canvas>
               <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <span class="font-display text-2xl leading-none" [style.color]="levelColor(podCompliance.level)">
+                <span class="font-display text-2xl leading-none tabular-nums" [style.color]="levelColor(podCompliance.level)">
                   {{ podCompliance.pdfRate }}%
                 </span>
                 <span class="ex-eyebrow mt-1">captured</span>
@@ -47,13 +47,13 @@ Chart.register(...registerables);
             <div class="flex flex-col gap-3 min-w-0">
               <div class="flex flex-col">
                 <span class="ex-eyebrow">With proof PDF</span>
-                <span class="font-ledger text-sm ex-ink">
+                <span class="font-ledger text-sm ex-ink tabular-nums">
                   {{ podCompliance.withPdf }} / {{ podCompliance.total }}
                 </span>
               </div>
               <div class="flex flex-col">
                 <span class="ex-eyebrow">Finalized (locked)</span>
-                <span class="font-ledger text-sm ex-ink">{{ podCompliance.lockedRate }}%</span>
+                <span class="font-ledger text-sm ex-ink tabular-nums">{{ podCompliance.lockedRate }}%</span>
               </div>
             </div>
           </div>
@@ -61,11 +61,11 @@ Chart.register(...registerables);
           <div class="grid grid-cols-2 gap-4 pt-1 border-t" style="border-color: var(--ex-rule)">
             <div class="flex flex-col gap-0.5 pt-3">
               <span class="ex-eyebrow">Today</span>
-              <span class="font-ledger text-lg ex-ink leading-none">{{ podCompliance.today }}</span>
+              <span class="font-ledger text-lg ex-ink leading-none tabular-nums">{{ podCompliance.today }}</span>
             </div>
             <div class="flex flex-col gap-0.5 pt-3">
               <span class="ex-eyebrow">This week</span>
-              <span class="font-ledger text-lg ex-ink leading-none">{{ podCompliance.thisWeek }}</span>
+              <span class="font-ledger text-lg ex-ink leading-none tabular-nums">{{ podCompliance.thisWeek }}</span>
             </div>
           </div>
 

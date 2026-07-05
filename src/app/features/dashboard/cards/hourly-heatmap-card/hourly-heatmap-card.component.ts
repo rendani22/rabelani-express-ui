@@ -17,7 +17,7 @@ import { HourlyHeatmap } from '../../services/dashboard.service';
     <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl h-full flex flex-col">
       <header class="px-4 sm:px-5 py-4 border-b border-gray-100 dark:border-gray-700/60 flex items-center justify-between">
         <h2 class="font-semibold text-gray-800 dark:text-gray-100">{{ title }}</h2>
-        <span class="text-xs text-gray-500 dark:text-gray-400">{{ data.total }} packages · darker = busier</span>
+        <span class="text-xs text-gray-500 dark:text-gray-400 tabular-nums">{{ data.total }} packages · darker = busier</span>
       </header>
       <div class="p-4 sm:p-5 overflow-x-auto">
         <div class="inline-block min-w-full">

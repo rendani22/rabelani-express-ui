@@ -32,7 +32,7 @@ Chart.register(...registerables);
         <span class="ex-eyebrow">{{ title }}</span>
         @if (geography.available && geography.concentrationLevel !== 'good' && geography.concentrationLevel !== 'neutral') {
           <span class="font-ledger text-[11px]" [style.color]="levelColor(geography.concentrationLevel)">
-            Top region {{ geography.topShare }}%
+            Top region <span class="tabular-nums">{{ geography.topShare }}%</span>
           </span>
         }
       </header>
@@ -49,18 +49,18 @@ Chart.register(...registerables);
             <div class="flex flex-col gap-5 lg:border-l lg:pl-6" style="border-color: var(--ex-rule)">
               <div class="flex flex-col gap-1">
                 <span class="ex-eyebrow">Top region share</span>
-                <span class="font-display text-2xl leading-none" [style.color]="levelColor(geography.concentrationLevel)">
+                <span class="font-display text-2xl leading-none tabular-nums" [style.color]="levelColor(geography.concentrationLevel)">
                   {{ geography.topShare }}%
                 </span>
                 <span class="font-ledger text-[11px] ex-muted mt-0.5">
-                  {{ geography.locations[0].name }} · {{ geography.totalAssigned }} located orders
+                  {{ geography.locations[0].name }} · <span class="tabular-nums">{{ geography.totalAssigned }}</span> located orders
                 </span>
               </div>
 
               <div class="flex flex-col gap-1">
                 <span class="ex-eyebrow">Unassigned</span>
                 <span
-                  class="font-display text-2xl leading-none"
+                  class="font-display text-2xl leading-none tabular-nums"
                   [style.color]="geography.unassigned > 0 ? 'var(--ex-watch)' : 'var(--ex-good)'"
                 >{{ geography.unassigned }}</span>
                 <span class="font-ledger text-[11px] ex-muted mt-0.5">

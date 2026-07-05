@@ -17,6 +17,19 @@ html {
 body {
   overflow-x: hidden;
   min-height: 100dvh;
+  /* Crisper text rendering on macOS/webkit */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Typographic defaults: balance headings, avoid orphans in body copy */
+h1, h2, h3, h4 {
+  text-wrap: balance;
+}
+
+p {
+  text-wrap: pretty;
 }
 
 /* Better touch targets for mobile */

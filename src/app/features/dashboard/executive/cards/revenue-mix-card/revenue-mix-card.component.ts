@@ -36,11 +36,11 @@ Chart.register(...registerables);
         <div class="grid grid-cols-2 gap-4">
           <div class="flex flex-col gap-1">
             <span class="ex-eyebrow">Collected</span>
-            <span class="font-display text-xl ex-ink leading-none">{{ summary.totalValue | zar: 'compact' }}</span>
+            <span class="font-display text-xl ex-ink leading-none tabular-nums">{{ summary.totalValue | zar: 'compact' }}</span>
           </div>
           <div class="flex flex-col gap-1">
             <span class="ex-eyebrow">Avg / Order</span>
-            <span class="font-display text-xl ex-ink leading-none">{{ summary.avgOrderValue | zar: 'compact' }}</span>
+            <span class="font-display text-xl ex-ink leading-none tabular-nums">{{ summary.avgOrderValue | zar: 'compact' }}</span>
           </div>
         </div>
 
@@ -48,7 +48,7 @@ Chart.register(...registerables);
           @if (summary.totalValue > 0 || summary.pipelineValue > 0) {
             <canvas #chartCanvas></canvas>
             <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-              <span class="font-display text-2xl ex-ink leading-none">{{ summary.totalOrders }}</span>
+              <span class="font-display text-2xl ex-ink leading-none tabular-nums">{{ summary.totalOrders }}</span>
               <span class="ex-eyebrow mt-1">collected</span>
             </div>
           } @else {
@@ -63,13 +63,13 @@ Chart.register(...registerables);
             <span class="flex items-center gap-2 ex-ink-soft">
               <span class="ex-marker bg-gold"></span> Collected · realized
             </span>
-            <span class="font-ledger ex-ink">{{ summary.totalValue | zar }}</span>
+            <span class="font-ledger ex-ink tabular-nums">{{ summary.totalValue | zar }}</span>
           </div>
           <div class="flex items-center justify-between">
             <span class="flex items-center gap-2 ex-ink-soft">
               <span class="ex-marker" style="background: var(--ex-ink-soft)"></span> Awaiting collection
             </span>
-            <span class="font-ledger ex-ink">{{ summary.pipelineValue | zar }}</span>
+            <span class="font-ledger ex-ink tabular-nums">{{ summary.pipelineValue | zar }}</span>
           </div>
         </div>
       </div>

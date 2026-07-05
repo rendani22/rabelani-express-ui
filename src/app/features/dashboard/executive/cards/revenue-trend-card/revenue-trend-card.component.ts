@@ -34,7 +34,7 @@ type Granularity = keyof RevenueTrends;
         <div class="flex flex-col gap-1">
           <span class="ex-eyebrow">{{ title }}</span>
           <span class="font-ledger text-xs ex-muted">
-            {{ activeTotalValue | zar }} · {{ activeTotalOrders }} orders shown
+            <span class="tabular-nums">{{ activeTotalValue | zar }}</span> · <span class="tabular-nums">{{ activeTotalOrders }}</span> orders shown
           </span>
         </div>
         <div class="flex items-center gap-4 self-start">

@@ -16,6 +16,26 @@
   @apply inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-violet-500;
 }
 
+/* "On-air" live signal — a soft ping that radiates from a status dot.
+   Colour is inherited (set text-* on the .live-dot element). */
+.live-dot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: currentColor;
+  animation: drivers-ping 2.4s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+@keyframes drivers-ping {
+  0% { transform: scale(0.6); opacity: 0.55; }
+  70%, 100% { transform: scale(2.2); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-dot::after { animation: none; }
+}
+
 /* Custom Leaflet marker styles */
 :global(.custom-driver-marker) {
   background: transparent !important;

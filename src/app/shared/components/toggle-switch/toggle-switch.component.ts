@@ -24,8 +24,8 @@ import { ControlValueAccessor, NG_VALUE_ACCESSOR, FormsModule } from '@angular/f
                  peer-checked:bg-violet-500
                  peer-disabled:cursor-not-allowed peer-disabled:bg-gray-200 peer-disabled:border peer-disabled:border-gray-200
                  peer-disabled:dark:bg-gray-700/20 peer-disabled:dark:border-gray-700/60">
-          <span 
-            class="absolute block w-5 h-5 top-0.5 left-0.5 bg-white rounded-full shadow-sm transition-all duration-150 ease-out"
+          <span
+            class="absolute block w-5 h-5 top-0.5 left-0.5 bg-white rounded-full shadow-sm transition-[transform,background-color] duration-150 ease-out"
             [class.translate-x-5]="checked"
             [class.bg-gray-400]="disabled"
             [class.dark:bg-gray-600]="disabled"

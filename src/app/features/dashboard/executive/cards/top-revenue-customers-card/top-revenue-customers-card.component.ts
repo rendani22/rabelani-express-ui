@@ -23,7 +23,7 @@ import { CustomerConcentration, TopRevenueCustomer } from '../../../services/exe
             [style.color]="concentrationColor()"
             [title]="'Top customer: ' + concentration.topCustomerShare + '% of revenue'"
           >
-            Top 5 · {{ concentration.topFiveShare }}%
+            Top 5 · <span class="tabular-nums">{{ concentration.topFiveShare }}%</span>
           </span>
         }
       </header>
@@ -40,19 +40,19 @@ import { CustomerConcentration, TopRevenueCustomer } from '../../../services/exe
                 >
                   <div class="flex items-center justify-between gap-3">
                     <span class="flex items-baseline gap-3 min-w-0">
-                      <span class="font-display text-base ex-gold w-6 flex-shrink-0">{{ i + 1 }}</span>
+                      <span class="font-display text-base ex-gold w-6 flex-shrink-0 tabular-nums">{{ i + 1 }}</span>
                       <span class="truncate text-sm ex-ink group-hover:text-[color:var(--ex-gold)] transition-colors">
                         {{ c.name }}
                       </span>
                     </span>
-                    <span class="flex-shrink-0 font-ledger text-sm ex-ink">{{ c.value | zar }}</span>
+                    <span class="flex-shrink-0 font-ledger text-sm ex-ink tabular-nums">{{ c.value | zar }}</span>
                   </div>
                   <div class="flex items-center gap-3 pl-9">
                     <div class="flex-1 h-1 ex-track rounded-[1px]">
                       <div class="ex-track-fill h-1 rounded-[1px]" [style.width.%]="share(c)"></div>
                     </div>
                     <span class="flex-shrink-0 font-ledger text-[11px] ex-muted">
-                      {{ c.orders }} {{ c.orders === 1 ? 'order' : 'orders' }}
+                      <span class="tabular-nums">{{ c.orders }}</span> {{ c.orders === 1 ? 'order' : 'orders' }}
                     </span>
                   </div>
                 </button>

@@ -22,7 +22,7 @@ Chart.register(...registerables);
               <canvas #chartCanvas></canvas>
               <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <div class="text-center">
-                  <div class="text-3xl font-bold text-gray-800 dark:text-gray-100">{{ totalPackages }}</div>
+                  <div class="text-3xl font-bold text-gray-800 dark:text-gray-100 tabular-nums">{{ totalPackages }}</div>
                   <div class="text-xs text-gray-500 dark:text-gray-400 uppercase">Total</div>
                 </div>
               </div>
@@ -39,7 +39,7 @@ Chart.register(...registerables);
                 <li class="flex items-center">
                   <span class="w-3 h-3 rounded-full mr-2" [style.backgroundColor]="item.color"></span>
                   <span class="text-sm text-gray-600 dark:text-gray-300">
-                    {{ item.label }} <span class="font-medium text-gray-800 dark:text-gray-100">{{ item.value }}</span>
+                    {{ item.label }} <span class="font-medium text-gray-800 dark:text-gray-100 tabular-nums">{{ item.value }}</span>
                   </span>
                 </li>
               }

@@ -17,15 +17,15 @@ import { DriverStats } from '../../services/dashboard.service';
         <!-- Driver counts -->
         <div class="grid grid-cols-3 gap-3">
           <div class="bg-gray-50 dark:bg-gray-700/30 rounded-lg p-3 text-center">
-            <div class="text-2xl font-bold text-gray-800 dark:text-gray-100">{{ driverStats.total }}</div>
+            <div class="text-2xl font-bold text-gray-800 dark:text-gray-100 tabular-nums">{{ driverStats.total }}</div>
             <div class="text-xs text-gray-500 dark:text-gray-400 mt-1 uppercase tracking-wide">Total</div>
           </div>
           <div class="bg-green-50 dark:bg-green-500/10 rounded-lg p-3 text-center">
-            <div class="text-2xl font-bold text-green-600 dark:text-green-400">{{ driverStats.active }}</div>
+            <div class="text-2xl font-bold text-green-600 dark:text-green-400 tabular-nums">{{ driverStats.active }}</div>
             <div class="text-xs text-gray-500 dark:text-gray-400 mt-1 uppercase tracking-wide">Active</div>
           </div>
           <div class="bg-blue-50 dark:bg-blue-500/10 rounded-lg p-3 text-center">
-            <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ driverStats.onDelivery }}</div>
+            <div class="text-2xl font-bold text-blue-600 dark:text-blue-400 tabular-nums">{{ driverStats.onDelivery }}</div>
             <div class="text-xs text-gray-500 dark:text-gray-400 mt-1 uppercase tracking-wide">On Route</div>
           </div>
         </div>
@@ -66,13 +66,13 @@ import { DriverStats } from '../../services/dashboard.service';
         <div class="pt-3 border-t border-gray-100 dark:border-gray-700/60">
           <div class="flex items-center justify-between">
             <span class="text-sm text-gray-600 dark:text-gray-300">Packages In Transit</span>
-            <span class="text-sm font-bold text-blue-600 dark:text-blue-400">{{ driverStats.packagesInTransit }}</span>
+            <span class="text-sm font-bold text-blue-600 dark:text-blue-400 tabular-nums">{{ driverStats.packagesInTransit }}</span>
           </div>
           <div class="mt-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
             <div class="bg-blue-500 h-1.5 rounded-full transition-all duration-500"
                  [style.width.%]="transitPercent"></div>
           </div>
-          <div class="text-xs text-gray-400 dark:text-gray-500 mt-1">{{ transitPercent }}% of total packages</div>
+          <div class="text-xs text-gray-400 dark:text-gray-500 mt-1 tabular-nums">{{ transitPercent }}% of total packages</div>
         </div>
       </div>
     </div>

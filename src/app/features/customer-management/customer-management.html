@@ -1,21 +1,21 @@
 <app-layout>
-  <div class="w-full max-w-7xl mx-auto px-0 sm:px-0">
+  <div class="w-full max-w-7xl mx-auto">
 
-    <!-- Header Section -->
-    <div class="sm:flex sm:justify-between sm:items-center mb-8">
-      <!-- Title -->
-      <div class="mb-4 sm:mb-0">
-        <h1 class="text-2xl md:text-3xl text-gray-800 dark:text-gray-100 font-bold">Customers</h1>
-        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage receiver profiles and contact information</p>
+    <!-- Header -->
+    <header class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between mb-6">
+      <div>
+        <p class="text-[11px] font-semibold uppercase tracking-[0.14em] text-gray-400 dark:text-gray-500 mb-1.5">Directory</p>
+        <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-50">Customers</h1>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Receiver profiles, contacts, and package history.</p>
       </div>
 
       <!-- Actions -->
-      <div class="grid grid-flow-col sm:auto-cols-max justify-start sm:justify-end gap-2">
+      <div class="flex flex-wrap items-center gap-2">
         <!-- Search -->
         <div class="relative">
           <input
             type="text"
-            class="form-input !pl-10 w-full sm:w-64 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
+            class="form-input !pl-10 w-full sm:w-64 dark:bg-gray-800/60 dark:border-gray-700 dark:text-gray-100"
             placeholder="Search customers..."
             aria-label="Search customers"
             (input)="onSearchChange($event)"
@@ -26,43 +26,62 @@
           </svg>
         </div>
 
-        <!-- Add Customer Button -->
-        <button
-          class="btn bg-violet-500 hover:bg-violet-600 text-white"
-          (click)="onAddCustomer()"
-        >
-          <svg class="fill-current shrink-0 xs:hidden" width="16" height="16" viewBox="0 0 16 16">
+        <!-- Add Customer -->
+        <app-button variant="primary" (click)="onAddCustomer()">
+          <svg class="fill-current shrink-0" width="15" height="15" viewBox="0 0 16 16" aria-hidden="true">
             <path d="M15 7H9V1c0-.6-.4-1-1-1S7 .4 7 1v6H1c-.6 0-1 .4-1 1s.4 1 1 1h6v6c0 .6.4 1 1 1s1-.4 1-1V9h6c.6 0 1-.4 1-1s-.4-1-1-1z"/>
           </svg>
-          <span class="max-xs:sr-only">Add Customer</span>
-        </button>
+          <span class="max-xs:sr-only">Add customer</span>
+        </app-button>
       </div>
-    </div>
+    </header>
 
     <!-- Loading State -->
     @if (loading()) {
-      <div class="flex justify-center items-center py-12">
-        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-500"></div>
-        <span class="ml-3 text-gray-500 dark:text-gray-400">Loading customers...</span>
+      <div class="flex items-center justify-center gap-3 py-16">
+        <div class="animate-spin rounded-full h-6 w-6 border-2 border-violet-500 border-t-transparent"></div>
+        <span class="text-sm text-gray-500 dark:text-gray-400">Loading customers…</span>
       </div>
     }
 
     <!-- Error State -->
     @if (error()) {
-      <div class="bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg mb-4">
-        <p>{{ error() }}</p>
-        <button
-          class="mt-2 text-sm underline hover:no-underline"
-          (click)="loadReceivers()"
-        >
-          Try again
-        </button>
+      <div class="mb-6 flex items-start gap-3 rounded-xl border border-red-200/70 dark:border-red-900/50 bg-red-50 dark:bg-red-950/30 px-4 py-3.5">
+        <svg class="mt-0.5 h-5 w-5 shrink-0 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clip-rule="evenodd"/>
+        </svg>
+        <div class="flex-1">
+          <p class="text-sm text-red-700 dark:text-red-300">{{ error() }}</p>
+          <button (click)="loadReceivers()" class="mt-1 text-sm font-medium text-red-600 dark:text-red-400 underline-offset-2 hover:underline">Try again</button>
+        </div>
       </div>
     }
 
-    <!-- Customer Cards Grid -->
+    <!-- Directory -->
     @if (!loading() && !error()) {
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+
+      <!-- Overview — a Total anchor, active/inactive demoted -->
+      <section class="mb-6 grid grid-cols-3 overflow-hidden rounded-xl border border-black/5 dark:border-white/10 bg-white dark:bg-gray-800/40">
+        <div class="flex flex-col justify-center px-5 py-4">
+          <span class="text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-400 dark:text-gray-500">Total customers</span>
+          <span class="mt-1 text-3xl font-bold tracking-tight tabular-nums text-gray-900 dark:text-gray-50">{{ stats().total }}</span>
+        </div>
+        <div class="flex flex-col justify-center px-5 py-4 border-l border-black/5 dark:border-white/10">
+          <span class="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.1em] text-gray-400 dark:text-gray-500">
+            <span class="h-1.5 w-1.5 rounded-full bg-green-500"></span>Active
+          </span>
+          <span class="mt-1.5 text-xl font-semibold tabular-nums text-gray-800 dark:text-gray-100">{{ stats().active }}</span>
+        </div>
+        <div class="flex flex-col justify-center px-5 py-4 border-l border-black/5 dark:border-white/10">
+          <span class="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.1em] text-gray-400 dark:text-gray-500">
+            <span class="h-1.5 w-1.5 rounded-full bg-gray-400"></span>Inactive
+          </span>
+          <span class="mt-1.5 text-xl font-semibold tabular-nums text-gray-800 dark:text-gray-100">{{ stats().inactive }}</span>
+        </div>
+      </section>
+
+      <!-- Customer cards -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
         @for (receiver of filteredReceivers(); track trackByReceiverId($index, receiver)) {
           <app-user-card
             [user]="mapReceiverToUser(receiver)"
@@ -72,16 +91,16 @@
             (actionClick)="onCardAction($event)"
           />
         } @empty {
-          <div class="col-span-full flex flex-col items-center justify-center py-12 text-center">
-            <svg class="w-16 h-16 text-gray-300 dark:text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div class="col-span-full flex flex-col items-center justify-center py-16 text-center">
+            <svg class="w-12 h-12 text-gray-300 dark:text-gray-600 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
             </svg>
             @if (searchQuery()) {
-              <p class="text-gray-500 dark:text-gray-400 text-lg font-medium">No customers found</p>
-              <p class="text-gray-400 dark:text-gray-500 text-sm mt-1">No customers match "{{ searchQuery() }}"</p>
+              <p class="text-sm font-medium text-gray-600 dark:text-gray-300">No customers match "{{ searchQuery() }}"</p>
+              <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">Try a different name or email</p>
             } @else {
-              <p class="text-gray-500 dark:text-gray-400 text-lg font-medium">No customers yet</p>
-              <p class="text-gray-400 dark:text-gray-500 text-sm mt-1">Add your first customer to get started</p>
+              <p class="text-sm font-medium text-gray-600 dark:text-gray-300">No customers yet</p>
+              <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">Add your first customer to get started</p>
             }
           </div>
         }
@@ -124,84 +143,101 @@
   (cancelled)="onCancelDeactivate()"
 />
 
-<!-- Package History Panel -->
+<!-- Package History — a receiver's receiving ledger -->
 @if (historyPanelOpen()) {
   <div
-    class="fixed inset-0 bg-gray-900/50 z-40"
+    class="fixed inset-0 bg-gray-900/40 backdrop-blur-sm z-40"
     (click)="onCloseHistoryPanel()"
     aria-hidden="true"
   ></div>
 }
 <aside
-  class="fixed top-0 right-0 bottom-0 w-full max-w-md bg-white dark:bg-gray-800 shadow-xl z-50 transform transition-transform duration-300 ease-in-out overflow-hidden flex flex-col"
+  class="fixed top-0 right-0 bottom-0 w-full max-w-md bg-white dark:bg-gray-900 border-l border-black/5 dark:border-white/10 shadow-2xl z-50 transform transition-transform duration-300 ease-out overflow-hidden flex flex-col"
   [class.translate-x-0]="historyPanelOpen()"
   [class.translate-x-full]="!historyPanelOpen()"
   role="complementary"
   aria-label="Customer package history"
 >
   <!-- Header -->
-  <header class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0 flex items-center justify-between">
-    <div>
-      <h2 class="text-base font-semibold text-gray-900 dark:text-white">Package History</h2>
+  <header class="px-5 py-4 border-b border-black/5 dark:border-white/10 flex-shrink-0 flex items-start justify-between gap-3">
+    <div class="flex items-center gap-3 min-w-0">
       @if (selectedReceiver(); as r) {
-        <p class="text-sm text-gray-500 dark:text-gray-400">{{ r.name }} {{ r.surname }}</p>
+        <span class="relative shrink-0">
+          <img
+            [src]="generateAvatarUrl(r.name + ' ' + r.surname)"
+            [alt]="r.name + ' ' + r.surname"
+            class="h-10 w-10 rounded-full object-cover ring-2 ring-offset-2 ring-offset-white dark:ring-offset-gray-900"
+            [ngClass]="r.is_active ? 'ring-green-400 dark:ring-green-500/70' : 'ring-gray-300 dark:ring-gray-600'"
+          />
+        </span>
+        <div class="min-w-0">
+          <h2 class="truncate text-sm font-semibold text-gray-900 dark:text-white">{{ r.name }} {{ r.surname }}</h2>
+          <p class="truncate text-xs text-gray-500 dark:text-gray-400">{{ r.email }}</p>
+        </div>
+      } @else {
+        <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Package history</h2>
       }
     </div>
-    <button
-      type="button"
-      class="p-2 text-gray-400 hover:text-gray-500 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
-      (click)="onCloseHistoryPanel()"
-      aria-label="Close panel"
-    >
-      <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+    <app-button variant="ghost" size="sm" [iconOnly]="true" ariaLabel="Close panel" (click)="onCloseHistoryPanel()">
+      <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
         <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
       </svg>
-    </button>
+    </app-button>
   </header>
 
   <!-- Content -->
   <div class="flex-1 overflow-y-auto">
     @if (loadingPackages()) {
-      <div class="flex items-center justify-center py-12 text-gray-400">
-        <svg class="animate-spin h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24">
+      <div class="flex items-center justify-center gap-2 py-16 text-sm text-gray-400">
+        <svg class="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
         </svg>
-        Loading…
+        Loading history…
       </div>
     } @else if (receiverPackages().length === 0) {
-      <div class="px-6 py-12 text-center">
-        <p class="text-gray-500 dark:text-gray-400 font-medium">No packages found</p>
-        <p class="text-sm text-gray-400 dark:text-gray-500 mt-1">This customer has no package history yet.</p>
+      <div class="px-6 py-16 text-center">
+        <svg class="w-11 h-11 mx-auto text-gray-300 dark:text-gray-600 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+        </svg>
+        <p class="text-sm font-medium text-gray-600 dark:text-gray-300">No package history</p>
+        <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">This customer hasn't received any packages yet.</p>
       </div>
     } @else {
-      <ul class="divide-y divide-gray-200 dark:divide-gray-700">
-        @for (pkg of receiverPackages(); track pkg.id) {
-          <li class="px-6 py-4">
-            <div class="flex items-start justify-between gap-3">
-              <div class="min-w-0">
-                <p class="text-sm font-mono font-medium text-gray-900 dark:text-gray-100">{{ pkg.reference }}</p>
-                <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ formatDate(pkg.created_at) }}</p>
-                @if (pkg.notes) {
-                  <p class="text-xs text-gray-400 dark:text-gray-500 mt-1 italic truncate">{{ pkg.notes }}</p>
-                }
+      <ol class="px-5 py-4">
+        @for (pkg of receiverPackages(); track pkg.id; let last = $last) {
+          <li class="relative flex gap-3.5">
+            <!-- Timeline rail -->
+            <div class="flex flex-col items-center">
+              <span class="mt-1 h-2.5 w-2.5 shrink-0 rounded-full ring-4 ring-white dark:ring-gray-900" [ngClass]="getStatusDot(pkg.status)"></span>
+              @if (!last) {
+                <span class="w-px flex-1 bg-gray-200 dark:bg-gray-700/70 my-1"></span>
+              }
+            </div>
+            <!-- Entry -->
+            <div class="min-w-0 flex-1 pb-5">
+              <div class="flex items-center justify-between gap-2">
+                <span class="font-mono text-sm font-semibold text-gray-900 dark:text-gray-100">{{ pkg.reference }}</span>
+                <span class="shrink-0 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide" [ngClass]="getStatusBadgeClass(pkg.status)">
+                  {{ getStatusLabel(pkg.status) }}
+                </span>
               </div>
-              <span class="flex-shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
-                    [class]="getStatusBadgeClass(pkg.status)">
-                {{ getStatusLabel(pkg.status) }}
-              </span>
+              <p class="mt-0.5 text-xs tabular-nums text-gray-400 dark:text-gray-500">{{ formatDate(pkg.created_at) }}</p>
+              @if (pkg.notes) {
+                <p class="mt-1 text-xs italic text-gray-400 dark:text-gray-500 line-clamp-2">{{ pkg.notes }}</p>
+              }
             </div>
           </li>
         }
-      </ul>
+      </ol>
     }
   </div>
 
   <!-- Footer summary -->
   @if (receiverPackages().length > 0) {
-    <footer class="px-6 py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 flex-shrink-0">
-      <p class="text-xs text-gray-500 dark:text-gray-400">
-        {{ receiverPackages().length }} package{{ receiverPackages().length !== 1 ? 's' : '' }} total
+    <footer class="px-5 py-3 border-t border-black/5 dark:border-white/10 bg-gray-50 dark:bg-white/[0.03] flex-shrink-0">
+      <p class="font-mono text-[11px] tabular-nums text-gray-500 dark:text-gray-400">
+        {{ receiverPackages().length }} package{{ receiverPackages().length !== 1 ? 's' : '' }} on record
       </p>
     </footer>
   }

@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { LayoutComponent } from '../../shared/components/layout/layout.component';
 import { DriverMapComponent } from '../../shared/components/map/driver-map.component';
 import { UserCardComponent, User, UserCardAction, UserCardMenuOption } from '../../shared/components/user-card';
+import { ButtonComponent } from '../../shared/components/button/button.component';
 import { AddDriverModalComponent } from './add-driver-modal/add-driver-modal.component';
 import { EditDriverModalComponent } from './edit-driver-modal/edit-driver-modal.component';
 import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
@@ -28,7 +29,8 @@ import { ToastService } from '../../shared/components/toast/toast.service';
     UserCardComponent,
     AddDriverModalComponent,
     EditDriverModalComponent,
-    ConfirmDialogComponent
+    ConfirmDialogComponent,
+    ButtonComponent
   ],
   templateUrl: './drivers.html',
   styleUrl: './drivers.css'
@@ -394,6 +396,99 @@ export class DriversComponent implements OnInit, OnDestroy {
       [PACKAGE_STATUS.RETURNED]: 'Canceled'
     };
     return labels[status] || status;
+  }
+
+  /**
+   * Select a driver profile directly (roll-call row click).
+   */
+  async selectDriverProfile(driver: DriverProfile): Promise<void> {
+    await this.driverService.selectDriver(driver);
+  }
+
+  /** Focus a driver on the map view (dossier action). */
+  async viewDriverOnMap(driver: DriverProfile): Promise<void> {
+    this.viewMode.set('map');
+    await this.driverService.selectDriver(driver);
+  }
+
+  /** Open the mail client for a driver (dossier action). */
+  emailDriver(driver: DriverProfile): void {
+    window.location.href = `mailto:${driver.email}`;
+  }
+
+  /**
+   * Live "on-air" signal for a driver — the page's core status metaphor.
+   * available → pulsing green (free to dispatch); delivery → steady blue;
+   * stale → amber (transmitting stopped >10min ago); offline → slate.
+   */
+  unitSignal(driver: DriverProfile): {
+    key: 'available' | 'delivery' | 'stale' | 'offline';
+    label: string;
+    ring: string;
+    dot: string;
+    chip: string;
+    live: boolean;
+  } {
+    const offline = {
+      key: 'offline' as const,
+      label: driver.is_active ? 'No signal' : 'Off shift',
+      ring: 'ring-gray-300 dark:ring-gray-600',
+      dot: 'bg-gray-400',
+      chip: 'text-gray-500 bg-gray-100 dark:bg-gray-700/60 dark:text-gray-400',
+      live: false,
+    };
+    if (!driver.is_active || !driver.current_location) return offline;
+
+    const isStale =
+      new Date(driver.current_location.updated_at).getTime() < Date.now() - 10 * 60 * 1000;
+    if (isStale) {
+      return {
+        key: 'stale',
+        label: 'Stale ping',
+        ring: 'ring-amber-400 dark:ring-amber-500/70',
+        dot: 'bg-amber-500',
+        chip: 'text-amber-600 bg-amber-100 dark:bg-amber-900/30 dark:text-amber-400',
+        live: false,
+      };
+    }
+    if (!driver.is_available) {
+      return {
+        key: 'delivery',
+        label: 'On route',
+        ring: 'ring-blue-400 dark:ring-blue-500/70',
+        dot: 'bg-blue-500',
+        chip: 'text-blue-600 bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400',
+        live: false,
+      };
+    }
+    return {
+      key: 'available',
+      label: 'On air',
+      ring: 'ring-green-400 dark:ring-green-500/70',
+      dot: 'bg-green-500',
+      chip: 'text-green-600 bg-green-100 dark:bg-green-900/30 dark:text-green-400',
+      live: true,
+    };
+  }
+
+  /** Relative "last ping" readout from a driver's location timestamp. */
+  lastPing(driver: DriverProfile): string {
+    const loc = driver.current_location;
+    if (!loc) return '—';
+    const diffMs = Date.now() - new Date(loc.updated_at).getTime();
+    const mins = Math.floor(diffMs / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours}h ago`;
+    return `${Math.floor(hours / 24)}d ago`;
+  }
+
+  /** Short locality hint for a roll-call row (coords fallback). */
+  localityHint(driver: DriverProfile): string {
+    const loc = driver.current_location;
+    if (!loc) return 'Location unavailable';
+    return `${loc.latitude.toFixed(3)}, ${loc.longitude.toFixed(3)}`;
   }
 
   /**

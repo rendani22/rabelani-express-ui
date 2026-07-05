@@ -32,12 +32,12 @@ Chart.register(...registerables);
       <header class="px-4 sm:px-6 py-4 border-b flex items-center justify-between gap-4" style="border-color: var(--ex-rule)">
         <div class="flex flex-col gap-1">
           <span class="ex-eyebrow">{{ title }}</span>
-          <span class="font-ledger text-xs ex-muted">{{ funnel.totalInFunnel }} orders in the pipeline</span>
+          <span class="font-ledger text-xs ex-muted"><span class="tabular-nums">{{ funnel.totalInFunnel }}</span> orders in the pipeline</span>
         </div>
         <div class="relative w-[68px] h-[68px] flex-shrink-0">
           <canvas #gaugeCanvas></canvas>
           <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-            <span class="font-display text-lg leading-none ex-gold">{{ funnel.conversionRate }}%</span>
+            <span class="font-display text-lg leading-none ex-gold tabular-nums">{{ funnel.conversionRate }}%</span>
           </div>
         </div>
       </header>
@@ -54,9 +54,9 @@ Chart.register(...registerables);
                   </span>
                   <span class="flex items-center gap-3">
                     @if (s.value !== null) {
-                      <span class="font-ledger text-[11px] ex-muted">{{ s.value | zar: 'compact' }}</span>
+                      <span class="font-ledger text-[11px] ex-muted tabular-nums">{{ s.value | zar: 'compact' }}</span>
                     }
-                    <span class="font-ledger ex-ink w-10 text-right">{{ s.orders }}</span>
+                    <span class="font-ledger ex-ink w-10 text-right tabular-nums">{{ s.orders }}</span>
                   </span>
                 </div>
                 <div class="w-full h-2.5 ex-track rounded-[1px] overflow-hidden">

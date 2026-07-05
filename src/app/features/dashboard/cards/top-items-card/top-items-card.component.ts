@@ -24,7 +24,7 @@ import { TopShippedItem } from '../../services/dashboard.service';
           <ul class="space-y-2">
             @for (it of items; track it.description; let i = $index) {
               <li class="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/20 transition-colors">
-                <div class="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold"
+                <div class="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold tabular-nums"
                      [ngClass]="rankClass(i)">{{ i + 1 }}</div>
                 <div class="min-w-0 flex-1">
                   <div class="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">{{ it.description }}</div>
@@ -56,7 +56,7 @@ import { TopShippedItem } from '../../services/dashboard.service';
                     <div class="h-1.5 rounded-full bg-violet-500 transition-all duration-500"
                          [style.width.%]="percent(it.totalQuantity)"></div>
                   </div>
-                  <span class="text-sm font-semibold text-gray-800 dark:text-gray-100 w-10 text-right">
+                  <span class="text-sm font-semibold text-gray-800 dark:text-gray-100 w-10 text-right tabular-nums">
                     {{ it.totalQuantity }}
                   </span>
                 </div>
