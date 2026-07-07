@@ -73,8 +73,13 @@ serve(async (req) => {
       auth: { autoRefreshToken: false, persistSession: false }
     })
 
-    const portalUrl = Deno.env.get('CUSTOMER_PORTAL_URL') || `${origin ?? ''}/my-packages`
-    const redirectTo = `${(Deno.env.get('APP_URL') || origin || '').replace(/\/$/, '')}/accept-invite`
+    // Base URL of the deployed app. Defaults to the int/dev Cloudflare Pages
+    // deployment; PROD must set APP_URL (and optionally CUSTOMER_PORTAL_URL).
+    // Never fall back to the request origin — that's how invite links ended up
+    // pointing at localhost.
+    const appUrl = (Deno.env.get('APP_URL') || 'https://dev.rabelani-express-ui.pages.dev').replace(/\/$/, '')
+    const portalUrl = Deno.env.get('CUSTOMER_PORTAL_URL') || `${appUrl}/my-packages`
+    const redirectTo = `${appUrl}/accept-invite`
 
     // 1) Invite (or, if the user already exists, generate a fresh invite link).
     let authUserId: string | null = null
