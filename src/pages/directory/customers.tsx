@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Building2, Contact, Loader2, Mail, MoreVertical, Package as PackageIcon, Pencil, Phone, Plus, Search, Power, Users } from 'lucide-react'
+import { Building2, ChevronRight, Contact, Loader2, Mail, MoreVertical, Package as PackageIcon, Pencil, Phone, Plus, Search, Power, Users } from 'lucide-react'
 import type { ReceiverProfile } from '@/lib/api/receivers'
 import { deactivateReceiver, listReceivers, reactivateReceiver } from '@/lib/api/receivers'
 import { createCompany, listCompanies, type CustomerRole } from '@/lib/api/customers'
@@ -9,7 +9,6 @@ import { fetchPackagesByReceiver } from '@/lib/api/orders'
 import { reportError } from '@/lib/logger'
 import { PageBody, PageHeader } from '@/components/layout/page-header'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -21,7 +20,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { StatusStamp, TrackingNumber, SectionLabel } from '@/components/dispatch'
+import { StatusStamp, TrackingNumber } from '@/components/dispatch'
 import { ReceiverAvatar } from '@/components/dispatch/receiver-avatar'
 import { formatDateShort } from '@/lib/format'
 import { cn } from '@/lib/utils'
@@ -75,10 +74,13 @@ function HistoryPanel({ customer, open, onOpenChange }: { customer: ReceiverProf
 
 const UNASSIGNED = '__unassigned__'
 
-/** Buyer/Runner role chip on a customer card. */
-function RoleBadge({ role }: { role: CustomerRole }) {
+/** Buyer/Runner role as a small stamp tag (echoes StatusStamp), implies portal access. */
+function RoleTag({ role }: { role: CustomerRole }) {
   return (
-    <Badge variant="secondary" className="capitalize">{role}</Badge>
+    <span className="inline-flex items-center gap-1 rounded-[3px] border border-border bg-muted px-1.5 py-0.5 text-[10px] font-semibold uppercase leading-none tracking-[0.08em] text-muted-foreground">
+      <span className="size-1 rounded-full bg-current opacity-60" aria-hidden />
+      {role}
+    </span>
   )
 }
 
@@ -121,21 +123,23 @@ function CustomerCard({ r, onEdit, onContacts, onToggle, onHistory }: {
   onHistory: () => void
 }) {
   return (
-    <div className={cn('flex flex-col gap-3 rounded-lg border bg-card p-4', !r.is_active && 'opacity-60')}>
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-3">
+    <div className={cn('group flex flex-col rounded-lg border bg-card transition-colors hover:border-foreground/15', !r.is_active && 'opacity-60')}>
+      <div className="flex items-start justify-between gap-2 p-4 pb-3">
+        <div className="flex min-w-0 items-center gap-3">
           <ReceiverAvatar name={`${r.name} ${r.surname}`} className="size-10" />
-          <div className="flex min-w-0 flex-col gap-1">
-            <span className="truncate font-semibold">{r.name} {r.surname}</span>
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <span className="truncate font-semibold leading-none">{r.name} {r.surname}</span>
             <div className="flex items-center gap-1.5">
-              {r.role && <RoleBadge role={r.role} />}
-              {!r.is_active && <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Inactive</span>}
+              {r.role
+                ? <RoleTag role={r.role} />
+                : <span className="text-[11px] text-muted-foreground/70">No portal access</span>}
+              {!r.is_active && <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Inactive</span>}
             </div>
           </div>
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon-sm" aria-label="Actions"><MoreVertical /></Button>
+            <Button variant="ghost" size="icon-sm" aria-label="Actions" className="-mr-1 text-muted-foreground"><MoreVertical /></Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onSelect={onEdit}><Pencil /> Edit</DropdownMenuItem>
@@ -144,13 +148,19 @@ function CustomerCard({ r, onEdit, onContacts, onToggle, onHistory }: {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      <div className="flex flex-col gap-1.5 text-sm">
-        <span className="flex items-center gap-2 text-muted-foreground"><Mail className="size-3.5" /> <span className="truncate">{r.email}</span></span>
-        {r.phone && <span className="flex items-center gap-2 text-muted-foreground"><Phone className="size-3.5" /> {r.phone}</span>}
+      <div className="flex flex-col gap-1.5 px-4 pb-3.5 text-[13px]">
+        <span className="flex items-center gap-2 text-muted-foreground"><Mail className="size-3.5 shrink-0" /> <span className="truncate">{r.email}</span></span>
+        {r.phone && <span className="flex items-center gap-2 text-muted-foreground"><Phone className="size-3.5 shrink-0" /> <span className="mono">{r.phone}</span></span>}
       </div>
-      <Button variant="outline" size="sm" className="mt-1" onClick={onHistory}>
-        <PackageIcon /> Package history
-      </Button>
+      <div className="tear-line" />
+      <button
+        type="button"
+        onClick={onHistory}
+        className="flex items-center justify-between px-4 py-2.5 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:text-foreground"
+      >
+        <span className="flex items-center gap-2"><PackageIcon className="size-3.5" /> Package history</span>
+        <ChevronRight className="size-4 opacity-40 transition-transform group-hover:translate-x-0.5" />
+      </button>
     </div>
   )
 }
@@ -250,26 +260,35 @@ export function CustomersPage() {
         </div>
       ) : visibleGroups.length > 0 ? (
         <div className="flex flex-col gap-8">
-          {visibleGroups.map((g) => (
-            <section key={g.id} className="flex flex-col gap-3">
-              <div className="flex items-center gap-2">
-                <SectionLabel>{g.name}</SectionLabel>
-                <span className="text-xs tabular-nums text-muted-foreground">{g.customers.length}</span>
-              </div>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {g.customers.map((r) => (
-                  <CustomerCard
-                    key={r.id}
-                    r={r}
-                    onEdit={() => { setEditing(r); setDialogOpen(true) }}
-                    onContacts={() => setContactsFor(r)}
-                    onToggle={() => toggle.mutate(r)}
-                    onHistory={() => setHistoryFor(r)}
-                  />
-                ))}
-              </div>
-            </section>
-          ))}
+          {visibleGroups.map((g) => {
+            const buyers = g.customers.filter((c) => c.role === 'buyer').length
+            const runners = g.customers.filter((c) => c.role === 'runner').length
+            const breakdown = [buyers && `${buyers} buyer${buyers > 1 ? 's' : ''}`, runners && `${runners} runner${runners > 1 ? 's' : ''}`].filter(Boolean).join(' · ')
+            return (
+              <section key={g.id} className="flex flex-col gap-3.5">
+                <div className="flex items-center gap-2.5">
+                  <span className="flex size-6 items-center justify-center rounded-[4px] border bg-muted text-muted-foreground">
+                    {g.id === UNASSIGNED ? <Users className="size-3.5" /> : <Building2 className="size-3.5" />}
+                  </span>
+                  <h2 className="text-sm font-semibold tracking-tight">{g.name}</h2>
+                  <span className="rounded-full bg-muted px-1.5 py-0.5 text-[11px] tabular-nums text-muted-foreground">{g.customers.length}</span>
+                  {breakdown && <span className="ml-auto text-[11px] text-muted-foreground">{breakdown}</span>}
+                </div>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {g.customers.map((r) => (
+                    <CustomerCard
+                      key={r.id}
+                      r={r}
+                      onEdit={() => { setEditing(r); setDialogOpen(true) }}
+                      onContacts={() => setContactsFor(r)}
+                      onToggle={() => toggle.mutate(r)}
+                      onHistory={() => setHistoryFor(r)}
+                    />
+                  ))}
+                </div>
+              </section>
+            )
+          })}
         </div>
       ) : (
         <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed py-16 text-center">
