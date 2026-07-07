@@ -1,9 +1,10 @@
-import { useMemo } from 'react'
-import { Loader2, PackageX } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { Loader2, PackageX, Search, X } from 'lucide-react'
 import { useMyPackages } from '@/hooks/use-my-packages'
 import { useCurrentPrincipal } from '@/hooks/use-current-principal'
 import { StatusStamp, SectionLabel } from '@/components/dispatch'
 import { Card } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatDateTime } from '@/lib/format'
 import { customerStatusMeta } from '@/lib/status'
@@ -77,6 +78,13 @@ export function MyPackagesPage() {
 
   const groups = useMemo(() => groupByPo(packages ?? []), [packages])
 
+  const [query, setQuery] = useState('')
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) return groups
+    return groups.filter((g) => g.po?.toLowerCase().includes(q))
+  }, [groups, query])
+
   const role = principal?.kind === 'customer' ? principal.customer.role : undefined
   const scopeLabel =
     role === 'buyer' ? 'All orders for your company'
@@ -89,6 +97,30 @@ export function MyPackagesPage() {
         <h1 className="text-2xl font-semibold tracking-tight">My packages</h1>
         <p className="text-sm text-muted-foreground">{scopeLabel}</p>
       </div>
+
+      {!isLoading && !isError && groups.length > 0 && (
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search by PO number…"
+            aria-label="Search by PO number"
+            className="pl-9 pr-9"
+          />
+          {query && (
+            <button
+              type="button"
+              onClick={() => setQuery('')}
+              aria-label="Clear search"
+              className="absolute right-1 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <X className="size-4" />
+            </button>
+          )}
+        </div>
+      )}
 
       {isLoading ? (
         <div className="flex flex-col gap-3">
@@ -103,9 +135,14 @@ export function MyPackagesPage() {
           <PackageX className="size-7" />
           <p className="text-sm">No orders to show yet.</p>
         </Card>
+      ) : filtered.length === 0 ? (
+        <Card className="flex flex-col items-center gap-3 p-10 text-center text-muted-foreground">
+          <Search className="size-7" />
+          <p className="text-sm">No orders match “{query.trim()}”.</p>
+        </Card>
       ) : (
         <ul className="flex flex-col gap-3">
-          {groups.map((group) => (
+          {filtered.map((group) => (
             <li key={group.key}>
               <Card className="flex flex-col gap-4 p-5">
                 <div className="flex items-baseline justify-between gap-3">
