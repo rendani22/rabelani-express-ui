@@ -80,7 +80,7 @@ function DownloadPodButton({ pkg }: { pkg: CustomerPackage }) {
       onClick={onClick}
       disabled={downloading}
       aria-label="Download proof of delivery PDF"
-      className="group mt-3 inline-flex items-center gap-2.5 self-start rounded-md border border-border bg-muted/40 py-1.5 pl-1.5 pr-3.5 text-left transition-[background-color,transform] duration-150 hover:bg-muted/70 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40"
+      className="group mt-3 inline-flex items-center gap-2.5 self-end rounded-md border border-border bg-muted/40 py-1.5 pl-1.5 pr-3.5 text-left transition-[background-color,transform] duration-150 hover:bg-muted/70 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40"
     >
       <span className="flex size-7 items-center justify-center rounded-[4px] border border-success/40 bg-success/12 text-success">
         {downloading ? <Loader2 className="size-3.5 animate-spin" /> : <FileCheck2 className="size-3.5" />}

@@ -36,7 +36,7 @@ in control.
 5. **SectionLabel** — stencil-on-a-crate label (11px uppercase tracked muted).
 6. **`.tear-line`** util — ticked shipping-label edge as a section divider.
 7. **POD docket** (`DownloadPodButton` in `pages/my-packages.tsx`) — proof-of-delivery download
-   styled as a tear-off docket, NOT a generic button. Plain `<button>` (self-start), `rounded-md`
+   styled as a tear-off docket, NOT a generic button. Plain `<button>` (self-end, floats right), `rounded-md`
    `border-border bg-muted/40` → `hover:bg-muted/70`, `active:scale-[0.98]`, `py-1.5 pl-1.5 pr-3.5`,
    ~40px tall. Left: a 28px (`size-7`) `rounded-[4px]` "verified" stamp glyph — `FileCheck2` in the
    reserved **delivered-green** (`border-success/40 bg-success/12 text-success`), the one place green
