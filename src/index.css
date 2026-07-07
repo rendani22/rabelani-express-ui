@@ -1,0 +1,252 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+/* Dispatch typefaces — Archivo (industrial signage grotesque) + JetBrains Mono (codes/IDs) */
+@import '@fontsource-variable/archivo';
+@import '@fontsource-variable/jetbrains-mono';
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+  DISPATCH — an operational control surface for a courier depot.
+  Light = warm "label stock" paper. Dark = cool depot-at-night graphite.
+  One accent: cargo orange (hi-vis), used only for primary actions & brand.
+  Green is reserved strictly for "delivered". Route-blue only for maps/charts.
+  Depth = borders + surface-tint shifts (no heavy shadows — this is a tool).
+*/
+
+:root {
+  --radius: 0.4rem;
+
+  /* warm paper */
+  --background: oklch(0.986 0.004 80);
+  --foreground: oklch(0.22 0.012 60);
+
+  --card: oklch(0.997 0.002 80);
+  --card-foreground: oklch(0.22 0.012 60);
+
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.22 0.012 60);
+
+  /* cargo orange — black-on-orange like hi-vis signage */
+  --primary: oklch(0.665 0.185 47);
+  --primary-foreground: oklch(0.2 0.03 60);
+
+  --secondary: oklch(0.955 0.006 75);
+  --secondary-foreground: oklch(0.28 0.01 60);
+
+  --muted: oklch(0.958 0.005 75);
+  --muted-foreground: oklch(0.52 0.012 60);
+
+  --accent: oklch(0.955 0.006 75);
+  --accent-foreground: oklch(0.28 0.01 60);
+
+  --destructive: oklch(0.577 0.22 27);
+  --destructive-foreground: oklch(0.99 0.01 80);
+
+  /* delivered — reflective-sign green (semantic only) */
+  --success: oklch(0.6 0.13 150);
+  --success-foreground: oklch(0.99 0.02 150);
+
+  /* caution — amber-yellow, kept distinct from cargo orange */
+  --warning: oklch(0.8 0.15 82);
+  --warning-foreground: oklch(0.3 0.06 82);
+
+  --border: oklch(0.9 0.006 70);
+  --input: oklch(0.915 0.006 70);
+  --ring: oklch(0.665 0.185 47);
+
+  --chart-1: oklch(0.665 0.185 47);
+  --chart-2: oklch(0.55 0.14 245);
+  --chart-3: oklch(0.6 0.13 150);
+  --chart-4: oklch(0.8 0.15 82);
+  --chart-5: oklch(0.5 0.02 250);
+
+  /* sidebar shares the canvas background; a subtle border separates it */
+  --sidebar: oklch(0.972 0.005 80);
+  --sidebar-foreground: oklch(0.22 0.012 60);
+  --sidebar-primary: oklch(0.665 0.185 47);
+  --sidebar-primary-foreground: oklch(0.2 0.03 60);
+  --sidebar-accent: oklch(0.95 0.006 75);
+  --sidebar-accent-foreground: oklch(0.28 0.01 60);
+  --sidebar-border: oklch(0.9 0.006 70);
+  --sidebar-ring: oklch(0.665 0.185 47);
+}
+
+.dark {
+  /* cool depot-at-night graphite — makes the orange pop */
+  --background: oklch(0.165 0.006 250);
+  --foreground: oklch(0.95 0.004 250);
+
+  --card: oklch(0.196 0.006 250);
+  --card-foreground: oklch(0.95 0.004 250);
+
+  --popover: oklch(0.21 0.006 250);
+  --popover-foreground: oklch(0.95 0.004 250);
+
+  --primary: oklch(0.7 0.19 48);
+  --primary-foreground: oklch(0.18 0.02 60);
+
+  --secondary: oklch(0.24 0.006 250);
+  --secondary-foreground: oklch(0.92 0.004 250);
+
+  --muted: oklch(0.235 0.006 250);
+  --muted-foreground: oklch(0.66 0.01 250);
+
+  --accent: oklch(0.265 0.007 250);
+  --accent-foreground: oklch(0.95 0.004 250);
+
+  --destructive: oklch(0.62 0.2 25);
+  --destructive-foreground: oklch(0.98 0.01 80);
+
+  --success: oklch(0.68 0.14 150);
+  --success-foreground: oklch(0.16 0.03 150);
+
+  --warning: oklch(0.8 0.15 82);
+  --warning-foreground: oklch(0.2 0.05 82);
+
+  --border: oklch(1 0 0 / 9%);
+  --input: oklch(1 0 0 / 12%);
+  --ring: oklch(0.7 0.19 48);
+
+  --chart-1: oklch(0.7 0.19 48);
+  --chart-2: oklch(0.62 0.14 245);
+  --chart-3: oklch(0.68 0.14 150);
+  --chart-4: oklch(0.8 0.15 82);
+  --chart-5: oklch(0.6 0.02 250);
+
+  --sidebar: oklch(0.165 0.006 250);
+  --sidebar-foreground: oklch(0.95 0.004 250);
+  --sidebar-primary: oklch(0.7 0.19 48);
+  --sidebar-primary-foreground: oklch(0.18 0.02 60);
+  --sidebar-accent: oklch(0.24 0.007 250);
+  --sidebar-accent-foreground: oklch(0.95 0.004 250);
+  --sidebar-border: oklch(1 0 0 / 9%);
+  --sidebar-ring: oklch(0.7 0.19 48);
+}
+
+@theme inline {
+  --font-sans: 'Archivo Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, monospace;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  h1, h2, h3, h4 {
+    text-wrap: balance;
+  }
+  p {
+    text-wrap: pretty;
+  }
+
+  /* drop the native number spinners — they crowd multi-digit values */
+  input[type='number']::-webkit-outer-spin-button,
+  input[type='number']::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type='number'] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+}
+
+/* ---- Dispatch signature utilities ---- */
+
+/* monospace tracking-number token */
+.mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'zero' 1;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* print only the POD document when saving/printing a proof of delivery */
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+  .pod-print,
+  .pod-print * {
+    visibility: visible !important;
+  }
+  .pod-print {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+  }
+}
+
+/* label tear-line — the ticked edge of a shipping label */
+.tear-line {
+  height: 1px;
+  background-image: repeating-linear-gradient(
+    to right,
+    var(--color-border) 0,
+    var(--color-border) 6px,
+    transparent 6px,
+    transparent 11px
+  );
+}
