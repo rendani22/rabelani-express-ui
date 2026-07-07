@@ -28,15 +28,18 @@ export function StatusStamp({
   status,
   className,
   tone,
+  label,
 }: {
   status: string
   className?: string
+  /** Override the displayed text (e.g. a customer-facing label). */
+  label?: string
 } & Partial<VariantProps<typeof stampVariants>>) {
   const meta = statusMeta(status)
   return (
     <span className={cn(stampVariants({ tone: tone ?? meta.tone }), className)}>
       <span className="size-1 rounded-full bg-current opacity-70" aria-hidden />
-      {meta.label}
+      {label ?? meta.label}
     </span>
   )
 }

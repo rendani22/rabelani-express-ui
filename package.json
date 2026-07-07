@@ -7,7 +7,14 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "supabase:link-dev": "supabase link --project-ref qmnqffpwvsvngjmyisrf",
+    "supabase:link-prod": "supabase link --project-ref udsigrijzqgmtmkilluv",
+    "supabase:push": "supabase db push",
+    "deploy:create-package": "supabase functions deploy create-package",
+    "deploy:update-package": "supabase functions deploy update-package",
+    "deploy:invite-customer": "supabase functions deploy invite-customer",
+    "deploy:customer-pod": "supabase functions deploy customer-pod"
   },
   "dependencies": {
     "@fontsource-variable/archivo": "^5.2.6",

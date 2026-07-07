@@ -1,6 +1,22 @@
 # Implementation Plan — Customer Portal (Buyers & Runners)
 
-_Date: 2026-07-07 · Target branch: feature off `dev`_
+_Date: 2026-07-07 · Branch: `feat/customer-portal`_
+
+## Implementation status
+
+**Code complete** (frontend build passes):
+- Phase 1 — `supabase/migrations/20260707130000_customer_portal_schema.sql` (companies, receiver_role, receiver_profiles cols, packages.receiver_id + backfill, auto-link trigger)
+- Phase 2 — `supabase/migrations/20260707140000_customer_portal_rls.sql` (is_active_staff()/current_customer() helpers, 13 SELECT + ~9 write policies locked to staff, companies policies, `customer_packages` view). Also the notes split (`20260707120000`).
+- Phase 3 — `supabase/functions/invite-customer/` + `customer_invited` template in `_shared/email-templates.ts` + `deploy:invite-customer` script. Sends a **single** branded email (via Resend) containing the set-password link from `generateLink`; Supabase's own invite email is not used. `RESEND_API_KEY` is therefore **required** (the invite fails without it).
+- Phase 4 — `lib/api/customers.ts`, `lib/api/customer-packages.ts`, `hooks/use-my-packages.ts`, `hooks/use-current-principal.ts`, `components/role-routes.tsx`, `components/layout/customer-layout.tsx`, `pages/my-packages.tsx`, `pages/accept-invite.tsx`, role-aware routing + login redirect in `App.tsx`/`login.tsx`.
+- Phase 5 — `pages/directory/companies.tsx` (manage companies + invite dialog) + nav/route.
+
+**⚠️ Not done here — must run against your infra:**
+1. **Apply the migrations** (`supabase db push` or your migration flow) — staging first.
+2. **Deploy** the edge functions: `npm run deploy:invite-customer` (set `RESEND_API_KEY`, `EMAIL_FROM`, `APP_URL`, `CUSTOMER_PORTAL_URL`) and `npm run deploy:customer-pod` (POD download — entitlement-checked, no extra env). Re-deploy `create-package`/`update-package` for the notes split.
+3. **Run the Phase 2 verification** with real staff / Buyer / Runner JWTs (see Phase 6). Nothing here was executed against a live DB.
+4. Optional: seed a `customer_invited` row in `email_templates` (falls back to in-code HTML otherwise).
+5. Edge-function delivers one email itself via Resend, so **`RESEND_API_KEY` (and `EMAIL_FROM`) are required** — the invite returns an error without them. New users get an `invite` link; already-registered users fall back to a `recovery` link. Verify both link types redirect to `/accept-invite` on your Supabase version.
 
 ## Summary
 
@@ -16,9 +32,9 @@ Let customers log into the existing app on a **read-only shell** and see package
 |---|----------|
 | Entity | Customer = `receiver_profiles`; gains `company_id`, `role`, `auth_user_id` |
 | Package link | Real `receiver_id` FK on `packages` (not email string) |
-| Invite | Built-in Supabase invite (account) **+** a role-specific Resend email from the edge function |
+| Invite | **One** branded Resend email from the edge function (Supabase sends nothing). `generateLink` mints the set-password link; the email carries it |
 | Frontend | Same app, separate `<CustomerLayout>`, read-only "My Packages" |
-| Exposed columns | reference, po_number, status, **customer_notes**, items, created/updated — **nothing else** |
+| Exposed columns | po_number, status, **customer_notes**, items, created/updated — **nothing else**. The internal `reference` is NOT exposed; customers see orders grouped by PO. |
 | (a) | One company + exactly one role per customer |
 | (b) | Existing receivers are non-login until invited; old packages backfilled by email; unmatched → staff-only |
 | (c) | Custom-email packages **auto-create a receiver** (no orphaned/invisible packages) |

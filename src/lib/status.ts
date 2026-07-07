@@ -38,3 +38,24 @@ export const STATUS_META: Record<PackageStatus, StatusMeta> = {
 export function statusMeta(status: string): StatusMeta {
   return STATUS_META[status as PackageStatus] ?? { label: status, tone: 'neutral' }
 }
+
+/**
+ * Customer-facing status labels. The internal labels are operational jargon
+ * ("Pending", "Notified") that mean little to the person receiving the goods —
+ * these read for them. Tones are kept from the internal mapping. Unknown
+ * statuses fall back to a safe generic label rather than echoing raw jargon.
+ */
+const CUSTOMER_STATUS_META: Record<PackageStatus, StatusMeta> = {
+  draft: { label: 'Processing', tone: 'neutral' },
+  pending: { label: 'Order received', tone: 'neutral' },
+  notified: { label: 'Being prepared', tone: 'route' },
+  in_transit: { label: 'On the way', tone: 'transit' },
+  ready_for_collection: { label: 'Ready for collection', tone: 'wait' },
+  delivered: { label: 'Delivered', tone: 'done' },
+  collected: { label: 'Collected', tone: 'done' },
+  returned: { label: 'Returned', tone: 'alert' },
+}
+
+export function customerStatusMeta(status: string): StatusMeta {
+  return CUSTOMER_STATUS_META[status as PackageStatus] ?? { label: 'Processing', tone: 'neutral' }
+}

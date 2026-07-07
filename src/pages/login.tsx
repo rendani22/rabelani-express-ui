@@ -53,7 +53,8 @@ export function Login() {
     const result = await signIn(email, password)
     setSubmitting(false)
 
-    if (result.success) navigate('/dashboard', { replace: true })
+    // Land on "/" and let HomeRedirect route by principal (staff vs customer).
+    if (result.success) navigate('/', { replace: true })
     else setAuthError(result.error ?? 'Login failed. Please try again.')
   }
 

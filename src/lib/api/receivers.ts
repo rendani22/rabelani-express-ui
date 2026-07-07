@@ -15,6 +15,9 @@ export interface ReceiverProfile {
   created_at: string
   updated_at: string
   created_by?: string
+  /** Portal company + role — set when the customer is invited to the portal. */
+  company_id?: string | null
+  role?: 'buyer' | 'runner' | null
 }
 
 /** DTO for creating a new receiver profile. */
@@ -23,6 +26,8 @@ export interface CreateReceiverProfileDto {
   surname: string
   email: string
   phone?: string
+  /** Company the customer belongs to (for grouping); null = Unassigned. */
+  company_id?: string | null
 }
 
 /** DTO for updating an existing receiver profile. */
@@ -32,6 +37,9 @@ export interface UpdateReceiverProfileDto {
   email?: string
   phone?: string
   is_active?: boolean
+  company_id?: string | null
+  /** Portal role. Only change for customers who already have access (no re-invite). */
+  role?: 'buyer' | 'runner' | null
 }
 
 /** Alternative contact person attached to a receiver (`receiver_contacts` table). */
