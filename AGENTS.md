@@ -2,172 +2,194 @@
 
 ## Project Overview
 
-**Rabelani Express UI** – Angular 21+ delivery/package management dashboard with Supabase backend. Features package tracking, driver management, user authentication, and QR code label printing.
+**Rabelani Express UI** ("Dispatch") — a **React 19 + Vite 8** delivery/package-management dashboard with a Supabase backend. Features package tracking, driver management, inventory, proof-of-delivery (POD), purchase orders, QR label printing, and user/customer/staff management.
+
+> This app was rewritten from Angular to React. The pre-rewrite Angular source is preserved only at the git tag **`angular-archive`**; it is no longer in the tree. Where code comments say "ported from the Angular …", they refer to that lineage.
 
 ## Architecture
 
 ### Directory Structure
+
 ```
-src/app/
-├── core/           # Shared models, services, guards, utils (barrel exported via index.ts)
-├── features/       # Feature modules: dashboard, orders, drivers, login, user-management,
-│                   #   customer-management, delivery-locations, email-templates, inventory,
-│                   #   inventory/recent-movements, settings
-└── shared/         # Reusable UI components, directives, services (Supabase client)
+src/
+├── main.tsx              # Entry: providers (theme, error boundary, query client, tooltip, auth, router)
+├── App.tsx               # All routes (react-router-dom v7), no lazy loading
+├── index.css             # Tailwind v4 + design tokens (the whole "Dispatch" theme)
+├── components/
+│   ├── ui/               # shadcn/ui primitives (button, dialog, table, select, …)
+│   ├── dispatch/         # domain UI primitives (status-stamp, tracking-number, route-timeline,
+│   │                     #   signature-pad, metric-stat, receiver-avatar, section-label) — barrel: index.ts
+│   ├── layout/           # app-layout, app-header, sidebar, page-header, command-palette, nav-items
+│   ├── dashboard/        # dashboard-card, charts
+│   ├── drivers/          # driver-map (react-leaflet)
+│   ├── brand/            # logo
+│   ├── protected-route.tsx, error-boundary.tsx, mode-toggle.tsx
+├── pages/                # Route screens, grouped by feature (see routes below)
+├── hooks/                # TanStack Query hooks (use-orders, use-drivers, use-inventory, use-dashboard)
+└── lib/
+    ├── api/              # Framework-agnostic data-access modules (Supabase). NO React here.
+    ├── models/           # Domain types (package.ts: types, EDGE_FUNCTIONS, guards, status flow)
+    ├── supabase.ts       # Shared Supabase client
+    ├── config.ts         # Runtime config (Supabase URL/keys), VITE_* overridable
+    ├── auth.tsx          # AuthProvider / useAuth (React Context over Supabase auth)
+    ├── logger.ts         # livecode-OPS logger wrapper + reportError/toUserMessage helpers
+    ├── ui-store.ts       # Zustand: UI-only state (mobile nav, command palette)
+    ├── settings-store.ts # Zustand + persist: user preferences (localStorage)
+    └── status.ts, driver-status.ts, format.ts, csv.ts, utils.ts, …  # pure helpers
 ```
 
 ### Key Patterns
 
-**Barrel Exports**: Core module exports everything via `src/app/core/index.ts`. Import from `'../../core'` not individual files:
-```typescript
-import { AuthService, Package, PackageService, authGuard } from '../../core';
+**Path alias**: `@/*` → `src/*`, configured in `vite.config.ts` and the tsconfigs. Always import via `@/…`, e.g. `import { supabase } from '@/lib/supabase'`.
+
+**Server state = TanStack Query.** Every server read/write goes through `useQuery`/`useMutation`. Query hooks live in `src/hooks/`; the `QueryClient` (in `main.tsx`) sets `staleTime: 30s`, `refetchOnWindowFocus: false`, `retry: 1`, and centrally logs every failed query/mutation via `QueryCache`/`MutationCache` `onError`. Query keys are arrays, e.g. `['orders', query]`, `['dashboard', 'operations']`.
+
+```ts
+export function useOrders(query: OrdersQuery) {
+  return useQuery({
+    queryKey: ['orders', query],
+    queryFn: () => fetchOrders(query),
+    placeholderData: keepPreviousData,
+  })
+}
 ```
 
-**State Management**: Uses Angular signals (not NgRx). Services expose readonly signals for state:
-```typescript
-private readonly _packages = signal<Package[]>([]);
-readonly packages = this._packages.asReadonly();
-readonly isLoading = signal(false);
-```
+**UI-only state = Zustand.** No server data in Zustand. `ui-store.ts` holds transient UI flags (mobile nav open, command-palette open); `settings-store.ts` uses the `persist` middleware to keep preferences in localStorage.
 
-**Standalone Components**: All components are standalone with explicit imports array. No NgModules.
+**Auth = React Context.** `AuthProvider` in `lib/auth.tsx` subscribes to `supabase.auth.onAuthStateChange` and exposes `{ user, session, initializing, signIn, signOut, resetPassword }` via `useAuth()`. `<ProtectedRoute>` redirects to `/login` when there is no session.
 
-**Lazy Loading**: Routes use `loadComponent` pattern in `app.routes.ts`.
+**Data-access modules are framework-agnostic.** `lib/api/*.ts` are plain async functions over the Supabase client — no React imports. They either return typed result shapes (`{ success: true, data }` / `{ success: false, error }`) or throw for TanStack Query to catch. Keep React out of `lib/api/`.
 
-**Feature-level services**: Complex features own their own service under `features/<name>/services/`. Example: `features/dashboard/services/dashboard.service.ts` exposes typed stats interfaces (`PackageStats`, `DriverStats`, `StatusDistribution`) and is not re-exported from core.
+### Routing (all in `src/App.tsx`)
+
+| Path | Page |
+|------|------|
+| `/login` | `pages/login.tsx` (public) |
+| `/style-guide` | `pages/style-guide.tsx` (public) |
+| `/dashboard` | `pages/dashboard/` (operations + executive tabs) |
+| `/orders`, `/orders/completed`, `/orders/deleted` | `pages/orders/` |
+| `/pods/bulk-downloads` | `pages/pods/bulk-pod-downloads.tsx` |
+| `/inventory`, `/inventory/movements` | `pages/inventory/` |
+| `/purchase-orders` | `pages/purchase-orders/` |
+| `/drivers` | `pages/drivers/` |
+| `/customers`, `/user-management`, `/delivery-locations`, `/email-templates` | `pages/directory/` |
+| `/settings` | `pages/settings.tsx` |
+
+All authenticated routes render inside `<ProtectedRoute>` → `<AppLayout>`. `/` and unknown paths redirect to `/dashboard`.
 
 ## Backend Integration
 
-- **Supabase** for auth and database (configured in `src/environments/environment.ts`)
-- `SupabaseService` (`shared/services/supabase.service.ts`) wraps Supabase client
-- `AuthService` is a facade over `SupabaseService` for auth operations
-- Package **mutations** use **Supabase Edge Functions**: `create-package`, `update-package`, `driver-pickup`, `receive-at-collection`
-- Package **reads** (`loadPackages`, `getPackage`) query Supabase directly via `supabaseService.client.from('packages')`
-- `DeliveryLocationService` uses direct Supabase CRUD (no Edge Functions) against `delivery_locations` table
-- `DriverService` uses direct Supabase queries for driver profiles and locations
-- `InventoryService` uses direct Supabase CRUD against `inventory_items` / `inventory_movements`; package items may reference `inventory_item_id` so the `create-package` edge function records the link for later stock reconciliation
-- `ReceiverService` / `StaffService` use direct Supabase queries against `receiver_profiles`+`receiver_contacts` and `staff_profiles` respectively
-- `SettingsService` persists preferences to `localStorage` only — no Supabase calls
-- `ThemeService` toggles dark mode and persists the choice (no Supabase)
-- `OnboardingTourService` drives `OnboardingTourComponent` via a `TOUR_REGISTRY` keyed by `TourId` (`'dashboard' | 'orders'`); steps target CSS selectors and auto-skip if missing
-- Lock-status checks call Supabase RPC functions: `is_pod_locked`, `get_pod_lock_status`
+- **Supabase** for auth and database. Client: `src/lib/supabase.ts`; config in `src/lib/config.ts` (overridable via `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_SUPABASE_FUNCTIONS_URL`). The anon key is a **public** client key — intentionally committed.
+- **Package mutations use Supabase Edge Functions**: `create-package`, `update-package`, `driver-pickup`, `receive-at-collection` — called via the private `callEdgeFunction` helper in `lib/api/packages.ts`, with typed responses and type guards.
+- **Reads and most other entities use direct Supabase queries** (`supabase.from(...)`): package reads, and the `drivers`, `inventory`, `delivery-locations`, `receivers`, `staff`, `purchase-orders`, `email-templates` modules.
+- **RPCs**: lock status (`is_pod_locked`, `get_pod_lock_status`) and soft-delete/restore (`soft_delete_package`, `restore_package`).
+- Edge-function **source** lives under `supabase/functions/` (`create-package`, `update-package`, `_shared`); `driver-pickup` & `receive-at-collection` are deployed but not vendored here. Migrations under `supabase/migrations/`.
 
-### API Pattern (PackageService example)
-```typescript
-// Edge function calls use callEdgeFunction with typed responses
-const response = await this.callEdgeFunction<CreatePackageApiResponse>(
-  EDGE_FUNCTIONS.CREATE_PACKAGE,
-  accessToken,
-  request
-);
-// Use type guards: isCreatePackageSuccess(response), isApiError(response)
+### Edge function call pattern (`lib/api/packages.ts`)
+
+```ts
+// EDGE_FUNCTIONS map lives in src/lib/models/package.ts
+const response = await callEdgeFunction<CreatePackageApiResponse>(
+  EDGE_FUNCTIONS.CREATE_PACKAGE, accessToken, request,
+)
+if (isCreatePackageSuccess(response)) { /* … */ }
+if (isApiError(response)) { /* … */ }
 ```
+
+### Supabase result typing note
+
+`.maybeSingle()`/`.single()` with a string `.select()` can infer a `GenericStringError` union, so a direct `data as SomeType` cast fails under TS 6. After null-checking, cast through `unknown`: `return data as unknown as PodRecord` (see the existing pattern in `lib/api/packages.ts`).
+
+## Errors & Logging
+
+All error reporting funnels through `src/lib/logger.ts`, a wrapper over `@rendani22/logger` (the shared **livecode-OPS** client — installed from GitHub Packages; see the registry config in `.npmrc`). It buffers events and flushes in batches / on page-hide, adds auto-context (URL + user-agent), and de-dupes by error-object identity.
+
+- `logger.error/warn/info/debug(payload, ctx)` — ship an event.
+- `reportError(err, fallback, ctx)` — log the real error **and** return a user-facing string. Use in catch blocks and mutation `onError`:
+  ```ts
+  onError: (e) => toast.error(reportError(e, 'Could not save the item.', { op: 'inventory.update' }))
+  ```
+- `installGlobalErrorHandlers()` + `startUptimeReporting()` run once in `main.tsx`. Query/mutation failures are logged centrally by the `QueryClient` caches.
+
+Config via `VITE_OPS_INGEST_URL`, `VITE_OPS_INGEST_KEY`, `VITE_APP_VERSION` (defaults target the OPS `int` ingest).
 
 ## Styling
 
-- **Tailwind CSS 3** with `darkMode: 'class'`
-- Custom `xs: 475px` breakpoint
-- Global styles in `src/styles.css` (imports Tailwind + flatpickr)
-- `node_modules/leaflet/dist/leaflet.css` is included via `angular.json` styles array (not `styles.css`)
-- Component styles: use `.css` file per component (not inline)
-- Dark mode: `ThemeService` adds/removes `dark` class on `<html>`
+- **Tailwind CSS v4** via `@tailwindcss/vite` — **no `tailwind.config.js`**. Everything is in `src/index.css`: `@import 'tailwindcss'`, the token definitions, `.dark` overrides, and an `@theme inline` block mapping tokens to Tailwind color utilities.
+- **Design tokens** are CSS custom properties in **oklch**. The "Dispatch" system is deliberate:
+  - Light = warm "label-stock" paper; dark = cool graphite depot-at-night.
+  - One accent: **cargo orange** (`--primary`) — primary actions & brand only.
+  - **Green is semantic**: reserved for "delivered"/"collected" status, not decoration.
+  - Route-blue for maps/charts; amber-yellow for caution/waiting.
+  - Depth = borders + surface-tint shifts, not heavy shadows (this is a tool, not a marketing page).
+- **Dark mode** is class-based, driven by `next-themes` (`ThemeProvider attribute="class" defaultTheme="dark"`); `mode-toggle.tsx` flips it.
+- Status → tone/label mapping lives in `lib/status.ts` (`PACKAGE_STATUS`, `StatusTone`); render with the `status-stamp` primitive.
 
 ## Component Conventions
 
-**File naming**: `component-name.ts`, `component-name.html`, `component-name.css` (no `.component` suffix)
-
-**Shared components** location: `src/app/shared/components/` with barrel exports:
-- `modals/index.ts` – Modal components (create-package, package-details-panel, add/edit-user, add-customer, docs, etc.)
-- `sidebar/index.ts`, `header/index.ts` – Layout parts
-- `layout/` – `LayoutComponent`: main shell wrapping sidebar + header + router outlet
-- `toast/` – `ToastService` (`providedIn: 'root'`) for imperative notifications; use `toastService.success()`, `.error()`, `.warning()`, `.info()`
-- `map/` – `DriverMapComponent`: Leaflet-based interactive driver location map
-- `global-search/` – `GlobalSearchComponent` controlled by `GlobalSearchService` (open/close overlay)
-- `qr-code/` – `QrCodeComponent` wrapping `angularx-qrcode`
-- `onboarding-tour/` – `OnboardingTourComponent` rendered globally; driven by `OnboardingTourService` step registry
-- `confirm-dialog/` – imperative confirmation dialog; pair with `ToastService` for feedback
-- `signature-pad/` – canvas-based signature capture (used in POD flow)
-- Form input primitives (`text-input/`, `textarea/`, `select/`, `checkbox/` + `checkbox-group/`, `radio/` + `radio-group/`, `toggle-switch/`, `search-input/`, `tooltip-input/`, `button/`) – prefer these over raw HTML inputs for consistent styling and a11y
-- `banner/`, `notification/`, `user-card/`, `transaction/`, `nav-item/`, `navbar/` – presentational building blocks
-- `shared/alert.types.ts` – shared `AlertSeverity` / `AlertVariant` types used by toast, banner, notification
-
-**Directives**: `shared/directives/outside-click.directive.ts` – emits when a click occurs outside the host element.
-
-**Form patterns**: Typed reactive forms with `FormBuilder.nonNullable.group()`:
-```typescript
-readonly form = this.fb.nonNullable.group({
-  receiverEmail: ['', [Validators.required, Validators.pattern(EMAIL_PATTERN)]],
-});
-```
+- **File naming**: kebab-case `.tsx` / `.ts` (e.g. `create-package-dialog.tsx`, `po-line-editor.tsx`). No `.component` suffix. One concern per file; dialogs/panels live beside their feature page.
+- **shadcn/ui** primitives in `src/components/ui/` (new-york style, `radix-ui` + `cva`). Add new ones with the shadcn CLI — config in `components.json` (aliases: `@/components`, `@/components/ui`, `@/lib`, `@/lib/utils`, `@/hooks`). Merge classes with `cn()` from `@/lib/utils`.
+- **Domain primitives** in `src/components/dispatch/` (barrel `index.ts`): `StatusStamp`, `TrackingNumber`, `RouteTimeline`, `SignaturePad`, `MetricStat`, `ReceiverAvatar`, `SectionLabel`. Prefer these for delivery-domain UI.
+- **Layout**: `AppLayout` (shell) composes `Sidebar` + `AppHeader` + `<Outlet/>`; `CommandPalette` (cmdk) is global; `nav-items.ts` is the single nav source.
+- **Toasts**: sonner — `import { toast } from 'sonner'`; `<Toaster/>` is mounted in `main.tsx`. **Icons**: `lucide-react`.
+- **Forms**: controlled React state / component-local; validate before calling the `lib/api` function or mutation. (No Angular reactive-forms equivalent.)
 
 ## Key Dependencies
 
 | Package | Purpose |
 |---------|---------|
-| `leaflet` + `@types/leaflet` | Interactive driver map in `DriverMapComponent` |
-| `angularx-qrcode` | QR code label generation |
-| `chart.js` | Dashboard analytics charts (bar, doughnut, line) |
-| `flatpickr` | Date-picker in order filters |
-| `html2pdf.js` | POD PDF generation (lazy-imported in `core/utils/pod-pdf.utils.ts`) |
-| `@ng-icons/core` + `@ng-icons/tabler-icons` | Icon system |
+| `react` 19 / `react-dom` | UI runtime |
+| `vite` 8 + `@vitejs/plugin-react` | Build/dev |
+| `@tailwindcss/vite` + `tailwindcss` v4 + `tw-animate-css` | Styling |
+| `radix-ui` + `class-variance-authority` + `tailwind-merge` + `clsx` | shadcn/ui primitives |
+| `react-router-dom` v7 | Routing |
+| `@tanstack/react-query` v5 | Server state |
+| `zustand` | UI/preferences state |
+| `@supabase/supabase-js` v2 | Auth + database + edge functions |
+| `@rendani22/logger` | livecode-OPS logging client |
+| `recharts` | Dashboard charts |
+| `leaflet` + `react-leaflet` | Driver map |
+| `qrcode.react` | QR label generation |
+| `jspdf` + `html2canvas-pro` | POD PDF rendering (`lib/pod-pdf.tsx`) |
+| `jszip` | Bulk POD downloads |
+| `cmdk` | Command palette |
+| `next-themes` | Dark-mode class toggling |
+| `sonner` | Toast notifications |
+| `lucide-react` | Icons |
+| `@fontsource-variable/archivo` + `.../jetbrains-mono` | Typefaces (Archivo signage grotesque + JetBrains Mono for codes/IDs) |
 
 ## Commands
 
 ```bash
-npm start              # Dev server at localhost:4200 (runs version:generate first)
-npm run build          # Production build to dist/cloudflare (runs version:generate first)
-npm run watch          # Build in watch mode (development)
-npm test               # Unit tests via `ng test` (Angular `@angular/build:unit-test` → Vitest)
-npm run storybook      # Component docs at localhost:6006
-npm run build-storybook  # Static Storybook build
-npm run version:generate # Regenerates `src/environments/version.ts` from git/package.json
+npm run dev       # Vite dev server at localhost:5173 (host + *.trycloudflare.com allowed for remote review)
+npm run build     # tsc -b (typecheck) then vite build → dist/
+npm run preview   # Serve the production build
+npm run lint      # oxlint
 ```
 
-## Testing
-
-- **Vitest** for unit tests (not Karma/Jasmine)
-- Test files: `*.spec.ts` alongside components
-- Storybook stories: `src/stories/*.stories.ts`
-
-## Icons
-
-Uses `@ng-icons/tabler-icons`. Import and use in component:
-```typescript
-import { NgIconComponent, provideIcons } from '@ng-icons/core';
-import { tablerIconName } from '@ng-icons/tabler-icons';
-```
+No unit-test script and no Storybook in the React app. No `:int` build variant — environments differ only by `VITE_*` env vars, not build configurations.
 
 ## Important Files
 
 | File | Purpose |
 |------|---------|
-| `src/app/core/index.ts` | Barrel exports for core module |
-| `src/app/core/models/package.models.ts` | Package types, status constants, type guards, `EDGE_FUNCTIONS` map |
-| `src/app/core/models/inventory.models.ts` | `InventoryItem`, `InventoryMovement`, DTOs, `InventoryStats` |
-| `src/app/core/models/receiver-profile.model.ts` + `receiver-contact.model.ts` | Receiver profile & contact types |
-| `src/app/core/models/delivery-location.models.ts` | `DeliveryLocation`, create/update DTOs |
-| `src/app/core/models/driver.models.ts` | `DriverProfile`, `DriverLocation`, `DriverMapMarker`, `DriverStatus` |
-| `src/app/core/models/staff-profile.model.ts` | `StaffProfile`, `CreateStaffProfileDto` |
-| `src/app/core/services/package.service.ts` | Package CRUD via Edge Functions + direct reads |
-| `src/app/core/services/inventory.service.ts` | Inventory CRUD + computed `stats` signal |
-| `src/app/core/services/receiver.service.ts` | Receiver profile/contact management |
-| `src/app/core/services/staff.service.ts` | Staff profile management |
-| `src/app/core/services/theme.service.ts` | Dark-mode toggle, persists to localStorage |
-| `src/app/core/services/onboarding-tour.service.ts` | Tour state machine + `TOUR_REGISTRY` |
-| `src/app/core/services/delivery-location.service.ts` | Delivery location CRUD via direct Supabase |
-| `src/app/core/services/driver.service.ts` | Driver management + `mapMarkers` computed signal |
-| `src/app/core/services/settings.service.ts` | App preferences persisted to localStorage |
-| `src/app/core/utils/pod-pdf.utils.ts` | POD PDF rendering (lazy-loads `html2pdf.js`) |
-| `src/app/core/utils/template-render.utils.ts` | Email template variable interpolation |
-| `src/app/core/utils/form-validation.utils.ts` | Shared regex/validators (e.g. `EMAIL_PATTERN`) |
-| `src/app/shared/services/supabase.service.ts` | Supabase client wrapper |
-| `src/app/shared/services/global-search.service.ts` | Controls global search overlay open/close |
-| `src/app/shared/components/modals/index.ts` | Modal component exports |
-| `src/app/shared/components/toast/toast.service.ts` | Imperative toast notifications |
-| `src/app/shared/components/map/driver-map.component.ts` | Leaflet driver map (runs outside NgZone) |
-| `src/app/features/dashboard/services/dashboard.service.ts` | Dashboard stats aggregation (feature-local) |
-| `src/app/features/inventory/` | Inventory feature (`inventory.ts` list + `recent-movements/`) |
-| `scripts/generate-version.mjs` | Pre-build hook that writes `src/environments/version.ts` |
-| `supabase/functions/` | Source for deployed edge functions (`create-package`, `update-package`; `driver-pickup` & `receive-at-collection` are deployed but not vendored here) |
-| `tailwind.config.js` | Tailwind with safelisted grid classes |
-
+| `src/main.tsx` | Provider tree, QueryClient config, global error/uptime install |
+| `src/App.tsx` | All route declarations |
+| `src/index.css` | Tailwind v4 + full "Dispatch" token system |
+| `src/lib/supabase.ts` / `src/lib/config.ts` | Supabase client + runtime config |
+| `src/lib/auth.tsx` | Auth context (`AuthProvider`, `useAuth`) |
+| `src/lib/logger.ts` | livecode-OPS logger + `reportError`/`toUserMessage` |
+| `src/lib/models/package.ts` | Package types, `EDGE_FUNCTIONS`, type guards, status flow |
+| `src/lib/status.ts` / `src/lib/driver-status.ts` | Status constants + tone/label mapping |
+| `src/lib/api/packages.ts` | Package mutations (edge fns) + reads + `callEdgeFunction` |
+| `src/lib/api/*.ts` | drivers, inventory, delivery-locations, receivers, staff, purchase-orders, email-templates, operations/executive dashboards, pod-export |
+| `src/lib/ui-store.ts` / `src/lib/settings-store.ts` | Zustand stores |
+| `src/lib/pod-pdf.tsx` | POD PDF generation (jspdf + html2canvas-pro) |
+| `src/hooks/*.ts` | TanStack Query hooks per feature |
+| `src/components/ui/` | shadcn/ui primitives |
+| `src/components/dispatch/` | Domain UI primitives (barrel `index.ts`) |
+| `src/components/layout/app-layout.tsx` | App shell |
+| `components.json` | shadcn/ui config |
+| `vite.config.ts` | Vite + React + Tailwind plugins, `@` alias, dev server |
+| `supabase/functions/` | Edge function sources (`create-package`, `update-package`, `_shared`) |
+| `supabase/migrations/` | Database migrations |
