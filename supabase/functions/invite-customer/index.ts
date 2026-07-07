@@ -81,19 +81,27 @@ serve(async (req) => {
     const portalUrl = Deno.env.get('CUSTOMER_PORTAL_URL') || `${appUrl}/my-packages`
     const redirectTo = `${appUrl}/accept-invite`
 
-    // 1) Invite (or, if the user already exists, generate a fresh invite link).
-    let authUserId: string | null = null
-    const { data: invited, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, { redirectTo })
-    if (invited?.user) {
-      authUserId = invited.user.id
-    } else {
-      // Already-registered users can't be re-invited; resolve their id instead.
-      const alreadyExists = inviteError?.message?.toLowerCase().includes('already')
-      if (!alreadyExists) return json({ error: 'Invite failed', details: inviteError?.message }, 400)
-      const { data: link, error: linkError } = await admin.auth.admin.generateLink({ type: 'invite', email, options: { redirectTo } })
-      if (linkError || !link?.user) return json({ error: 'Could not resolve existing user', details: linkError?.message }, 400)
-      authUserId = link.user.id
+    // Email must be configured — this function sends the ONLY invite email, so
+    // without Resend there's no way for the customer to receive their link.
+    const resendApiKey = Deno.env.get('RESEND_API_KEY')
+    if (!resendApiKey) {
+      return json({ error: 'Email not configured', details: 'RESEND_API_KEY is not set; cannot deliver the invite link' }, 500)
     }
+
+    // 1) Create the auth user and get a set-password link WITHOUT Supabase
+    //    sending its own email. generateLink returns the link for us to deliver
+    //    in our single branded email. New users → 'invite'; already-registered
+    //    → 'recovery' (lets them (re)set their password).
+    let gen = await admin.auth.admin.generateLink({ type: 'invite', email, options: { redirectTo } })
+    if (gen.error) {
+      gen = await admin.auth.admin.generateLink({ type: 'recovery', email, options: { redirectTo } })
+    }
+    if (gen.error || !gen.data?.user) {
+      return json({ error: 'Could not create the invite link', details: gen.error?.message }, 400)
+    }
+    const authUserId = gen.data.user.id
+    const actionLink = gen.data.properties?.action_link
+    if (!actionLink) return json({ error: 'No action link returned by Supabase' }, 500)
 
     // 2) Upsert the receiver profile matched on email, linking auth + role + company.
     const { data: existing } = await admin
@@ -117,42 +125,35 @@ serve(async (req) => {
       receiverId = created.id
     }
 
-    // 3) Send the role-specific welcome email (non-fatal; account already exists).
-    let emailSent = false
-    let emailError: string | null = null
-    try {
-      const resendApiKey = Deno.env.get('RESEND_API_KEY')
-      const { data: company } = await admin.from('companies').select('name').eq('id', company_id).single()
-      if (!resendApiKey) {
-        emailError = 'RESEND_API_KEY not set'
-      } else {
-        const tpl = await resolveTemplate(admin, 'customer_invited')
-        const rendered = renderEmail(tpl, {
-          ...buildCommonVars((k) => Deno.env.get(k) ?? undefined),
-          name,
-          company_name: company?.name ?? 'your company',
-          portal_url: portalUrl,
-          is_buyer: role === 'buyer',
-          is_runner: role === 'runner'
-        })
-        const resp = await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${resendApiKey}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            from: Deno.env.get('EMAIL_FROM') || 'Rabelani Express <noreply@example.com>',
-            to: [email],
-            subject: rendered.subject,
-            html: rendered.html
-          })
-        })
-        if (resp.ok) emailSent = true
-        else emailError = `Email API error: ${await resp.text()}`
-      }
-    } catch (e) {
-      emailError = e instanceof Error ? e.message : String(e)
+    // 3) Send the single branded invite email carrying the set-password link.
+    //    A failure here fails the whole invite — the customer received nothing.
+    //    The account already exists, so re-invoking regenerates the link.
+    const { data: company } = await admin.from('companies').select('name').eq('id', company_id).single()
+    const tpl = await resolveTemplate(admin, 'customer_invited')
+    const rendered = renderEmail(tpl, {
+      ...buildCommonVars((k) => Deno.env.get(k) ?? undefined),
+      name,
+      company_name: company?.name ?? 'your company',
+      action_link: actionLink,
+      portal_url: portalUrl,
+      is_buyer: role === 'buyer',
+      is_runner: role === 'runner'
+    })
+    const resp = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${resendApiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from: Deno.env.get('EMAIL_FROM') || 'Rabelani Express <noreply@example.com>',
+        to: [email],
+        subject: rendered.subject,
+        html: rendered.html
+      })
+    })
+    if (!resp.ok) {
+      return json({ error: 'Could not send the invite email', details: await resp.text() }, 502)
     }
 
-    return json({ success: true, receiver_id: receiverId, auth_user_id: authUserId, email_sent: emailSent, email_error: emailError })
+    return json({ success: true, receiver_id: receiverId, auth_user_id: authUserId, email_sent: true })
   } catch (e) {
     captureException(e)
     return json({ error: 'Unexpected error', details: e instanceof Error ? e.message : String(e) }, 500)

@@ -238,8 +238,10 @@ export function buildCommonVars(envGet: (k: string) => string | undefined): Ctx 
 // Mirrors the seeded HTML in the email_templates migration. Kept in sync by
 // the Email Templates admin page; if you edit one, edit both.
 
-// Role-aware welcome sent by the invite-customer function. Vars: {{name}},
-// {{company_name}}, {{portal_url}}, and the booleans {{is_buyer}}/{{is_runner}}.
+// Role-aware welcome + set-password link — the single invite email sent by the
+// invite-customer function (Supabase sends nothing). Vars: {{name}},
+// {{company_name}}, {{action_link}} (set-password link), {{portal_url}}, and the
+// booleans {{is_buyer}}/{{is_runner}}.
 const CUSTOMER_INVITED_HTML = `
               <!DOCTYPE html>
               <html>
@@ -253,16 +255,17 @@ const CUSTOMER_INVITED_HTML = `
                 </div>
                 <div style="padding: 24px;">
                   <p>Hello {{name}},</p>
-                  <p>An account has been created for you at <strong>{{company_name}}</strong>. You'll receive a separate email with a secure link to set your password and sign in.</p>
+                  <p>An account has been created for you at <strong>{{company_name}}</strong>. Click the button below to set your password and sign in.</p>
                   {{#is_buyer}}
-                  <p>As a <strong>Buyer</strong>, you can sign in to view <strong>every package ordered under {{company_name}}</strong> — reference, contents, status, and any notes we've added for you.</p>
+                  <p>As a <strong>Buyer</strong>, you can view <strong>every package ordered under {{company_name}}</strong> — reference, contents, status, and any notes we've added for you.</p>
                   {{/is_buyer}}
                   {{#is_runner}}
-                  <p>As a <strong>Runner</strong>, you can sign in to view <strong>the packages assigned to you</strong> — reference, contents, status, and any notes we've added for you.</p>
+                  <p>As a <strong>Runner</strong>, you can view <strong>the packages assigned to you</strong> — reference, contents, status, and any notes we've added for you.</p>
                   {{/is_runner}}
                   <p style="text-align:center; margin: 28px 0;">
-                    <a href="{{portal_url}}" style="background:#f75757; color:#ffffff; text-decoration:none; padding:12px 22px; border-radius:6px; font-weight:600; display:inline-block;">Open the portal</a>
+                    <a href="{{action_link}}" style="background:#f75757; color:#ffffff; text-decoration:none; padding:12px 22px; border-radius:6px; font-weight:600; display:inline-block;">Set your password</a>
                   </p>
+                  <p style="color:#666; font-size:13px;">This link expires after a while — if it stops working, ask your administrator to re-send the invite.</p>
                   <p style="color:#666; font-size:13px;">Questions? <a href="mailto:{{support_email}}" style="color:#f75757;">{{support_email}}</a></p>
                 </div>
               </body>
