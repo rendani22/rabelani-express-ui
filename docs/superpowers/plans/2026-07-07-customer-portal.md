@@ -13,7 +13,7 @@ _Date: 2026-07-07 · Branch: `feat/customer-portal`_
 
 **⚠️ Not done here — must run against your infra:**
 1. **Apply the migrations** (`supabase db push` or your migration flow) — staging first.
-2. **Deploy** `invite-customer` (`npm run deploy:invite-customer`); set `RESEND_API_KEY`, `EMAIL_FROM`, `APP_URL`, `CUSTOMER_PORTAL_URL`.
+2. **Deploy** the edge functions: `npm run deploy:invite-customer` (set `RESEND_API_KEY`, `EMAIL_FROM`, `APP_URL`, `CUSTOMER_PORTAL_URL`) and `npm run deploy:customer-pod` (POD download — entitlement-checked, no extra env). Re-deploy `create-package`/`update-package` for the notes split.
 3. **Run the Phase 2 verification** with real staff / Buyer / Runner JWTs (see Phase 6). Nothing here was executed against a live DB.
 4. Optional: seed a `customer_invited` row in `email_templates` (falls back to in-code HTML otherwise).
 5. Edge-function delivers one email itself via Resend, so **`RESEND_API_KEY` (and `EMAIL_FROM`) are required** — the invite returns an error without them. New users get an `invite` link; already-registered users fall back to a `recovery` link. Verify both link types redirect to `/accept-invite` on your Supabase version.

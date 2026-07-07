@@ -1,13 +1,17 @@
 import { useMemo, useState } from 'react'
-import { Loader2, PackageX, Search, X } from 'lucide-react'
+import { Download, Loader2, PackageX, Search, X } from 'lucide-react'
+import { toast } from 'sonner'
 import { useMyPackages } from '@/hooks/use-my-packages'
 import { useCurrentPrincipal } from '@/hooks/use-current-principal'
 import { StatusStamp, SectionLabel } from '@/components/dispatch'
+import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatDateTime } from '@/lib/format'
-import { customerStatusMeta } from '@/lib/status'
+import { PACKAGE_STATUS, customerStatusMeta } from '@/lib/status'
+import { reportError } from '@/lib/logger'
+import { downloadCustomerPod } from '@/lib/api/customer-pod'
 import type { CustomerPackage } from '@/lib/api/customer-packages'
 
 /** A PO grouping (po set) or a standalone package (po null → key by id). */
@@ -53,10 +57,32 @@ function PackageItems({ items }: { items: CustomerPackage['items'] }) {
   )
 }
 
+/** Proof-of-delivery download, shown once an order is collected/delivered. */
+function DownloadPodButton({ pkg }: { pkg: CustomerPackage }) {
+  const [downloading, setDownloading] = useState(false)
+  async function onClick() {
+    setDownloading(true)
+    try {
+      await downloadCustomerPod(pkg.id, pkg.po_number)
+    } catch (e) {
+      toast.error(reportError(e, 'Could not download the proof of delivery.', { op: 'customer.pod.download' }))
+    } finally {
+      setDownloading(false)
+    }
+  }
+  return (
+    <Button variant="outline" size="sm" onClick={onClick} disabled={downloading} className="mt-1 self-start">
+      {downloading ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
+      Download POD
+    </Button>
+  )
+}
+
 /** One package's detail inside a group (status + items + notes), no reference. */
 function PackageRow({ pkg, showDivider }: { pkg: CustomerPackage; showDivider: boolean }) {
+  const podAvailable = pkg.status === PACKAGE_STATUS.COLLECTED || pkg.status === PACKAGE_STATUS.DELIVERED
   return (
-    <div className={showDivider ? 'border-t pt-4' : undefined}>
+    <div className={showDivider ? 'flex flex-col border-t pt-4' : 'flex flex-col'}>
       <div className="mb-2 flex items-center justify-between gap-3">
         <span className="text-xs text-muted-foreground">{formatDateTime(pkg.created_at)}</span>
         {(() => {
@@ -68,6 +94,7 @@ function PackageRow({ pkg, showDivider }: { pkg: CustomerPackage; showDivider: b
       {pkg.customer_notes && (
         <p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">{pkg.customer_notes}</p>
       )}
+      {podAvailable && <DownloadPodButton pkg={pkg} />}
     </div>
   )
 }
