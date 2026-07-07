@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Loader2, Package as PackageIcon, Plus, Search, Trash2, X } from 'lucide-react'
+import { Loader2, Package as PackageIcon, Plus, Search, X } from 'lucide-react'
 import type {
   CreatePackageRequest,
   PackageItemRequest,

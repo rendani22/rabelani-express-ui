@@ -23,7 +23,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Combobox } from '@/components/ui/combobox'
-import { PoLineEditor, newPoLine, poLinesValid, type PoLine } from './po-line-editor'
+import { PoLineEditor, poLinesValid, type PoLine } from './po-line-editor'
 
 /** Loads a PO's editable payload by number, then edits it. */
 export function EditPoDialog({

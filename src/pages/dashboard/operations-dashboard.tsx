@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { Boxes, CalendarDays, CheckCircle2, Clock, FileSignature, Inbox, Package, Truck, Users } from 'lucide-react'
+import { CalendarDays, CheckCircle2, Clock, FileSignature, Inbox, Package, Truck, Users } from 'lucide-react'
 import type {
   DriverPerformance,
   DriverStats,

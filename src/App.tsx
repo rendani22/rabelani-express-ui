@@ -16,7 +16,6 @@ import { UsersPage } from '@/pages/directory/users'
 import { LocationsPage } from '@/pages/directory/locations'
 import { EmailTemplatesPage } from '@/pages/directory/email-templates'
 import { SettingsPage } from '@/pages/settings'
-import { PlaceholderPage } from '@/pages/placeholder-page'
 import { StyleGuide } from '@/pages/style-guide'
 
 export default function App() {

@@ -1166,7 +1166,7 @@ export async function getPodForPackage(packageId: string): Promise<PodRecord | n
       .maybeSingle()
 
     if (error || !data) return null
-    return data as PodRecord
+    return data as unknown as PodRecord
   } catch {
     return null
   }
