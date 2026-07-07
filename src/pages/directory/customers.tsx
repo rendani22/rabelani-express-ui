@@ -24,7 +24,7 @@ import { StatusStamp, TrackingNumber } from '@/components/dispatch'
 import { ReceiverAvatar } from '@/components/dispatch/receiver-avatar'
 import { formatDateShort } from '@/lib/format'
 import { cn } from '@/lib/utils'
-import { CustomerDialog, ManageContactsDialog } from './customer-dialogs'
+import { CustomerDialog, type CustomerDialogTab } from './customer-dialogs'
 
 function HistoryPanel({ customer, open, onOpenChange }: { customer: ReceiverProfile | null; open: boolean; onOpenChange: (o: boolean) => void }) {
   const packages = useQuery({
@@ -171,8 +171,12 @@ export function CustomersPage() {
   const [companyFilter, setCompanyFilter] = useState<string>('all')
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<ReceiverProfile | null>(null)
-  const [contactsFor, setContactsFor] = useState<ReceiverProfile | null>(null)
+  const [editTab, setEditTab] = useState<CustomerDialogTab>('details')
   const [historyFor, setHistoryFor] = useState<ReceiverProfile | null>(null)
+
+  const openCustomer = (r: ReceiverProfile | null, tab: CustomerDialogTab = 'details') => {
+    setEditing(r); setEditTab(tab); setDialogOpen(true)
+  }
 
   const { data, isLoading } = useQuery({ queryKey: ['receivers'], queryFn: listReceivers })
   const companies = useQuery({ queryKey: ['companies'], queryFn: listCompanies })
@@ -232,7 +236,7 @@ export function CustomersPage() {
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <NewCompanyDialog />
-            <Button size="sm" onClick={() => { setEditing(null); setDialogOpen(true) }}>
+            <Button size="sm" onClick={() => openCustomer(null)}>
               <Users className="size-4" /> Add customer
             </Button>
           </div>
@@ -279,8 +283,8 @@ export function CustomersPage() {
                     <CustomerCard
                       key={r.id}
                       r={r}
-                      onEdit={() => { setEditing(r); setDialogOpen(true) }}
-                      onContacts={() => setContactsFor(r)}
+                      onEdit={() => openCustomer(r, 'details')}
+                      onContacts={() => openCustomer(r, 'contacts')}
                       onToggle={() => toggle.mutate(r)}
                       onHistory={() => setHistoryFor(r)}
                     />
@@ -297,8 +301,7 @@ export function CustomersPage() {
         </div>
       )}
 
-      <CustomerDialog customer={editing} open={dialogOpen} onOpenChange={setDialogOpen} />
-      <ManageContactsDialog customer={contactsFor} open={!!contactsFor} onOpenChange={(o) => !o && setContactsFor(null)} />
+      <CustomerDialog customer={editing} open={dialogOpen} onOpenChange={setDialogOpen} initialTab={editTab} />
       <HistoryPanel customer={historyFor} open={!!historyFor} onOpenChange={(o) => !o && setHistoryFor(null)} />
     </PageBody>
   )
