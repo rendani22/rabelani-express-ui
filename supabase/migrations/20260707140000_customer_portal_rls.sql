@@ -172,6 +172,7 @@ SELECT
   ), '[]'::jsonb) AS items
 FROM public.packages p
 WHERE p.deleted_at IS NULL
+  AND p.status <> 'draft'          -- drafts are internal WIP; never show customers
   AND EXISTS (
     SELECT 1 FROM public.receiver_profiles me
     WHERE me.auth_user_id = auth.uid()
