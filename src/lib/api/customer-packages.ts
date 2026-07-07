@@ -6,10 +6,13 @@ export interface CustomerPackageItem {
   quantity: number
 }
 
-/** A package row as exposed to customers through the `customer_packages` view. */
+/**
+ * A package row as exposed to customers through the `customer_packages` view.
+ * The internal `reference` is intentionally absent — customers identify orders
+ * by PO number. `id` is an opaque key only.
+ */
 export interface CustomerPackage {
   id: string
-  reference: string
   po_number: string | null
   status: PackageStatus
   customer_notes: string | null

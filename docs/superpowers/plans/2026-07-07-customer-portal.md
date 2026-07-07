@@ -34,7 +34,7 @@ Let customers log into the existing app on a **read-only shell** and see package
 | Package link | Real `receiver_id` FK on `packages` (not email string) |
 | Invite | **One** branded Resend email from the edge function (Supabase sends nothing). `generateLink` mints the set-password link; the email carries it |
 | Frontend | Same app, separate `<CustomerLayout>`, read-only "My Packages" |
-| Exposed columns | reference, po_number, status, **customer_notes**, items, created/updated — **nothing else** |
+| Exposed columns | po_number, status, **customer_notes**, items, created/updated — **nothing else**. The internal `reference` is NOT exposed; customers see orders grouped by PO. |
 | (a) | One company + exactly one role per customer |
 | (b) | Existing receivers are non-login until invited; old packages backfilled by email; unmatched → staff-only |
 | (c) | Custom-email packages **auto-create a receiver** (no orphaned/invisible packages) |

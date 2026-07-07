@@ -151,11 +151,13 @@ CREATE POLICY "Customer reads own company" ON public.companies
 -- runs as its owner (security_invoker = false), bypassing packages' staff-only
 -- RLS, and scopes rows itself via auth.uid().
 -- ============================================================================
+-- Note: p.reference (the internal RBX-… order reference) is deliberately NOT
+-- exposed — it's for the internal team. Customers identify orders by PO number.
+-- p.id is an opaque UUID, kept only as a stable row key.
 CREATE OR REPLACE VIEW public.customer_packages
 WITH (security_invoker = false) AS
 SELECT
   p.id,
-  p.reference,
   p.po_number,
   p.status,
   p.customer_notes,
