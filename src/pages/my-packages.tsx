@@ -6,6 +6,7 @@ import { StatusStamp, SectionLabel } from '@/components/dispatch'
 import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatDateTime } from '@/lib/format'
+import { customerStatusMeta } from '@/lib/status'
 import type { CustomerPackage } from '@/lib/api/customer-packages'
 
 /** A PO grouping (po set) or a standalone package (po null → key by id). */
@@ -57,7 +58,10 @@ function PackageRow({ pkg, showDivider }: { pkg: CustomerPackage; showDivider: b
     <div className={showDivider ? 'border-t pt-4' : undefined}>
       <div className="mb-2 flex items-center justify-between gap-3">
         <span className="text-xs text-muted-foreground">{formatDateTime(pkg.created_at)}</span>
-        <StatusStamp status={pkg.status} />
+        {(() => {
+          const s = customerStatusMeta(pkg.status)
+          return <StatusStamp status={pkg.status} label={s.label} tone={s.tone} />
+        })()}
       </div>
       <PackageItems items={pkg.items} />
       {pkg.customer_notes && (
