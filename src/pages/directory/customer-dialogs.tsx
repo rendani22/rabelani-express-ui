@@ -10,6 +10,7 @@ import {
   listReceiverContacts,
   updateReceiver,
 } from '@/lib/api/receivers'
+import { inviteCustomer, listCompanies, type CustomerRole } from '@/lib/api/customers'
 import { reportError } from '@/lib/logger'
 import {
   Dialog,
@@ -22,6 +23,8 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 
 const emptyForm = { name: '', surname: '', email: '', phone: '' }
@@ -37,6 +40,12 @@ export function CustomerDialog({
 }) {
   const qc = useQueryClient()
   const [form, setForm] = useState(emptyForm)
+  // Portal-invite options (add mode only).
+  const [invite, setInvite] = useState(false)
+  const [companyId, setCompanyId] = useState('')
+  const [role, setRole] = useState<CustomerRole>('buyer')
+
+  const companies = useQuery({ queryKey: ['companies'], queryFn: listCompanies, enabled: open && !customer && invite })
 
   useEffect(() => {
     if (open) {
@@ -45,16 +54,23 @@ export function CustomerDialog({
           ? { name: customer.name ?? '', surname: customer.surname ?? '', email: customer.email ?? '', phone: customer.phone ?? '' }
           : emptyForm,
       )
+      setInvite(false)
+      setCompanyId('')
+      setRole('buyer')
     }
   }, [open, customer])
 
   const save = useMutation({
-    mutationFn: () => {
-      const dto = { name: form.name.trim(), surname: form.surname.trim(), email: form.email.trim().toLowerCase(), phone: form.phone.trim() || undefined }
-      return customer ? updateReceiver(customer.id, dto) : createReceiver(dto)
+    mutationFn: async () => {
+      const name = form.name.trim(), surname = form.surname.trim()
+      const email = form.email.trim().toLowerCase(), phone = form.phone.trim() || undefined
+      if (customer) { await updateReceiver(customer.id, { name, surname, email, phone }); return }
+      // Add mode: invite (creates the receiver + portal access + email) or plain add.
+      if (invite) { await inviteCustomer({ email, name, surname, phone, company_id: companyId, role }); return }
+      await createReceiver({ name, surname, email, phone })
     },
     onSuccess: () => {
-      toast.success(customer ? 'Customer updated.' : 'Customer added.')
+      toast.success(customer ? 'Customer updated.' : invite ? 'Invite sent.' : 'Customer added.')
       qc.invalidateQueries({ queryKey: ['receivers'] })
       onOpenChange(false)
     },
@@ -62,6 +78,9 @@ export function CustomerDialog({
   })
 
   const set = (k: keyof typeof emptyForm) => (e: React.ChangeEvent<HTMLInputElement>) => setForm((f) => ({ ...f, [k]: e.target.value }))
+
+  const baseValid = form.name.trim() && form.surname.trim() && form.email.trim()
+  const canSubmit = !!baseValid && (!invite || !!companyId) && !save.isPending
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -86,12 +105,47 @@ export function CustomerDialog({
             <Label>Phone</Label>
             <Input value={form.phone} onChange={set('phone')} />
           </div>
+
+          {/* Portal access — add mode only */}
+          {!customer && (
+            <div className="col-span-2 flex flex-col gap-4 rounded-lg border bg-muted/30 p-3.5">
+              <label className="flex items-start justify-between gap-3">
+                <span className="flex flex-col gap-0.5">
+                  <span className="text-sm font-medium">Give portal access</span>
+                  <span className="text-xs text-muted-foreground">Emails an invite to sign in and view their packages.</span>
+                </span>
+                <Switch checked={invite} onCheckedChange={setInvite} />
+              </label>
+
+              {invite && (
+                <div className="grid grid-cols-1 gap-3">
+                  <div className="flex flex-col gap-1.5">
+                    <Label>Company *</Label>
+                    <Select value={companyId} onValueChange={setCompanyId}>
+                      <SelectTrigger><SelectValue placeholder={companies.isLoading ? 'Loading…' : 'Select a company'} /></SelectTrigger>
+                      <SelectContent>{(companies.data ?? []).map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label>Role *</Label>
+                    <Select value={role} onValueChange={(v) => setRole(v as CustomerRole)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="buyer">Buyer — sees all packages for the company</SelectItem>
+                        <SelectItem value="runner">Runner — sees only packages assigned to them</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={() => save.mutate()} disabled={!form.name.trim() || !form.surname.trim() || !form.email.trim() || save.isPending}>
+          <Button onClick={() => save.mutate()} disabled={!canSubmit}>
             {save.isPending && <Loader2 className="animate-spin" />}
-            {customer ? 'Save' : 'Add customer'}
+            {customer ? 'Save' : invite ? 'Send invite' : 'Add customer'}
           </Button>
         </DialogFooter>
       </DialogContent>

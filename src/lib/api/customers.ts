@@ -52,6 +52,7 @@ export interface InviteCustomerDto {
   email: string
   name: string
   surname?: string
+  phone?: string
   company_id: string
   role: CustomerRole
 }

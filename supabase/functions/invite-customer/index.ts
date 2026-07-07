@@ -14,6 +14,7 @@ interface InviteCustomerRequest {
   email: string
   name: string
   surname?: string
+  phone?: string
   company_id: string
   role: 'buyer' | 'runner'
 }
@@ -62,7 +63,7 @@ serve(async (req) => {
 
     const body: InviteCustomerRequest = await req.json()
     const email = body.email?.toLowerCase().trim()
-    const { name, surname, company_id, role } = body
+    const { name, surname, phone, company_id, role } = body
 
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json({ error: 'Invalid email' }, 400)
     if (!name?.trim()) return json({ error: 'name is required' }, 400)
@@ -110,15 +111,14 @@ serve(async (req) => {
       .ilike('email', email)
       .maybeSingle()
 
+    const profileFields = { auth_user_id: authUserId, role, company_id, name, surname: surname ?? '', ...(phone?.trim() ? { phone: phone.trim() } : {}) }
     let receiverId = existing?.id ?? null
     if (receiverId) {
-      const { error } = await admin.from('receiver_profiles')
-        .update({ auth_user_id: authUserId, role, company_id, name, surname: surname ?? '' })
-        .eq('id', receiverId)
+      const { error } = await admin.from('receiver_profiles').update(profileFields).eq('id', receiverId)
       if (error) return json({ error: 'Could not link receiver profile', details: error.message }, 400)
     } else {
       const { data: created, error } = await admin.from('receiver_profiles')
-        .insert({ email, name, surname: surname ?? '', auth_user_id: authUserId, role, company_id })
+        .insert({ email, ...profileFields })
         .select('id')
         .single()
       if (error || !created) return json({ error: 'Could not create receiver profile', details: error?.message }, 400)
