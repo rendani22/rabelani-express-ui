@@ -37,6 +37,7 @@ export type EmailTemplateKey =
   | 'package_ready_for_collection'
   | 'package_completed'
   | 'package_contents_updated'
+  | 'customer_invited'
 
 // ----- Renderer ------------------------------------------------------------
 
@@ -237,6 +238,36 @@ export function buildCommonVars(envGet: (k: string) => string | undefined): Ctx 
 // Mirrors the seeded HTML in the email_templates migration. Kept in sync by
 // the Email Templates admin page; if you edit one, edit both.
 
+// Role-aware welcome sent by the invite-customer function. Vars: {{name}},
+// {{company_name}}, {{portal_url}}, and the booleans {{is_buyer}}/{{is_runner}}.
+const CUSTOMER_INVITED_HTML = `
+              <!DOCTYPE html>
+              <html>
+              <head>
+                <meta charset="utf-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              </head>
+              <body style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #242424; background: #ffffff;">
+                <div style="background: #f75757; padding: 28px 24px; text-align: center;">
+                  <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Welcome to Rabelani Express</h1>
+                </div>
+                <div style="padding: 24px;">
+                  <p>Hello {{name}},</p>
+                  <p>An account has been created for you at <strong>{{company_name}}</strong>. You'll receive a separate email with a secure link to set your password and sign in.</p>
+                  {{#is_buyer}}
+                  <p>As a <strong>Buyer</strong>, you can sign in to view <strong>every package ordered under {{company_name}}</strong> — reference, contents, status, and any notes we've added for you.</p>
+                  {{/is_buyer}}
+                  {{#is_runner}}
+                  <p>As a <strong>Runner</strong>, you can sign in to view <strong>the packages assigned to you</strong> — reference, contents, status, and any notes we've added for you.</p>
+                  {{/is_runner}}
+                  <p style="text-align:center; margin: 28px 0;">
+                    <a href="{{portal_url}}" style="background:#f75757; color:#ffffff; text-decoration:none; padding:12px 22px; border-radius:6px; font-weight:600; display:inline-block;">Open the portal</a>
+                  </p>
+                  <p style="color:#666; font-size:13px;">Questions? <a href="mailto:{{support_email}}" style="color:#f75757;">{{support_email}}</a></p>
+                </div>
+              </body>
+              </html>`
+
 const REGISTERED_HTML = `
               <!DOCTYPE html>
               <html>
@@ -366,6 +397,10 @@ export const FALLBACK_TEMPLATES: Record<EmailTemplateKey, EmailTemplate> = {
   package_contents_updated: {
     subject: 'Package Contents Updated{{#po_number}} - {{po_number}}{{/po_number}} - {{reference}}',
     body_html: CONTENTS_UPDATED_HTML
+  },
+  customer_invited: {
+    subject: 'Welcome to Rabelani Express',
+    body_html: CUSTOMER_INVITED_HTML
   }
 }
 

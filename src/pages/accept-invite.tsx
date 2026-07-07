@@ -1,0 +1,97 @@
+import { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { AlertCircle, Loader2 } from 'lucide-react'
+import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/lib/auth'
+import { Logo } from '@/components/brand/logo'
+import { ModeToggle } from '@/components/mode-toggle'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+
+/**
+ * Landing for the Supabase invite link. supabase-js parses the tokens from the
+ * URL and establishes a session on load, so an invited user arrives already
+ * authenticated and just needs to set a password.
+ */
+export function AcceptInvite() {
+  const { session, initializing } = useAuth()
+  const navigate = useNavigate()
+  const [password, setPassword] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (password.length < 6) return setError('Password must be at least 6 characters')
+    if (password !== confirm) return setError('Passwords do not match')
+    setError(null)
+    setSubmitting(true)
+    const { error: updateError } = await supabase.auth.updateUser({ password })
+    setSubmitting(false)
+    if (updateError) return setError(updateError.message)
+    navigate('/', { replace: true })
+  }
+
+  return (
+    <main className="flex min-h-svh flex-col px-6 py-8 sm:px-10">
+      <header className="flex items-center justify-between">
+        <Logo />
+        <ModeToggle />
+      </header>
+
+      <div className="flex flex-1 items-center justify-center py-10">
+        <div className="w-full max-w-sm">
+          {initializing ? (
+            <div className="flex justify-center">
+              <Loader2 className="size-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : !session ? (
+            <div className="flex flex-col items-center gap-4 text-center">
+              <AlertCircle className="size-6 text-destructive" />
+              <div className="flex flex-col gap-1.5">
+                <h1 className="text-xl font-semibold tracking-tight">Invite link invalid</h1>
+                <p className="text-sm text-muted-foreground">
+                  This link is invalid or has expired. Ask your administrator to re-send your invite.
+                </p>
+              </div>
+              <Link to="/login" className="text-sm font-medium underline-offset-4 hover:underline">
+                Go to sign in
+              </Link>
+            </div>
+          ) : (
+            <>
+              <div className="mb-8 flex flex-col gap-1.5">
+                <h1 className="text-[2rem] font-semibold leading-none tracking-tight">Set your password</h1>
+                <p className="text-sm text-muted-foreground">Choose a password to finish setting up your account.</p>
+              </div>
+
+              {error && (
+                <div role="alert" className="mb-5 flex items-start gap-2.5 rounded-md border border-destructive/30 bg-destructive/10 px-3.5 py-2.5 text-sm text-destructive">
+                  <AlertCircle className="mt-0.5 size-4 shrink-0" />
+                  <span>{error}</span>
+                </div>
+              )}
+
+              <form onSubmit={onSubmit} noValidate className="flex flex-col gap-5">
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="password">New password</Label>
+                  <Input id="password" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="confirm">Confirm password</Label>
+                  <Input id="confirm" type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
+                </div>
+                <Button type="submit" size="lg" disabled={submitting} className="mt-1">
+                  {submitting && <Loader2 className="animate-spin" />}
+                  {submitting ? 'Saving…' : 'Set password & continue'}
+                </Button>
+              </form>
+            </>
+          )}
+        </div>
+      </div>
+    </main>
+  )
+}

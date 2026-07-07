@@ -7,7 +7,10 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "deploy:create-package": "supabase functions deploy create-package",
+    "deploy:update-package": "supabase functions deploy update-package",
+    "deploy:invite-customer": "supabase functions deploy invite-customer"
   },
   "dependencies": {
     "@fontsource-variable/archivo": "^5.2.6",

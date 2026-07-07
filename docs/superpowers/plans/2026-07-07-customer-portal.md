@@ -1,6 +1,22 @@
 # Implementation Plan — Customer Portal (Buyers & Runners)
 
-_Date: 2026-07-07 · Target branch: feature off `dev`_
+_Date: 2026-07-07 · Branch: `feat/customer-portal`_
+
+## Implementation status
+
+**Code complete** (frontend build passes):
+- Phase 1 — `supabase/migrations/20260707130000_customer_portal_schema.sql` (companies, receiver_role, receiver_profiles cols, packages.receiver_id + backfill, auto-link trigger)
+- Phase 2 — `supabase/migrations/20260707140000_customer_portal_rls.sql` (is_active_staff()/current_customer() helpers, 13 SELECT + ~9 write policies locked to staff, companies policies, `customer_packages` view). Also the notes split (`20260707120000`).
+- Phase 3 — `supabase/functions/invite-customer/` + `customer_invited` template in `_shared/email-templates.ts` + `deploy:invite-customer` script.
+- Phase 4 — `lib/api/customers.ts`, `lib/api/customer-packages.ts`, `hooks/use-my-packages.ts`, `hooks/use-current-principal.ts`, `components/role-routes.tsx`, `components/layout/customer-layout.tsx`, `pages/my-packages.tsx`, `pages/accept-invite.tsx`, role-aware routing + login redirect in `App.tsx`/`login.tsx`.
+- Phase 5 — `pages/directory/companies.tsx` (manage companies + invite dialog) + nav/route.
+
+**⚠️ Not done here — must run against your infra:**
+1. **Apply the migrations** (`supabase db push` or your migration flow) — staging first.
+2. **Deploy** `invite-customer` (`npm run deploy:invite-customer`); set `RESEND_API_KEY`, `EMAIL_FROM`, `APP_URL`, `CUSTOMER_PORTAL_URL`.
+3. **Run the Phase 2 verification** with real staff / Buyer / Runner JWTs (see Phase 6). Nothing here was executed against a live DB.
+4. Optional: seed a `customer_invited` row in `email_templates` (falls back to in-code HTML otherwise).
+5. Edge-function caveat: re-inviting an *already-registered* user uses `generateLink({type:'invite'})`; verify that path on your Supabase version (may need `magiclink`/`recovery`).
 
 ## Summary
 
