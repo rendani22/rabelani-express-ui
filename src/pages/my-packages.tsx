@@ -1,10 +1,9 @@
 import { useMemo, useState } from 'react'
-import { Download, Loader2, PackageX, Search, X } from 'lucide-react'
+import { Download, FileCheck2, Loader2, PackageX, Search, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { useMyPackages } from '@/hooks/use-my-packages'
 import { useCurrentPrincipal } from '@/hooks/use-current-principal'
 import { StatusStamp, SectionLabel } from '@/components/dispatch'
-import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -57,7 +56,12 @@ function PackageItems({ items }: { items: CustomerPackage['items'] }) {
   )
 }
 
-/** Proof-of-delivery download, shown once an order is collected/delivered. */
+/**
+ * Proof-of-delivery download, shown once an order is collected/delivered.
+ * Styled as a tear-off docket stub — a "verified" delivered-green stamp glyph
+ * (the one place green is earned), a stencil label, and a mono PDF line — so it
+ * reads as retrieving a signed artifact, not a generic download button.
+ */
 function DownloadPodButton({ pkg }: { pkg: CustomerPackage }) {
   const [downloading, setDownloading] = useState(false)
   async function onClick() {
@@ -71,10 +75,24 @@ function DownloadPodButton({ pkg }: { pkg: CustomerPackage }) {
     }
   }
   return (
-    <Button variant="outline" size="sm" onClick={onClick} disabled={downloading} className="mt-1 self-start">
-      {downloading ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
-      Download POD
-    </Button>
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={downloading}
+      aria-label="Download proof of delivery PDF"
+      className="group mt-3 inline-flex items-center gap-2.5 self-start rounded-md border border-border bg-muted/40 py-1.5 pl-1.5 pr-3.5 text-left transition-[background-color,transform] duration-150 hover:bg-muted/70 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40"
+    >
+      <span className="flex size-7 items-center justify-center rounded-[4px] border border-success/40 bg-success/12 text-success">
+        {downloading ? <Loader2 className="size-3.5 animate-spin" /> : <FileCheck2 className="size-3.5" />}
+      </span>
+      <span className="flex flex-col gap-0.5 leading-none">
+        <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-foreground/80">Proof of delivery</span>
+        <span className="mono text-[11px] tracking-tight text-muted-foreground">
+          {downloading ? 'Preparing PDF…' : 'Download PDF'}
+        </span>
+      </span>
+      <Download className="ml-1.5 size-4 text-muted-foreground transition-colors group-hover:text-foreground" />
+    </button>
   )
 }
 
