@@ -70,6 +70,7 @@ export function CreatePackageDialog({
   const [locationId, setLocationId] = useState('')
   const [poNumber, setPoNumber] = useState('')
   const [notes, setNotes] = useState('')
+  const [customerNotes, setCustomerNotes] = useState('')
   const [asDraft, setAsDraft] = useState(false)
   const [items, setItems] = useState<FreeItem[]>([])
   const [poLines, setPoLines] = useState<PoLine[]>([])
@@ -83,7 +84,7 @@ export function CreatePackageDialog({
   }, [inventory.data])
 
   const reset = () => {
-    setReceiverEmail(''); setCustomEmail(false); setLocationId(''); setPoNumber(''); setNotes('')
+    setReceiverEmail(''); setCustomEmail(false); setLocationId(''); setPoNumber(''); setNotes(''); setCustomerNotes('')
     setAsDraft(false); setItems([]); setPoLines([]); setPoState('idle'); setDupAck(false)
   }
 
@@ -143,6 +144,7 @@ export function CreatePackageDialog({
       const request: CreatePackageRequest = {
         receiver_email: email,
         ...(notes.trim() ? { notes: notes.trim() } : {}),
+        ...(customerNotes.trim() ? { customer_notes: customerNotes.trim() } : {}),
         ...(poNumber.trim() ? { po_number: poNumber.trim() } : {}),
         ...(locationId ? { delivery_location_id: locationId } : {}),
         ...(reqItems.length ? { items: reqItems } : {}),
@@ -387,10 +389,16 @@ export function CreatePackageDialog({
             </div>
           </div>
 
-          {/* notes */}
+          {/* internal notes — staff only, never shown to customers */}
           <div className="flex flex-col gap-2">
-            <Label>Notes</Label>
-            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder="Optional notes…" />
+            <Label>Internal notes</Label>
+            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder="Staff-only — not visible to the customer…" />
+          </div>
+
+          {/* customer notes — surfaced to the customer in emails and the portal */}
+          <div className="flex flex-col gap-2">
+            <Label>Customer notes</Label>
+            <Textarea value={customerNotes} onChange={(e) => setCustomerNotes(e.target.value)} rows={2} placeholder="Visible to the customer…" />
           </div>
 
           <label className="flex items-center gap-2 text-sm">

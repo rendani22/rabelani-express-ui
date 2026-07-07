@@ -122,14 +122,19 @@ export function PackageDetailsPanel({
   const [notes, setNotes] = useState(pkg?.notes ?? '')
   const [editingNotes, setEditingNotes] = useState(false)
   const [notesDraft, setNotesDraft] = useState('')
+  const [customerNotes, setCustomerNotes] = useState(pkg?.customer_notes ?? '')
+  const [editingCustomerNotes, setEditingCustomerNotes] = useState(false)
+  const [customerNotesDraft, setCustomerNotesDraft] = useState('')
 
   useEffect(() => {
     setStatus(pkg?.status)
     setNotes(pkg?.notes ?? '')
     setEditingNotes(false)
+    setCustomerNotes(pkg?.customer_notes ?? '')
+    setEditingCustomerNotes(false)
     setEditingItems(false)
     setAuditOpen(false)
-  }, [pkg?.id, pkg?.status, pkg?.notes])
+  }, [pkg?.id, pkg?.status, pkg?.notes, pkg?.customer_notes])
 
   const canDelete = useQuery({ queryKey: ['can-delete-orders'], queryFn: canDeleteOrders })
   const lock = useQuery({
@@ -211,6 +216,21 @@ export function PackageDetailsPanel({
       }
     },
     onError: (e) => toast.error(reportError(e, 'Something went wrong while updating the notes.', { op: 'orders.updateNotes' })),
+  })
+
+  const customerNotesMut = useMutation({
+    mutationFn: (value: string) => updatePackage(pkg!.id, { customer_notes: value }),
+    onSuccess: (res, value) => {
+      if (res.success) {
+        setCustomerNotes(value)
+        setEditingCustomerNotes(false)
+        toast.success('Customer notes updated.')
+        invalidate()
+      } else {
+        toast.error(reportError(res.error, 'Could not update the customer notes.', { op: 'orders.updateCustomerNotes' }))
+      }
+    },
+    onError: (e) => toast.error(reportError(e, 'Something went wrong while updating the customer notes.', { op: 'orders.updateCustomerNotes' })),
   })
 
   const remove = useMutation({
@@ -322,10 +342,10 @@ export function PackageDetailsPanel({
               <Field label="Items">{pkg.items?.length ?? 0}</Field>
             </div>
 
-            {/* notes (editable) */}
+            {/* internal notes (editable) — staff only, never shown to customers */}
             <div className="flex flex-col gap-1.5">
               <div className="flex items-center justify-between">
-                <SectionLabel>Notes</SectionLabel>
+                <SectionLabel>Internal notes</SectionLabel>
                 {!editingNotes && isPackageEditable({ status }) && (
                   <button
                     type="button"
@@ -352,6 +372,39 @@ export function PackageDetailsPanel({
                 <p className="whitespace-pre-wrap text-sm text-muted-foreground">{notesText}</p>
               ) : (
                 <p className="text-sm text-muted-foreground/60">No notes.</p>
+              )}
+            </div>
+
+            {/* customer notes (editable) — surfaced to the customer in emails and the portal */}
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between">
+                <SectionLabel>Customer notes</SectionLabel>
+                {!editingCustomerNotes && isPackageEditable({ status }) && (
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+                    onClick={() => { setCustomerNotesDraft(customerNotes); setEditingCustomerNotes(true) }}
+                  >
+                    <Pencil className="size-3" /> Edit
+                  </button>
+                )}
+              </div>
+              {editingCustomerNotes ? (
+                <div className="flex flex-col gap-2">
+                  <Textarea value={customerNotesDraft} onChange={(e) => setCustomerNotesDraft(e.target.value)} rows={3} placeholder="Visible to the customer…" />
+                  <div className="flex justify-end gap-2">
+                    <Button variant="ghost" size="sm" onClick={() => setEditingCustomerNotes(false)} disabled={customerNotesMut.isPending}>
+                      <X /> Cancel
+                    </Button>
+                    <Button size="sm" onClick={() => customerNotesMut.mutate(customerNotesDraft)} disabled={customerNotesMut.isPending}>
+                      {customerNotesMut.isPending ? <Loader2 className="animate-spin" /> : <Check />} Save
+                    </Button>
+                  </div>
+                </div>
+              ) : customerNotes ? (
+                <p className="whitespace-pre-wrap text-sm text-muted-foreground">{customerNotes}</p>
+              ) : (
+                <p className="text-sm text-muted-foreground/60">No customer notes.</p>
               )}
             </div>
 

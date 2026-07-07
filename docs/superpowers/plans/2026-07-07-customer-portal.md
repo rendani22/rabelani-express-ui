@@ -18,13 +18,13 @@ Let customers log into the existing app on a **read-only shell** and see package
 | Package link | Real `receiver_id` FK on `packages` (not email string) |
 | Invite | Built-in Supabase invite (account) **+** a role-specific Resend email from the edge function |
 | Frontend | Same app, separate `<CustomerLayout>`, read-only "My Packages" |
-| Exposed columns | reference, po_number, status, notes, items, created/updated — **nothing else** |
+| Exposed columns | reference, po_number, status, **customer_notes**, items, created/updated — **nothing else** |
 | (a) | One company + exactly one role per customer |
 | (b) | Existing receivers are non-login until invited; old packages backfilled by email; unmatched → staff-only |
 | (c) | Custom-email packages **auto-create a receiver** (no orphaned/invisible packages) |
 
 ### ⚠️ Confirm before building
-- **`notes` exposure**: you approved exposing `notes`. If staff have ever put internal remarks there, split into `notes` (internal) + `customer_notes` first. This plan assumes `notes` is customer-safe.
+- ~~**`notes` exposure**~~ ✅ **Done** (migration `20260707120000_add_package_customer_notes.sql`): `notes` stays internal, new `customer_notes` is the customer-facing field. The `create-package`/`update-package` edge functions and their receiver emails now use `customer_notes`; the create dialog and details panel edit both fields. The view below exposes `customer_notes`.
 - **`packages` must NOT force RLS** (it doesn't today) — the customer view relies on the table owner bypassing RLS. If `FORCE ROW LEVEL SECURITY` is ever added to `packages`, the view breaks.
 
 ---
@@ -116,7 +116,7 @@ select
   p.reference,
   p.po_number,
   p.status,
-  p.notes,
+  p.customer_notes,
   p.created_at,
   p.updated_at,
   coalesce((

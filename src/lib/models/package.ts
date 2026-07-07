@@ -49,7 +49,10 @@ export interface PurchaseOrderAllocationRequest {
 /** Request payload for creating a new package */
 export interface CreatePackageRequest {
   readonly receiver_email: string
+  /** Internal, staff-only notes. Never shown to customers. */
   readonly notes?: string
+  /** Customer-facing notes. Surfaced to Buyers/Runners in the customer portal. */
+  readonly customer_notes?: string
   /** Optional initial status for the package (e.g. 'draft') */
   readonly status?: PackageStatus
   readonly items?: readonly PackageItemRequest[]
@@ -114,7 +117,10 @@ export interface UpdatePackageItemsPayload {
 export interface UpdatePackageRequest {
   readonly package_id: string
   readonly status?: PackageStatus
+  /** Internal, staff-only notes. Never shown to customers. */
   readonly notes?: string
+  /** Customer-facing notes. Surfaced to Buyers/Runners in the customer portal. */
+  readonly customer_notes?: string
   readonly receiver_email?: string
   /**
    * Optional driver user_id to assign to the package. Typically sent
@@ -167,7 +173,10 @@ export interface Package {
   readonly id: string
   readonly reference: string
   readonly receiver_email: string
+  /** Internal, staff-only notes. Never shown to customers. */
   readonly notes: string | null
+  /** Customer-facing notes. Surfaced to Buyers/Runners in the customer portal. */
+  readonly customer_notes: string | null
   readonly status: PackageStatus
   readonly created_at: string
   readonly created_by?: string
@@ -340,6 +349,7 @@ export interface PackageItemFormValue {
 export interface CreatePackageFormValue {
   receiverEmail: string
   notes: string
+  customerNotes: string
   poNumber: string
   deliveryLocationId: string
   items: PackageItemFormValue[]

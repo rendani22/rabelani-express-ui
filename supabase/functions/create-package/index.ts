@@ -27,6 +27,7 @@ interface PurchaseOrderAllocationRequest {
 interface CreatePackageRequest {
   receiver_email: string
   notes?: string
+  customer_notes?: string
   items?: PackageItemRequest[]
   po_allocations?: PurchaseOrderAllocationRequest[]
   delivery_location_id?: string
@@ -46,6 +47,7 @@ interface PackageResponse {
   reference: string
   receiver_email: string
   notes: string | null
+  customer_notes: string | null
   status: string
   created_at: string
   items: PackageItemResponse[]
@@ -163,7 +165,7 @@ serve(async (req) => {
 
     // Parse request body
     const body: CreatePackageRequest = await req.json()
-    const { receiver_email, notes, items, po_allocations, delivery_location_id, po_number } = body
+    const { receiver_email, notes, customer_notes, items, po_allocations, delivery_location_id, po_number } = body
 
     if (!receiver_email) {
       return new Response(
@@ -205,6 +207,7 @@ serve(async (req) => {
       .rpc('create_package_with_items_and_allocations', {
         p_receiver_email: receiver_email.toLowerCase().trim(),
         p_notes: notes?.trim() || null,
+        p_customer_notes: customer_notes?.trim() || null,
         p_created_by: callingUser.id,
         p_status: initialStatus,
         p_delivery_location_id: delivery_location_id || null,
@@ -233,7 +236,7 @@ serve(async (req) => {
 
     const { data: newPackage, error: packageLoadError } = await adminClient
       .from('packages')
-      .select('id, reference, receiver_email, notes, status, created_at')
+      .select('id, reference, receiver_email, notes, customer_notes, status, created_at')
       .eq('id', rpcData.package_id)
       .single()
 
@@ -321,7 +324,8 @@ serve(async (req) => {
           ...buildCommonVars((k) => Deno.env.get(k) ?? undefined),
           reference: newPackage.reference,
           po_number: po_number?.trim() || '',
-          notes: notes?.trim() || '',
+          // Customer-facing email → customer_notes only, never internal notes.
+          notes: customer_notes?.trim() || '',
           items: packageItems.map(i => ({ quantity: i.quantity, description: i.description })),
           has_items: packageItems.length > 0,
           location_name: locationName,
@@ -421,6 +425,7 @@ serve(async (req) => {
       reference: newPackage.reference,
       receiver_email: newPackage.receiver_email,
       notes: newPackage.notes,
+      customer_notes: newPackage.customer_notes,
       status: newPackage.status,
       created_at: newPackage.created_at,
       items: packageItems

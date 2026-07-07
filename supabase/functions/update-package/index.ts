@@ -53,6 +53,7 @@ interface UpdatePackageRequest {
   package_id: string
   status?: 'pending' | 'notified' | 'in_transit' | 'ready_for_collection' | 'collected' | 'returned'
   notes?: string
+  customer_notes?: string
   receiver_email?: string
   /**
    * Optional auth.users.id of the driver this package is being assigned to.
@@ -199,7 +200,7 @@ serve(async (req) => {
 
     // Parse request body
     const body: UpdatePackageRequest = await req.json()
-    const { package_id, status, notes, receiver_email, driver_user_id, pod, items } = body
+    const { package_id, status, notes, customer_notes, receiver_email, driver_user_id, pod, items } = body
 
     if (!package_id) {
       return new Response(
@@ -638,6 +639,10 @@ serve(async (req) => {
       updateData.notes = notes?.trim() || null
     }
 
+    if (customer_notes !== undefined) {
+      updateData.customer_notes = customer_notes?.trim() || null
+    }
+
     if (receiver_email !== undefined) {
       // Validate email format
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -961,7 +966,8 @@ serve(async (req) => {
             ...buildCommonVars((k) => Deno.env.get(k) ?? undefined),
             reference: updatedPackage.reference,
             po_number: poNumber || '',
-            notes: updatedPackage.notes || '',
+            // Customer-facing email → customer_notes only, never internal notes.
+            notes: updatedPackage.customer_notes || '',
             items: packageItems.map(i => ({ quantity: i.quantity, description: i.description })),
             has_items: packageItems.length > 0,
             location_name: locationName,
@@ -1207,7 +1213,8 @@ serve(async (req) => {
             ...buildCommonVars((k) => Deno.env.get(k) ?? undefined),
             reference: updatedPackage.reference,
             po_number: poNumber || '',
-            notes: updatedPackage.notes || '',
+            // Customer-facing email → customer_notes only, never internal notes.
+            notes: updatedPackage.customer_notes || '',
             updated_items: updatedItems,
             has_updated_items: updatedItems.length > 0,
             previous_items: previousItems,
