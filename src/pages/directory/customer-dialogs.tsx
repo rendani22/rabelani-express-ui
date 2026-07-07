@@ -28,6 +28,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@/components/ui/skeleton'
 
 const emptyForm = { name: '', surname: '', email: '', phone: '' }
+const NO_COMPANY = '__none__'
 
 export function CustomerDialog({
   customer,
@@ -40,12 +41,13 @@ export function CustomerDialog({
 }) {
   const qc = useQueryClient()
   const [form, setForm] = useState(emptyForm)
-  // Portal-invite options (add mode only).
+  // Company (for grouping) is a first-class field on both create and edit.
+  const [companyId, setCompanyId] = useState<string>(NO_COMPANY)
+  // Portal access is an add-on toggle available in both modes.
   const [invite, setInvite] = useState(false)
-  const [companyId, setCompanyId] = useState('')
   const [role, setRole] = useState<CustomerRole>('buyer')
 
-  const companies = useQuery({ queryKey: ['companies'], queryFn: listCompanies, enabled: open && !customer && invite })
+  const companies = useQuery({ queryKey: ['companies'], queryFn: listCompanies, enabled: open })
 
   useEffect(() => {
     if (open) {
@@ -54,23 +56,32 @@ export function CustomerDialog({
           ? { name: customer.name ?? '', surname: customer.surname ?? '', email: customer.email ?? '', phone: customer.phone ?? '' }
           : emptyForm,
       )
-      setInvite(false)
-      setCompanyId('')
-      setRole('buyer')
+      setCompanyId(customer?.company_id ?? NO_COMPANY)
+      setInvite(!!customer?.role)          // reflect existing portal access
+      setRole(customer?.role ?? 'buyer')
     }
   }, [open, customer])
+
+  // Send an invite email only when newly granting access or changing role —
+  // not on every profile edit of a customer who already has access.
+  const willInvite = invite && (!customer?.role || customer.role !== role)
 
   const save = useMutation({
     mutationFn: async () => {
       const name = form.name.trim(), surname = form.surname.trim()
       const email = form.email.trim().toLowerCase(), phone = form.phone.trim() || undefined
-      if (customer) { await updateReceiver(customer.id, { name, surname, email, phone }); return }
-      // Add mode: invite (creates the receiver + portal access + email) or plain add.
-      if (invite) { await inviteCustomer({ email, name, surname, phone, company_id: companyId, role }); return }
-      await createReceiver({ name, surname, email, phone })
+      const company_id = companyId === NO_COMPANY ? null : companyId
+      if (willInvite) {
+        // company_id is required (guarded by canSubmit) when inviting.
+        await inviteCustomer({ email, name, surname, phone, company_id: company_id as string, role })
+      } else if (customer) {
+        await updateReceiver(customer.id, { name, surname, email, phone, company_id })
+      } else {
+        await createReceiver({ name, surname, email, phone, company_id })
+      }
     },
     onSuccess: () => {
-      toast.success(customer ? 'Customer updated.' : invite ? 'Invite sent.' : 'Customer added.')
+      toast.success(willInvite ? 'Invite sent.' : customer ? 'Customer updated.' : 'Customer added.')
       qc.invalidateQueries({ queryKey: ['receivers'] })
       onOpenChange(false)
     },
@@ -80,7 +91,8 @@ export function CustomerDialog({
   const set = (k: keyof typeof emptyForm) => (e: React.ChangeEvent<HTMLInputElement>) => setForm((f) => ({ ...f, [k]: e.target.value }))
 
   const baseValid = form.name.trim() && form.surname.trim() && form.email.trim()
-  const canSubmit = !!baseValid && (!invite || !!companyId) && !save.isPending
+  // Portal access needs a real company.
+  const canSubmit = !!baseValid && (!invite || companyId !== NO_COMPANY) && !save.isPending
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -106,46 +118,54 @@ export function CustomerDialog({
             <Input value={form.phone} onChange={set('phone')} />
           </div>
 
-          {/* Portal access — add mode only */}
-          {!customer && (
-            <div className="col-span-2 flex flex-col gap-4 rounded-lg border bg-muted/30 p-3.5">
-              <label className="flex items-start justify-between gap-3">
-                <span className="flex flex-col gap-0.5">
-                  <span className="text-sm font-medium">Give portal access</span>
-                  <span className="text-xs text-muted-foreground">Emails an invite to sign in and view their packages.</span>
-                </span>
-                <Switch checked={invite} onCheckedChange={setInvite} />
-              </label>
+          {/* Company — first-class field, both modes */}
+          <div className="col-span-2 flex flex-col gap-1.5">
+            <Label>Company</Label>
+            <Select value={companyId} onValueChange={setCompanyId}>
+              <SelectTrigger><SelectValue placeholder={companies.isLoading ? 'Loading…' : 'Select a company'} /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NO_COMPANY}>Unassigned</SelectItem>
+                {(companies.data ?? []).map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
 
-              {invite && (
-                <div className="grid grid-cols-1 gap-3">
-                  <div className="flex flex-col gap-1.5">
-                    <Label>Company *</Label>
-                    <Select value={companyId} onValueChange={setCompanyId}>
-                      <SelectTrigger><SelectValue placeholder={companies.isLoading ? 'Loading…' : 'Select a company'} /></SelectTrigger>
-                      <SelectContent>{(companies.data ?? []).map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    <Label>Role *</Label>
-                    <Select value={role} onValueChange={(v) => setRole(v as CustomerRole)}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="buyer">Buyer — sees all packages for the company</SelectItem>
-                        <SelectItem value="runner">Runner — sees only packages assigned to them</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
+          {/* Portal access — both modes */}
+          <div className="col-span-2 flex flex-col gap-4 rounded-lg border bg-muted/30 p-3.5">
+            <label className="flex items-start justify-between gap-3">
+              <span className="flex flex-col gap-0.5">
+                <span className="text-sm font-medium">Portal access</span>
+                <span className="text-xs text-muted-foreground">
+                  {customer?.role
+                    ? 'This customer can sign in to view their packages.'
+                    : 'Emails an invite to sign in and view their packages.'}
+                </span>
+              </span>
+              <Switch checked={invite} onCheckedChange={setInvite} />
+            </label>
+
+            {invite && (
+              <div className="flex flex-col gap-1.5">
+                <Label>Role *</Label>
+                <Select value={role} onValueChange={(v) => setRole(v as CustomerRole)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="buyer">Buyer — sees all packages for the company</SelectItem>
+                    <SelectItem value="runner">Runner — sees only packages assigned to them</SelectItem>
+                  </SelectContent>
+                </Select>
+                {companyId === NO_COMPANY && (
+                  <p className="text-xs text-muted-foreground">Select a company above to grant portal access.</p>
+                )}
+              </div>
+            )}
+          </div>
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button onClick={() => save.mutate()} disabled={!canSubmit}>
             {save.isPending && <Loader2 className="animate-spin" />}
-            {customer ? 'Save' : invite ? 'Send invite' : 'Add customer'}
+            {willInvite ? 'Send invite' : customer ? 'Save' : 'Add customer'}
           </Button>
         </DialogFooter>
       </DialogContent>

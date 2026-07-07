@@ -26,6 +26,8 @@ export interface CreateReceiverProfileDto {
   surname: string
   email: string
   phone?: string
+  /** Company the customer belongs to (for grouping); null = Unassigned. */
+  company_id?: string | null
 }
 
 /** DTO for updating an existing receiver profile. */
@@ -35,6 +37,7 @@ export interface UpdateReceiverProfileDto {
   email?: string
   phone?: string
   is_active?: boolean
+  company_id?: string | null
 }
 
 /** Alternative contact person attached to a receiver (`receiver_contacts` table). */
