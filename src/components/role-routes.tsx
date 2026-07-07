@@ -20,10 +20,10 @@ function NoAccess() {
     <div className="flex min-h-svh flex-col items-center justify-center gap-6 px-6 text-center">
       <Logo />
       <div className="flex flex-col gap-1.5">
-        <h1 className="text-xl font-semibold tracking-tight">No access yet</h1>
+        <h1 className="text-xl font-semibold tracking-tight">No portal access</h1>
         <p className="max-w-sm text-sm text-muted-foreground">
-          Your account isn&apos;t linked to a company or role yet. Please contact your
-          administrator to be set up.
+          This account doesn&apos;t have access to the portal. If you think this is a
+          mistake, please contact your administrator.
         </p>
       </div>
       <Button variant="outline" onClick={() => signOut()}>Sign out</Button>

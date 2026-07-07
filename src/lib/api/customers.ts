@@ -32,6 +32,7 @@ export async function getCurrentCustomer(): Promise<CurrentCustomer | null> {
     .select('id, name, surname, email, role, company_id')
     .eq('auth_user_id', uid)
     .not('role', 'is', null)
+    .eq('is_active', true)          // deactivated accounts get no portal access
     .maybeSingle()
   return (data as CurrentCustomer | null) ?? null
 }

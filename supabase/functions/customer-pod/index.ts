@@ -54,12 +54,13 @@ serve(async (req) => {
       auth: { autoRefreshToken: false, persistSession: false }
     })
 
-    // Resolve the caller as a portal customer (role set).
+    // Resolve the caller as an active portal customer (role set, not deactivated).
     const { data: me } = await admin
       .from('receiver_profiles')
       .select('id, role, company_id')
       .eq('auth_user_id', caller.id)
       .not('role', 'is', null)
+      .eq('is_active', true)
       .maybeSingle()
     if (!me) return json({ error: 'Not a portal customer' }, 403)
 
