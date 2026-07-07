@@ -35,6 +35,16 @@ in control.
    signed delta (green up / red down).
 5. **SectionLabel** — stencil-on-a-crate label (11px uppercase tracked muted).
 6. **`.tear-line`** util — ticked shipping-label edge as a section divider.
+7. **POD docket** (`DownloadPodButton` in `pages/my-packages.tsx`) — proof-of-delivery download
+   styled as a tear-off docket, NOT a generic button. Plain `<button>` (self-start), `rounded-md`
+   `border-border bg-muted/40` → `hover:bg-muted/70`, `active:scale-[0.98]`, `py-1.5 pl-1.5 pr-3.5`,
+   ~40px tall. Left: a 28px (`size-7`) `rounded-[4px]` "verified" stamp glyph — `FileCheck2` in the
+   reserved **delivered-green** (`border-success/40 bg-success/12 text-success`), the one place green
+   is earned (it marks the completed delivery, echoing StatusStamp's tick). Middle: stencil title
+   (11px/600/upper/`0.12em`/`text-foreground/80`) over a `.mono` 11px muted line
+   ("Download PDF" / "Preparing PDF…"). Right: `Download` icon muted→foreground on group-hover.
+   Secondary action → neutral surface, no orange; green stays semantic. States: hover/active/
+   disabled/focus-ring/loading(spinner in stamp). Pattern for "retrieve a signed artifact".
 
 ## Conventions
 - Vite + React Router + TanStack Query (server state) + Zustand (UI state). Supabase client in
