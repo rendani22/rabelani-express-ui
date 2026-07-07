@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { AlertCircle, Loader2 } from 'lucide-react'
+import type { EmailOtpType } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import { Logo } from '@/components/brand/logo'
@@ -10,9 +11,15 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
 /**
- * Landing for the Supabase invite link. supabase-js parses the tokens from the
- * URL and establishes a session on load, so an invited user arrives already
- * authenticated and just needs to set a password.
+ * Landing for the customer invite link. The link routes through Supabase and
+ * lands here to establish a session, after which the user sets a password.
+ *
+ * Two link formats are handled:
+ *  - implicit tokens in the URL hash → supabase-js auto-establishes the session
+ *    (detectSessionInUrl), surfaced via useAuth().session.
+ *  - a `token_hash` + `type` query (email-OTP style links) → verifyOtp() here,
+ *    which supabase-js does NOT auto-process.
+ * Any `error_description` from Supabase (e.g. an expired link) is surfaced.
  */
 export function AcceptInvite() {
   const { session, initializing } = useAuth()
@@ -21,6 +28,37 @@ export function AcceptInvite() {
   const [confirm, setConfirm] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [verifying, setVerifying] = useState(true)
+  const [linkError, setLinkError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const url = new URL(window.location.href)
+    const q = url.searchParams
+    const hash = new URLSearchParams(url.hash.replace(/^#/, ''))
+
+    const errDesc = q.get('error_description') || hash.get('error_description')
+    if (errDesc) {
+      setLinkError(errDesc.replace(/\+/g, ' '))
+      setVerifying(false)
+      return
+    }
+
+    const tokenHash = q.get('token_hash')
+    const type = q.get('type') as EmailOtpType | null
+    if (tokenHash && type) {
+      // Email-OTP style link — exchange it for a session (not auto-handled).
+      supabase.auth
+        .verifyOtp({ token_hash: tokenHash, type })
+        .then(({ error: otpError }) => {
+          if (otpError) setLinkError(otpError.message)
+        })
+        .finally(() => setVerifying(false))
+      return
+    }
+
+    // Implicit-token links are handled by detectSessionInUrl → useAuth session.
+    setVerifying(false)
+  }, [])
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -43,7 +81,7 @@ export function AcceptInvite() {
 
       <div className="flex flex-1 items-center justify-center py-10">
         <div className="w-full max-w-sm">
-          {initializing ? (
+          {initializing || verifying ? (
             <div className="flex justify-center">
               <Loader2 className="size-5 animate-spin text-muted-foreground" />
             </div>
@@ -53,7 +91,7 @@ export function AcceptInvite() {
               <div className="flex flex-col gap-1.5">
                 <h1 className="text-xl font-semibold tracking-tight">Invite link invalid</h1>
                 <p className="text-sm text-muted-foreground">
-                  This link is invalid or has expired. Ask your administrator to re-send your invite.
+                  {linkError ?? 'This link is invalid or has expired. Ask your administrator to re-send your invite.'}
                 </p>
               </div>
               <Link to="/login" className="text-sm font-medium underline-offset-4 hover:underline">
