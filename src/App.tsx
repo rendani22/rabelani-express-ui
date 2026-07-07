@@ -16,7 +16,6 @@ import { RecentMovementsPage } from '@/pages/inventory/recent-movements'
 import { PurchaseOrdersPage } from '@/pages/purchase-orders'
 import { DriversPage } from '@/pages/drivers'
 import { CustomersPage } from '@/pages/directory/customers'
-import { CompaniesPage } from '@/pages/directory/companies'
 import { UsersPage } from '@/pages/directory/users'
 import { LocationsPage } from '@/pages/directory/locations'
 import { EmailTemplatesPage } from '@/pages/directory/email-templates'
@@ -44,7 +43,6 @@ export default function App() {
             <Route path="/inventory/movements" element={<RecentMovementsPage />} />
             <Route path="/drivers" element={<DriversPage />} />
             <Route path="/customers" element={<CustomersPage />} />
-            <Route path="/companies" element={<CompaniesPage />} />
             <Route path="/user-management" element={<UsersPage />} />
             <Route path="/delivery-locations" element={<LocationsPage />} />
             <Route path="/email-templates" element={<EmailTemplatesPage />} />

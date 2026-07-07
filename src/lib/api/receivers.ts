@@ -15,6 +15,9 @@ export interface ReceiverProfile {
   created_at: string
   updated_at: string
   created_by?: string
+  /** Portal company + role — set when the customer is invited to the portal. */
+  company_id?: string | null
+  role?: 'buyer' | 'runner' | null
 }
 
 /** DTO for creating a new receiver profile. */
