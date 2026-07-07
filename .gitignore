@@ -58,6 +58,5 @@ src/environments/version.ts
 .squad/.cache/
 # Squad: SubSquad activation file (local to this machine)
 .squad-workstream
-.npmrc
 .env.local
 .env*.local
