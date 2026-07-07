@@ -38,6 +38,8 @@ export interface UpdateReceiverProfileDto {
   phone?: string
   is_active?: boolean
   company_id?: string | null
+  /** Portal role. Only change for customers who already have access (no re-invite). */
+  role?: 'buyer' | 'runner' | null
 }
 
 /** Alternative contact person attached to a receiver (`receiver_contacts` table). */

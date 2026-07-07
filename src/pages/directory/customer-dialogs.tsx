@@ -62,9 +62,10 @@ export function CustomerDialog({
     }
   }, [open, customer])
 
-  // Send an invite email only when newly granting access or changing role —
-  // not on every profile edit of a customer who already has access.
-  const willInvite = invite && (!customer?.role || customer.role !== role)
+  // Invite (send email) ONLY on a first-time grant — a customer who has no
+  // access yet. Editing a customer who already has access never re-invites,
+  // even when their role changes (that's a silent DB update).
+  const willInvite = invite && !customer?.role
 
   const save = useMutation({
     mutationFn: async () => {
@@ -75,7 +76,10 @@ export function CustomerDialog({
         // company_id is required (guarded by canSubmit) when inviting.
         await inviteCustomer({ email, name, surname, phone, company_id: company_id as string, role })
       } else if (customer) {
-        await updateReceiver(customer.id, { name, surname, email, phone, company_id })
+        const dto = { name, surname, email, phone, company_id }
+        // Persist a role change for an already-provisioned portal customer — no re-invite.
+        if (customer.role && invite) Object.assign(dto, { role })
+        await updateReceiver(customer.id, dto)
       } else {
         await createReceiver({ name, surname, email, phone, company_id })
       }
