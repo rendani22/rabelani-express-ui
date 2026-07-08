@@ -59,3 +59,27 @@ const CUSTOMER_STATUS_META: Record<PackageStatus, StatusMeta> = {
 export function customerStatusMeta(status: string): StatusMeta {
   return CUSTOMER_STATUS_META[status as PackageStatus] ?? { label: 'Processing', tone: 'neutral' }
 }
+
+/**
+ * `delivered` is not a real package status — every fulfilled order ends as
+ * `collected`. Whether it was *delivered* (a driver dropped it off) or *collected*
+ * (the receiver picked it up at the point) is derived from a "delivery photo"
+ * marker the driver flow writes into the staff notes — the same signal the server
+ * uses to set the POD's `completion_status`.
+ */
+export function hasDeliveryPhoto(notes?: string | null): boolean {
+  return /delivery photo/i.test(notes ?? '')
+}
+
+/**
+ * Status meta for display. A completed order (`collected`/`delivered`) is labelled
+ * "Delivered" when it carries a delivery photo, else "Collected" — deriving the
+ * distinction the same way the server does and normalising the non-existent
+ * `delivered` status. Every other status is returned unchanged.
+ */
+export function displayStatusMeta(pkg: { status: string; notes?: string | null }): StatusMeta {
+  if (pkg.status === PACKAGE_STATUS.COLLECTED || pkg.status === PACKAGE_STATUS.DELIVERED) {
+    return { label: hasDeliveryPhoto(pkg.notes) ? 'Delivered' : 'Collected', tone: 'done' }
+  }
+  return statusMeta(pkg.status)
+}

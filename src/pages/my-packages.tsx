@@ -1,17 +1,29 @@
-import { useMemo, useState } from 'react'
-import { Download, FileCheck2, Loader2, PackageX, Search, X } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { CalendarClock, Download, FileCheck2, Loader2, PackageX, Search, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { useMyPackages } from '@/hooks/use-my-packages'
 import { useCurrentPrincipal } from '@/hooks/use-current-principal'
 import { StatusStamp, SectionLabel } from '@/components/dispatch'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import { Textarea } from '@/components/ui/textarea'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
+import { cn } from '@/lib/utils'
 import { formatDateTime } from '@/lib/format'
-import { PACKAGE_STATUS, customerStatusMeta } from '@/lib/status'
+import { PACKAGE_STATUS, type PackageStatus, customerStatusMeta } from '@/lib/status'
 import { reportError } from '@/lib/logger'
 import { downloadCustomerPod } from '@/lib/api/customer-pod'
-import type { CustomerPackage } from '@/lib/api/customer-packages'
+import { rescheduleDelivery, type CustomerPackage } from '@/lib/api/customer-packages'
 
 /** A PO grouping (po set) or a standalone package (po null → key by id). */
 interface PackageGroup {
@@ -96,9 +108,74 @@ function DownloadPodButton({ pkg }: { pkg: CustomerPackage }) {
   )
 }
 
+/**
+ * Reschedule request for an out-for-delivery parcel. Only the actual receiver
+ * sees it (server also enforces this). Sends the parcel back to the dispatch
+ * queue and records the reason for the warehouse; the driver won't attempt it.
+ */
+function RescheduleButton({ pkg }: { pkg: CustomerPackage }) {
+  const qc = useQueryClient()
+  const [open, setOpen] = useState(false)
+  const [reason, setReason] = useState('')
+
+  const mut = useMutation({
+    mutationFn: () => rescheduleDelivery(pkg.id, reason.trim()),
+    onSuccess: () => {
+      toast.success('Reschedule requested — the warehouse will arrange a new delivery.')
+      qc.invalidateQueries({ queryKey: ['customer-packages'] })
+      setOpen(false)
+      setReason('')
+    },
+    onError: (e) =>
+      toast.error(reportError(e, 'Could not request a reschedule.', { op: 'customer.reschedule' })),
+  })
+
+  return (
+    <>
+      <Button
+        variant="outline"
+        size="sm"
+        className="mt-3 self-start"
+        onClick={() => setOpen(true)}
+      >
+        <CalendarClock /> Request reschedule
+      </Button>
+
+      <Dialog open={open} onOpenChange={(o) => !mut.isPending && setOpen(o)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reschedule this delivery?</DialogTitle>
+            <DialogDescription>
+              The driver won&apos;t attempt delivery today. Tell us why so the warehouse can arrange
+              a better time.
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="e.g. No one available today — please deliver Thursday morning."
+            rows={3}
+            maxLength={600}
+            autoFocus
+          />
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setOpen(false)} disabled={mut.isPending}>
+              Cancel
+            </Button>
+            <Button size="sm" onClick={() => mut.mutate()} disabled={mut.isPending || !reason.trim()}>
+              {mut.isPending && <Loader2 className="animate-spin" />} Request reschedule
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  )
+}
+
 /** One package's detail inside a group (status + items + notes), no reference. */
 function PackageRow({ pkg, showDivider }: { pkg: CustomerPackage; showDivider: boolean }) {
   const podAvailable = pkg.status === PACKAGE_STATUS.COLLECTED || pkg.status === PACKAGE_STATUS.DELIVERED
+  const canReschedule = pkg.status === PACKAGE_STATUS.IN_TRANSIT && pkg.is_receiver
   return (
     <div className={showDivider ? 'flex flex-col border-t pt-4' : 'flex flex-col'}>
       <div className="mb-2 flex items-center justify-between gap-3">
@@ -113,7 +190,59 @@ function PackageRow({ pkg, showDivider }: { pkg: CustomerPackage; showDivider: b
         <p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">{pkg.customer_notes}</p>
       )}
       {podAvailable && <DownloadPodButton pkg={pkg} />}
+      {canReschedule && <RescheduleButton pkg={pkg} />}
     </div>
+  )
+}
+
+/** Lifecycle order for the status filter chips (draft → returned). */
+const CUSTOMER_STATUS_ORDER: PackageStatus[] = [
+  PACKAGE_STATUS.DRAFT,
+  PACKAGE_STATUS.PENDING,
+  PACKAGE_STATUS.NOTIFIED,
+  PACKAGE_STATUS.IN_TRANSIT,
+  PACKAGE_STATUS.READY_FOR_COLLECTION,
+  PACKAGE_STATUS.DELIVERED,
+  PACKAGE_STATUS.COLLECTED,
+  PACKAGE_STATUS.RETURNED,
+]
+
+type StatusFilter = 'all' | PackageStatus
+
+/** One filter pill: customer-facing label + a count badge. */
+function FilterChip({
+  label,
+  count,
+  active,
+  onClick,
+}: {
+  label: string
+  count: number
+  active: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
+        active
+          ? 'border-primary bg-primary text-primary-foreground'
+          : 'border-border text-muted-foreground hover:border-border hover:bg-muted/60 hover:text-foreground',
+      )}
+    >
+      {label}
+      <span
+        className={cn(
+          'rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none tabular-nums',
+          active ? 'bg-primary-foreground/20' : 'bg-muted text-muted-foreground',
+        )}
+      >
+        {count}
+      </span>
+    </button>
   )
 }
 
@@ -121,14 +250,43 @@ export function MyPackagesPage() {
   const { data: principal } = useCurrentPrincipal()
   const { data: packages, isLoading, isError } = useMyPackages()
 
-  const groups = useMemo(() => groupByPo(packages ?? []), [packages])
-
   const [query, setQuery] = useState('')
-  const filtered = useMemo(() => {
+  const [status, setStatus] = useState<StatusFilter>('all')
+
+  const basePackages = useMemo(() => packages ?? [], [packages])
+
+  // PO search narrows the scope; status counts and chips are computed within it.
+  const searched = useMemo(() => {
     const q = query.trim().toLowerCase()
-    if (!q) return groups
-    return groups.filter((g) => g.po?.toLowerCase().includes(q))
-  }, [groups, query])
+    if (!q) return basePackages
+    return basePackages.filter((p) => p.po_number?.toLowerCase().includes(q))
+  }, [basePackages, query])
+
+  const counts = useMemo(() => {
+    const m = new Map<PackageStatus, number>()
+    for (const p of searched) m.set(p.status, (m.get(p.status) ?? 0) + 1)
+    return m
+  }, [searched])
+
+  // Only show chips for statuses that are actually present, in lifecycle order.
+  const presentStatuses = useMemo(
+    () => CUSTOMER_STATUS_ORDER.filter((s) => (counts.get(s) ?? 0) > 0),
+    [counts],
+  )
+
+  // If the active status disappears from scope (e.g. after a search), reset it.
+  useEffect(() => {
+    if (status !== 'all' && !counts.has(status)) setStatus('all')
+  }, [status, counts])
+
+  const statusFiltered = useMemo(
+    () => (status === 'all' ? searched : searched.filter((p) => p.status === status)),
+    [searched, status],
+  )
+
+  const filtered = useMemo(() => groupByPo(statusFiltered), [statusFiltered])
+  const hasAnyOrders = basePackages.length > 0
+  const hasActiveFilters = query.trim() !== '' || status !== 'all'
 
   const role = principal?.kind === 'customer' ? principal.customer.role : undefined
   const scopeLabel =
@@ -143,26 +301,48 @@ export function MyPackagesPage() {
         <p className="text-sm text-muted-foreground">{scopeLabel}</p>
       </div>
 
-      {!isLoading && !isError && groups.length > 0 && (
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search by PO number…"
-            aria-label="Search by PO number"
-            className="pl-9 pr-9"
-          />
-          {query && (
-            <button
-              type="button"
-              onClick={() => setQuery('')}
-              aria-label="Clear search"
-              className="absolute right-1 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:text-foreground"
-            >
-              <X className="size-4" />
-            </button>
+      {!isLoading && !isError && hasAnyOrders && (
+        <div className="flex flex-col gap-3">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search by PO number…"
+              aria-label="Search by PO number"
+              className="pl-9 pr-9"
+            />
+            {query && (
+              <button
+                type="button"
+                onClick={() => setQuery('')}
+                aria-label="Clear search"
+                className="absolute right-1 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:text-foreground"
+              >
+                <X className="size-4" />
+              </button>
+            )}
+          </div>
+
+          {presentStatuses.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Filter by status">
+              <FilterChip
+                label="All"
+                count={searched.length}
+                active={status === 'all'}
+                onClick={() => setStatus('all')}
+              />
+              {presentStatuses.map((s) => (
+                <FilterChip
+                  key={s}
+                  label={customerStatusMeta(s).label}
+                  count={counts.get(s) ?? 0}
+                  active={status === s}
+                  onClick={() => setStatus(s)}
+                />
+              ))}
+            </div>
           )}
         </div>
       )}
@@ -175,7 +355,7 @@ export function MyPackagesPage() {
         <Card className="flex items-center gap-3 p-5 text-sm text-destructive">
           <Loader2 className="size-4" /> Could not load your packages. Please try again shortly.
         </Card>
-      ) : groups.length === 0 ? (
+      ) : !hasAnyOrders ? (
         <Card className="flex flex-col items-center gap-3 p-10 text-center text-muted-foreground">
           <PackageX className="size-7" />
           <p className="text-sm">No orders to show yet.</p>
@@ -183,7 +363,23 @@ export function MyPackagesPage() {
       ) : filtered.length === 0 ? (
         <Card className="flex flex-col items-center gap-3 p-10 text-center text-muted-foreground">
           <Search className="size-7" />
-          <p className="text-sm">No orders match “{query.trim()}”.</p>
+          <p className="text-sm">
+            {query.trim()
+              ? `No orders match “${query.trim()}”.`
+              : 'No orders with this status.'}
+          </p>
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={() => {
+                setQuery('')
+                setStatus('all')
+              }}
+              className="text-xs font-medium text-primary hover:underline"
+            >
+              Clear filters
+            </button>
+          )}
         </Card>
       ) : (
         <ul className="flex flex-col gap-3">

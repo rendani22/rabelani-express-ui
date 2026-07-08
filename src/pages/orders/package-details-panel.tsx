@@ -2,11 +2,11 @@ import { useEffect, useMemo, useState } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Check, ChevronDown, Copy, FileText, ImageIcon, Loader2, Lock, Pencil, QrCode, Trash2, X } from 'lucide-react'
+import { CalendarClock, Check, ChevronDown, Copy, FileText, ImageIcon, Loader2, Lock, Pencil, QrCode, Trash2, X } from 'lucide-react'
 import type { Package, PackageStatus } from '@/lib/models/package'
 import { isPackageEditable } from '@/lib/models/package'
 import { PACKAGE_STATUS } from '@/lib/status'
-import { statusMeta } from '@/lib/status'
+import { displayStatusMeta, statusMeta } from '@/lib/status'
 import {
   canDeleteOrders,
   deletePackageWithInventoryReturn,
@@ -22,8 +22,9 @@ import { auditStatusChange, formatAuditAction } from '@/lib/audit-log'
 import { cn } from '@/lib/utils'
 import { packageRouteStops } from '@/lib/package-timeline'
 import { formatDateTime, nameFromEmail, parseNotes } from '@/lib/format'
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { useConfirm } from '@/components/ui/confirm-dialog'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { Textarea } from '@/components/ui/textarea'
@@ -110,6 +111,7 @@ export function PackageDetailsPanel({
   onOpenChange: (open: boolean) => void
 }) {
   const qc = useQueryClient()
+  const confirm = useConfirm()
   const [qrOpen, setQrOpen] = useState(false)
   const [assignOpen, setAssignOpen] = useState(false)
   const [collectOpen, setCollectOpen] = useState(false)
@@ -288,12 +290,23 @@ export function PackageDetailsPanel({
   return (
     <>
       <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent side="right" className="w-full gap-0 overflow-y-auto p-0 sm:max-w-md">
+        <SheetContent side="right" className="w-full gap-0 overflow-y-auto p-0 sm:max-w-md" showCloseButton={false}>
           <SheetHeader className="border-b p-5">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
               <TrackingNumber value={pkg.reference} copyable className="text-base" />
-              <StatusStamp status={status} />
+              <div className="ml-auto flex items-center gap-2">
+                <StatusStamp status={status} label={displayStatusMeta({ status, notes }).label} />
+                <SheetClose className="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  <X className="size-4" />
+                  <span className="sr-only">Close</span>
+                </SheetClose>
+              </div>
             </div>
+            {pkg.reschedule_requested && (
+              <span className="mt-1 inline-flex w-fit items-center gap-1 rounded-[3px] border border-warning/45 bg-warning/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase leading-none tracking-[0.08em] text-warning-foreground dark:text-warning">
+                <CalendarClock className="size-3" /> Reschedule requested — see notes
+              </span>
+            )}
             <SheetTitle className="sr-only">Package {pkg.reference}</SheetTitle>
           </SheetHeader>
 
@@ -592,10 +605,14 @@ export function PackageDetailsPanel({
                   size="sm"
                   className="ml-auto text-destructive hover:bg-destructive/10 hover:text-destructive"
                   disabled={remove.isPending}
-                  onClick={() => {
-                    if (confirm(`Delete order ${pkg.reference}? Stock will be returned to inventory.`)) {
-                      remove.mutate(pkg.id)
-                    }
+                  onClick={async () => {
+                    const ok = await confirm({
+                      title: 'Delete order?',
+                      description: `Order ${pkg.reference} will be removed and its stock returned to inventory. You can restore it from Deleted orders.`,
+                      confirmText: 'Delete order',
+                      destructive: true,
+                    })
+                    if (ok) remove.mutate(pkg.id)
                   }}
                 >
                   {remove.isPending ? <Loader2 className="animate-spin" /> : <Trash2 />} Delete

@@ -1,7 +1,7 @@
-import { Download, History, Loader2, Package as PackageIcon } from 'lucide-react'
+import { Download, History, Loader2, Package as PackageIcon, X } from 'lucide-react'
 import type { InventoryItem } from '@/lib/api/inventory'
 import { useItemMovements } from '@/hooks/use-inventory'
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import { formatDateTime } from '@/lib/format'
 import { downloadCsv, slugify, toCsv, yyyymmdd } from '@/lib/csv'
@@ -47,7 +47,7 @@ export function MovementHistoryPanel({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-lg">
+      <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-lg" showCloseButton={false}>
         <SheetHeader className="border-b p-5">
           <div className="flex items-start justify-between gap-3">
             <div className="flex min-w-0 items-center gap-3">
@@ -59,14 +59,20 @@ export function MovementHistoryPanel({
                 <span className="truncate text-sm text-muted-foreground">{item?.name}</span>
               </div>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onExport}
-              disabled={isLoading || movements.length === 0}
-            >
-              <Download /> CSV
-            </Button>
+            <div className="flex shrink-0 items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onExport}
+                disabled={isLoading || movements.length === 0}
+              >
+                <Download /> CSV
+              </Button>
+              <SheetClose className="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <X className="size-4" />
+                <span className="sr-only">Close</span>
+              </SheetClose>
+            </div>
           </div>
         </SheetHeader>
 

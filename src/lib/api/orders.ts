@@ -8,6 +8,8 @@ export interface OrdersQuery {
   pageSize: number
   status?: string
   search?: string
+  /** Scope to one company (packages whose receiver belongs to it). */
+  companyId?: string | null
 }
 
 export interface OrdersResult {
@@ -33,7 +35,10 @@ async function fetchReceiverNames(emails: string[]): Promise<Record<string, stri
   return map
 }
 
-/** Collected + delivered packages, optionally within an updated-at date range. */
+/** Completed packages (all end as `collected`), optionally within a date range.
+ * `delivered` is not a real enum value — including it in the status filter throws
+ * "invalid input value for enum". Delivered vs collected is a display distinction
+ * derived from the delivery-photo marker (see `displayStatusMeta`). */
 export async function fetchCompletedOrders(range?: {
   dateFrom?: string
   dateTo?: string
@@ -42,7 +47,7 @@ export async function fetchCompletedOrders(range?: {
     .from('packages')
     .select('*, items:package_items(id, quantity, description, inventory_item_id)')
     .is('deleted_at', null)
-    .in('status', [PACKAGE_STATUS.COLLECTED, PACKAGE_STATUS.DELIVERED])
+    .eq('status', PACKAGE_STATUS.COLLECTED)
     .order('created_at', { ascending: false })
     .limit(1000)
 
@@ -83,6 +88,7 @@ export async function fetchOrders(q: OrdersQuery): Promise<OrdersResult> {
     pageSize: q.pageSize,
     ...(q.status && q.status !== 'all' ? { status: q.status } : {}),
     ...(q.search ? { search: q.search } : {}),
+    ...(q.companyId ? { companyId: q.companyId } : {}),
   })
   if (!result.success) throw new Error(result.error)
 

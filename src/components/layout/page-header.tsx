@@ -9,18 +9,21 @@ export function PageHeader({
   description,
   actions,
   className,
+  tourId,
 }: {
   eyebrow?: string
   title: string
   description?: string
   actions?: React.ReactNode
   className?: string
+  /** Optional `data-tour` anchor placed on the title, for onboarding tours. */
+  tourId?: string
 }) {
   return (
     <div className={cn('flex flex-wrap items-end justify-between gap-4', className)}>
       <div className="flex flex-col gap-1.5">
         {eyebrow && <SectionLabel>{eyebrow}</SectionLabel>}
-        <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+        <h1 data-tour={tourId} className="text-2xl font-semibold tracking-tight">{title}</h1>
         {description && (
           <p className="max-w-2xl text-sm text-muted-foreground">{description}</p>
         )}

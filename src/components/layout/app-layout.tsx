@@ -2,6 +2,7 @@ import { Outlet } from 'react-router-dom'
 import { AppHeader } from './app-header'
 import { DesktopSidebar } from './sidebar'
 import { CommandPalette } from './command-palette'
+import { OnboardingTour } from '@/components/tour/onboarding-tour'
 
 export function AppLayout() {
   return (
@@ -14,6 +15,7 @@ export function AppLayout() {
         </main>
       </div>
       <CommandPalette />
+      <OnboardingTour />
     </div>
   )
 }

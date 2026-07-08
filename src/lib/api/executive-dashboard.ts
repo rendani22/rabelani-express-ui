@@ -432,16 +432,23 @@ const EMPTY_RETURNS: ReturnsReport = {
  */
 export async function fetchExecutiveDashboard(
   dateRange?: { start: Date; end?: Date },
+  companyId?: string | null,
 ): Promise<ExecutiveDashboardData> {
   const pDateFrom = dateRange?.start ? dateRange.start.toISOString() : null
   const pDateTo = dateRange?.end ? dateRange.end.toISOString() : null
+  // Only send p_company_id when a company is chosen, so the default calls still
+  // match the pre-company-filter RPC signatures (backward-compatible until the
+  // company-filter migration is deployed).
+  const execArgs = companyId ? { p_company_id: companyId } : undefined
+  const opsArgs: Record<string, unknown> = { p_date_from: pDateFrom, p_date_to: pDateTo }
+  if (companyId) opsArgs.p_company_id = companyId
 
   // Revenue is the primary payload; operational metrics and the PO order book
   // enrich the story but must never block or blank the revenue view, so they
   // degrade gracefully.
   const [revenueRes, opsRes, poRes] = await Promise.all([
-    supabase.rpc('get_executive_metrics'),
-    supabase.rpc('get_dashboard_metrics', { p_date_from: pDateFrom, p_date_to: pDateTo }),
+    supabase.rpc('get_executive_metrics', execArgs),
+    supabase.rpc('get_dashboard_metrics', opsArgs),
     supabase.from('purchase_orders').select('status, po_value, po_date, created_at'),
   ])
 

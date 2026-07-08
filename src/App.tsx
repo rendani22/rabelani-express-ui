@@ -5,6 +5,7 @@ import { AppLayout } from '@/components/layout/app-layout'
 import { CustomerLayout } from '@/components/layout/customer-layout'
 import { Login } from '@/pages/login'
 import { AcceptInvite } from '@/pages/accept-invite'
+import { ResetPassword } from '@/pages/reset-password'
 import { MyPackagesPage } from '@/pages/my-packages'
 import { DashboardPage } from '@/pages/dashboard'
 import { OrdersPage } from '@/pages/orders'
@@ -27,6 +28,7 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/accept-invite" element={<AcceptInvite />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/style-guide" element={<StyleGuide />} />
 
       <Route element={<ProtectedRoute />}>

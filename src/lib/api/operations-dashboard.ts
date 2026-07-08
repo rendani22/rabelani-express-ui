@@ -141,6 +141,14 @@ export interface LifecycleMetrics {
   avgTotalCycleHours: number | null
   /** Number of fully-completed packages used to compute totalCycle */
   completedSampleSize: number
+  /** Average hours: created → completion, for orders the POD marks 'Delivered' */
+  avgCreateToDeliveredHours: number | null
+  /** Number of 'Delivered'-completion orders in the average */
+  deliveredSampleSize: number
+  /** Average hours: created → completion, for orders the POD marks 'Collected' */
+  avgCreateToCollectedHours: number | null
+  /** Number of 'Collected'-completion orders in the average */
+  collectedSampleSize: number
 }
 
 /** A package that has been "stuck" in a status longer than the SLA threshold. */
@@ -281,6 +289,10 @@ const EMPTY_LIFECYCLE: LifecycleMetrics = {
   avgReceiveToCollectHours: null,
   avgTotalCycleHours: null,
   completedSampleSize: 0,
+  avgCreateToDeliveredHours: null,
+  deliveredSampleSize: 0,
+  avgCreateToCollectedHours: null,
+  collectedSampleSize: 0,
 }
 
 const EMPTY_INVENTORY: InventoryHealth = {
@@ -335,6 +347,7 @@ function emptyDashboard(): OperationsDashboardData {
  */
 export async function fetchOperationsDashboard(
   dateRange?: { start: Date; end?: Date },
+  companyId?: string | null,
 ): Promise<OperationsDashboardData> {
   const dateFrom = dateRange?.start?.toISOString() ?? null
   const dateTo = dateRange?.end
@@ -344,10 +357,12 @@ export async function fetchOperationsDashboard(
       : null
 
   try {
-    const { data, error } = await supabase.rpc('get_dashboard_metrics', {
-      p_date_from: dateFrom,
-      p_date_to: dateTo,
-    })
+    // Only send p_company_id when a company is chosen, so the default call still
+    // matches the pre-company-filter RPC signature (backward-compatible until the
+    // company-filter migration is deployed).
+    const args: Record<string, unknown> = { p_date_from: dateFrom, p_date_to: dateTo }
+    if (companyId) args.p_company_id = companyId
+    const { data, error } = await supabase.rpc('get_dashboard_metrics', args)
 
     if (error || !data) {
       logger.error(error, { op: 'operationsDashboard.get_dashboard_metrics' })
@@ -706,6 +721,12 @@ export async function fetchLifecycleAndStuck(
       avgReceiveToCollectHours: avg(r2cSamples),
       avgTotalCycleHours: avg(totalSamples),
       completedSampleSize: totalSamples.length,
+      // The Delivered/Collected split needs the pods join — only the RPC path
+      // (get_dashboard_metrics) computes it; this legacy fallback leaves it empty.
+      avgCreateToDeliveredHours: null,
+      deliveredSampleSize: 0,
+      avgCreateToCollectedHours: null,
+      collectedSampleSize: 0,
     }
 
     // Per-status SLA thresholds (hours). Tune as needed.

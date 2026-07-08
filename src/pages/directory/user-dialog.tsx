@@ -18,7 +18,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Combobox } from '@/components/ui/combobox'
 
-const ROLES: StaffRole[] = ['admin', 'manager', 'driver', 'collection', 'staff', 'viewer']
+// The DB `staff_role` enum — only these are valid (anything else fails the insert).
+const ROLES: StaffRole[] = ['admin', 'warehouse', 'driver', 'collection']
 const roleLabel = (r: string) => r.charAt(0).toUpperCase() + r.slice(1)
 
 export function UserDialog({
@@ -32,14 +33,14 @@ export function UserDialog({
 }) {
   const qc = useQueryClient()
   const isEdit = !!user
-  const [form, setForm] = useState({ full_name: '', email: '', password: '', role: 'staff', phone: '', department: '' })
+  const [form, setForm] = useState({ full_name: '', email: '', password: '', role: 'warehouse', phone: '' })
 
   useEffect(() => {
     if (open) {
       setForm(
         user
-          ? { full_name: user.full_name ?? '', email: user.email ?? '', password: '', role: user.role ?? 'staff', phone: user.phone ?? '', department: user.department ?? '' }
-          : { full_name: '', email: '', password: '', role: 'staff', phone: '', department: '' },
+          ? { full_name: user.full_name ?? '', email: user.email ?? '', password: '', role: user.role ?? 'warehouse', phone: user.phone ?? '' }
+          : { full_name: '', email: '', password: '', role: 'warehouse', phone: '' },
       )
     }
   }, [open, user])
@@ -51,7 +52,6 @@ export function UserDialog({
           full_name: form.full_name.trim(),
           role: form.role as StaffRole,
           phone: form.phone.trim() || undefined,
-          department: form.department.trim() || undefined,
         })
       }
       return createStaff({
@@ -60,7 +60,6 @@ export function UserDialog({
         full_name: form.full_name.trim(),
         role: form.role as StaffRole,
         phone: form.phone.trim() || undefined,
-        department: form.department.trim() || undefined,
       })
     },
     onSuccess: () => {
@@ -106,10 +105,6 @@ export function UserDialog({
               onChange={(v) => setForm((f) => ({ ...f, role: v }))}
               searchPlaceholder="Search role…"
             />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label>Department</Label>
-            <Input value={form.department} onChange={set('department')} />
           </div>
           <div className="col-span-2 flex flex-col gap-1.5">
             <Label>Phone</Label>

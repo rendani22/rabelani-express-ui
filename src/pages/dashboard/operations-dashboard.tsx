@@ -60,7 +60,17 @@ function StatTile({
   )
 }
 
-function StatsRow({ stats, drivers, pod }: { stats: PackageStats; drivers: DriverStats; pod: PodStats }) {
+function StatsRow({
+  stats,
+  drivers,
+  pod,
+  companyScoped,
+}: {
+  stats: PackageStats
+  drivers: DriverStats
+  pod: PodStats
+  companyScoped?: boolean
+}) {
   return (
     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
       <StatTile icon={Package} label="Total Packages" value={stats.total} accent />
@@ -69,8 +79,13 @@ function StatsRow({ stats, drivers, pod }: { stats: PackageStats; drivers: Drive
       <StatTile icon={Inbox} label="Ready to Collect" value={stats.readyForCollection} />
       <StatTile icon={CheckCircle2} label="Completed" value={stats.completed} />
       <StatTile icon={CalendarDays} label="Today" value={stats.todayCount} subtitle={`${num(stats.weeklyCount)} this week`} />
-      <StatTile icon={Users} label="Active Drivers" value={drivers.active} subtitle={`${num(drivers.total)} total`} />
-      <StatTile icon={FileSignature} label="PODs Signed" value={pod.total} subtitle={`${num(pod.withPdf)} with PDF`} />
+      {/* Driver roster + POD totals are network-wide — hide when scoped to a company. */}
+      {!companyScoped && (
+        <>
+          <StatTile icon={Users} label="Active Drivers" value={drivers.active} subtitle={`${num(drivers.total)} total`} />
+          <StatTile icon={FileSignature} label="PODs Signed" value={pod.total} subtitle={`${num(pod.withPdf)} with PDF`} />
+        </>
+      )}
     </div>
   )
 }
@@ -179,20 +194,46 @@ function DeliveryPerformance({ stats }: { stats: PackageStats }) {
 
 /* ── cycle-time ── */
 function CycleTime({ m }: { m: LifecycleMetrics }) {
-  const rows: [string, number | null][] = [
+  const stages: [string, number | null][] = [
     ['Created → Picked up', m.avgCreateToPickupHours],
     ['Pickup → Received', m.avgPickupToReceiveHours],
     ['Received → Collected', m.avgReceiveToCollectHours],
-    ['Full cycle', m.avgTotalCycleHours],
+    ['Created → Fulfilled', m.avgTotalCycleHours],
   ]
+  // Created → fulfilment, split by how the order completed (POD label).
+  const breakdown: { label: string; value: number | null; sample: number }[] = [
+    { label: 'Delivered', value: m.avgCreateToDeliveredHours, sample: m.deliveredSampleSize },
+    { label: 'Collected', value: m.avgCreateToCollectedHours, sample: m.collectedSampleSize },
+  ]
+  const hasBreakdown = breakdown.some((b) => b.sample > 0)
   return (
     <div className="flex flex-col gap-3">
-      {rows.map(([label, value]) => (
+      {stages.map(([label, value]) => (
         <div key={label} className="flex items-baseline justify-between border-b pb-2 last:border-0">
           <span className="text-sm text-muted-foreground">{label}</span>
           <span className="tabular text-lg font-semibold">{fmtHours(value)}</span>
         </div>
       ))}
+
+      {hasBreakdown && (
+        <div className="flex flex-col gap-2 rounded-md bg-muted/40 p-3">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            Fulfilment by type
+          </span>
+          {breakdown.map((b) => (
+            <div key={b.label} className="flex items-baseline justify-between">
+              <span className="text-sm text-muted-foreground">
+                {b.label}
+                <span className="ml-1.5 tabular text-xs text-muted-foreground/70">
+                  ({num(b.sample)})
+                </span>
+              </span>
+              <span className="tabular text-sm font-semibold">{fmtHours(b.value)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
       <p className="text-xs text-muted-foreground">
         Based on {num(m.completedSampleSize)} completed packages.
       </p>
@@ -355,7 +396,14 @@ function TimelineSummary({ stats, drivers }: { stats: PackageStats; drivers: Dri
 }
 
 /* ── page ── */
-export function OperationsDashboard({ data }: { data: OperationsDashboardData }) {
+export function OperationsDashboard({
+  data,
+  companyScoped,
+}: {
+  data: OperationsDashboardData
+  /** When scoped to a company, hide network-wide cards (driver roster, POD, inventory). */
+  companyScoped?: boolean
+}) {
   const navigate = useNavigate()
 
   const weekly: TimeSeriesDataPoint[] = data.weeklyTimeSeries
@@ -368,7 +416,7 @@ export function OperationsDashboard({ data }: { data: OperationsDashboardData })
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-6">
       {/* stats */}
       <div className="lg:col-span-12">
-        <StatsRow stats={data.stats} drivers={data.driverStats} pod={data.podStats} />
+        <StatsRow stats={data.stats} drivers={data.driverStats} pod={data.podStats} companyScoped={companyScoped} />
       </div>
 
       {/* trend + status */}
@@ -379,21 +427,25 @@ export function OperationsDashboard({ data }: { data: OperationsDashboardData })
         <StatusDonut data={data.statusDistribution} />
       </DashboardCard>
 
-      {/* volume + driver */}
-      <DashboardCard title="30-Day Package Volume" className="lg:col-span-8">
+      {/* volume + driver (driver roster is network-wide → hidden when scoped) */}
+      <DashboardCard title="30-Day Package Volume" className={cn('lg:col-span-8', companyScoped && 'lg:col-span-12')}>
         <VolumeBarChart data={monthly} height={230} />
       </DashboardCard>
-      <DashboardCard title="Driver Overview" className="lg:col-span-4">
-        <DriverOverview d={data.driverStats} />
-      </DashboardCard>
+      {!companyScoped && (
+        <DashboardCard title="Driver Overview" className="lg:col-span-4">
+          <DriverOverview d={data.driverStats} />
+        </DashboardCard>
+      )}
 
-      {/* locations + pod */}
-      <DashboardCard title="Packages by Location" className="lg:col-span-8">
+      {/* locations + pod (POD totals are network-wide → hidden when scoped) */}
+      <DashboardCard title="Packages by Location" className={cn('lg:col-span-8', companyScoped && 'lg:col-span-12')}>
         <HorizontalBars data={locations.map((l) => ({ label: l.name, value: l.count }))} />
       </DashboardCard>
-      <DashboardCard title="Proof of Delivery" className="lg:col-span-4">
-        <PodBlock p={data.podStats} />
-      </DashboardCard>
+      {!companyScoped && (
+        <DashboardCard title="Proof of Delivery" className="lg:col-span-4">
+          <PodBlock p={data.podStats} />
+        </DashboardCard>
+      )}
 
       {/* cycle time + SLA */}
       <DashboardCard title="Cycle-Time Insights" className="lg:col-span-6">
@@ -418,13 +470,15 @@ export function OperationsDashboard({ data }: { data: OperationsDashboardData })
         />
       </DashboardCard>
 
-      {/* delivery perf + inventory */}
-      <DashboardCard title="Delivery Performance" className="lg:col-span-6">
+      {/* delivery perf + inventory (inventory is network-wide → hidden when scoped) */}
+      <DashboardCard title="Delivery Performance" className={cn('lg:col-span-6', companyScoped && 'lg:col-span-12')}>
         <DeliveryPerformance stats={data.stats} />
       </DashboardCard>
-      <DashboardCard title="Inventory Health" className="lg:col-span-6">
-        <InventoryHealthBlock h={data.inventoryHealth} />
-      </DashboardCard>
+      {!companyScoped && (
+        <DashboardCard title="Inventory Health" className="lg:col-span-6">
+          <InventoryHealthBlock h={data.inventoryHealth} />
+        </DashboardCard>
+      )}
 
       {/* receivers + timeline */}
       <DashboardCard title="Top Receivers" className="lg:col-span-4">

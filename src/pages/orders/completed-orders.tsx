@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatusStamp, TrackingNumber } from '@/components/dispatch'
+import { displayStatusMeta } from '@/lib/status'
 import { ReceiverAvatar } from '@/components/dispatch/receiver-avatar'
 import { formatDateTime, nameFromEmail } from '@/lib/format'
 import { PackageDetailsPanel } from './package-details-panel'
@@ -155,7 +156,7 @@ export function CompletedOrdersPage() {
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3"><StatusStamp status={pkg.status} /></td>
+                      <td className="px-4 py-3"><StatusStamp status={pkg.status} label={displayStatusMeta(pkg).label} /></td>
                       <td className="px-4 py-3 text-muted-foreground">{formatDateTime(pkg.updated_at ?? pkg.created_at)}</td>
                     </tr>
                   )

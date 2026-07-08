@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase'
 
-export type StaffRole = 'admin' | 'driver' | 'collection' | string
+/** The DB `staff_role` enum — these are the ONLY valid values. */
+export type StaffRole = 'admin' | 'warehouse' | 'driver' | 'collection'
 
 export interface StaffProfile {
   id: string
@@ -64,7 +65,6 @@ export interface CreateStaffProfileDto {
   full_name: string
   role: StaffRole
   phone?: string
-  department?: string
   avatar_url?: string
 }
 
@@ -74,7 +74,6 @@ export interface UpdateStaffProfileDto {
   role?: StaffRole
   is_active?: boolean
   phone?: string
-  department?: string
   avatar_url?: string
 }
 

@@ -1,12 +1,13 @@
-import { useNavigate } from 'react-router-dom'
-import { Bell, HelpCircle, LogOut, Mail, Menu, Search, Settings } from 'lucide-react'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { Compass, HelpCircle, LogOut, Mail, Menu, Search, Settings, X } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 import { useUIStore } from '@/lib/ui-store'
+import { tourIdForPath, useTourStore } from '@/lib/tour-store'
 import { cn } from '@/lib/utils'
 import { ModeToggle } from '@/components/mode-toggle'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
-import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
+import { Sheet, SheetClose, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
   DropdownMenu,
@@ -17,6 +18,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { SidebarContent } from './sidebar'
+import { NotificationsMenu } from './notifications-menu'
 
 const ENV_LABEL = 'INT'
 
@@ -27,8 +29,11 @@ function initials(email?: string | null) {
 
 export function AppHeader() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { user, signOut } = useAuth()
   const { mobileNavOpen, setMobileNavOpen, setCommandOpen } = useUIStore()
+  const restartTour = useTourStore((s) => s.restart)
+  const pageTourId = tourIdForPath(location.pathname)
 
   const name = user?.email?.split('@')[0] ?? 'Account'
 
@@ -45,8 +50,14 @@ export function AppHeader() {
         >
           <Menu className="size-5" />
         </Button>
-        <SheetContent side="left" className="w-[248px] p-0">
+        <SheetContent side="left" className="w-[248px] overflow-visible p-0" showCloseButton={false}>
           <SheetTitle className="sr-only">Navigation</SheetTitle>
+          {/* Close sits just outside the panel, on the scrim — keeps the header
+              clear for the logo and lands where drawer close buttons are expected. */}
+          <SheetClose className="absolute top-3 -right-12 flex size-9 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur transition-colors hover:bg-white/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70">
+            <X className="size-5" />
+            <span className="sr-only">Close navigation</span>
+          </SheetClose>
           <SidebarContent onNavigate={() => setMobileNavOpen(false)} />
         </SheetContent>
       </Sheet>
@@ -60,6 +71,7 @@ export function AppHeader() {
       {/* search trigger */}
       <button
         type="button"
+        data-tour="global-search"
         onClick={() => setCommandOpen(true)}
         className={cn(
           'group ml-auto flex h-9 w-full max-w-xs items-center gap-2 rounded-md border bg-muted/40 px-3 text-sm text-muted-foreground transition-colors hover:bg-muted',
@@ -74,33 +86,23 @@ export function AppHeader() {
 
       <div className="flex items-center gap-1">
         {/* notifications */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" aria-label="Notifications">
-              <Bell className="size-[18px]" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-72">
-            <DropdownMenuLabel className="flex items-center gap-2">
-              <Bell className="size-3.5" /> Notifications
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <div className="px-2 py-6 text-center text-sm text-muted-foreground">
-              You&apos;re all caught up
-            </div>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <NotificationsMenu />
 
         {/* help */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" aria-label="Help">
+            <Button variant="ghost" size="icon" aria-label="Help" data-tour="help-menu">
               <HelpCircle className="size-[18px]" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-52">
             <DropdownMenuLabel>Need help?</DropdownMenuLabel>
             <DropdownMenuSeparator />
+            {pageTourId && (
+              <DropdownMenuItem onSelect={() => restartTour(pageTourId)}>
+                <Compass className="size-4" /> Take a tour of this page
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem asChild>
               <a href="mailto:support@rabelani.co.za">
                 <Mail className="size-4" /> Contact us
@@ -117,7 +119,10 @@ export function AppHeader() {
       {/* user menu */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button className="flex items-center gap-2 rounded-md outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50">
+          <button
+            data-tour="user-menu"
+            className="flex items-center gap-2 rounded-md outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          >
             <Avatar className="size-8">
               <AvatarFallback className="bg-primary/15 text-xs font-semibold text-primary">
                 {initials(user?.email)}

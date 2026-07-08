@@ -4,6 +4,7 @@ import { useAuth } from '@/lib/auth'
 import { Logo } from '@/components/brand/logo'
 import { ModeToggle } from '@/components/mode-toggle'
 import { Button } from '@/components/ui/button'
+import { NotificationsMenu } from './notifications-menu'
 
 /**
  * Minimal shell for the customer portal — brand + theme toggle + sign out only.
@@ -16,6 +17,7 @@ export function CustomerLayout() {
       <header className="flex items-center justify-between border-b px-5 py-3.5 sm:px-8">
         <Logo />
         <div className="flex items-center gap-1.5">
+          <NotificationsMenu />
           <ModeToggle />
           <Button variant="ghost" size="sm" onClick={() => signOut()}>
             <LogOut className="size-4" /> Sign out

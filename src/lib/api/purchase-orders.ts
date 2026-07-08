@@ -284,6 +284,9 @@ export interface PurchaseOrder {
   readonly receiverName: string | null
   /** Customer email. Null when unknown / order-sourced. */
   readonly receiverEmail: string | null
+  /** Companies this PO touches — the distinct companies of its linked packages'
+   *  receivers (+ the PO's own customer). Used by the company filter. */
+  readonly companyIds: readonly string[]
   /** Stated monetary value of the PO in ZAR. Null when not captured. */
   readonly poValue: number | null
   /** PO date as an ISO `YYYY-MM-DD` string. Null when not captured. */
@@ -312,6 +315,8 @@ export interface PurchaseOrderStats {
 export interface PurchaseOrderFilters {
   readonly search?: string
   readonly status?: PurchaseOrderStatus | 'all'
+  /** Company id to scope to; undefined/'all' = every company. */
+  readonly company?: string
 }
 
 // ============================================================================
@@ -337,6 +342,7 @@ interface ReceiverProfileRow {
   readonly name: string
   readonly surname: string
   readonly email: string
+  readonly company_id?: string | null
 }
 
 interface AllocationRow {
@@ -412,7 +418,7 @@ export async function loadPurchaseOrders(): Promise<PurchaseOrder[]> {
     receiverIds.length > 0
       ? supabase
           .from('receiver_profiles')
-          .select('id, name, surname, email')
+          .select('id, name, surname, email, company_id')
           .in('id', receiverIds)
       : Promise.resolve({ data: [] as ReceiverProfileRow[], error: null }),
     supabase
@@ -492,6 +498,42 @@ export async function loadPurchaseOrders(): Promise<PurchaseOrder[]> {
     }
   }
 
+  // Company membership: map every linked package's receiver email → company, so
+  // each PO (first-class OR order-sourced) can be filtered by company. Packages
+  // expose receiver_email (not receiver_id), so we key on email.
+  const poEmails = Array.from(
+    new Set(
+      Array.from(packagesByPoNumber.values())
+        .flat()
+        .map((p) => p.receiver_email?.toLowerCase().trim())
+        .filter((e): e is string => !!e),
+    ),
+  )
+  const companyByEmail = new Map<string, string>()
+  if (poEmails.length > 0) {
+    const { data: emailRows } = await supabase
+      .from('receiver_profiles')
+      .select('email, company_id')
+      .in('email', poEmails)
+    for (const r of (emailRows ?? []) as { email: string | null; company_id: string | null }[]) {
+      if (r.email && r.company_id) companyByEmail.set(r.email.toLowerCase(), r.company_id)
+    }
+  }
+
+  const collectCompanyIds = (
+    pkgs: readonly Package[],
+    receiverCompanyId?: string | null,
+  ): string[] => {
+    const ids = new Set<string>()
+    if (receiverCompanyId) ids.add(receiverCompanyId)
+    for (const pkg of pkgs) {
+      const email = pkg.receiver_email?.toLowerCase()
+      const cid = email ? companyByEmail.get(email) : undefined
+      if (cid) ids.add(cid)
+    }
+    return [...ids]
+  }
+
   const result: PurchaseOrder[] = orders.map((order) => {
     const packages = packagesByPoNumber.get(order.po_number) ?? []
     const refsByInventory = new Map<
@@ -568,6 +610,7 @@ export async function loadPurchaseOrders(): Promise<PurchaseOrder[]> {
       receiverId: order.receiver_id ?? null,
       receiverName: receiver ? `${receiver.name} ${receiver.surname}`.trim() : null,
       receiverEmail: receiver?.email ?? null,
+      companyIds: collectCompanyIds(packages, receiver?.company_id),
       poValue: poValue !== null && Number.isNaN(poValue) ? null : poValue,
       poDate: order.po_date ?? null,
       details: order.details ?? null,
@@ -635,6 +678,7 @@ export async function loadPurchaseOrders(): Promise<PurchaseOrder[]> {
         receiverId: null,
         receiverName: null,
         receiverEmail: null,
+        companyIds: collectCompanyIds(packages),
         poValue: null,
         poDate: null,
         details: null,
@@ -665,8 +709,12 @@ export function filterPurchaseOrders(
   orders: readonly PurchaseOrder[],
   filters: PurchaseOrderFilters,
 ): PurchaseOrder[] {
-  const { search, status } = filters
+  const { search, status, company } = filters
   let result = [...orders]
+
+  if (company && company !== 'all') {
+    result = result.filter((po) => po.companyIds.includes(company))
+  }
 
   if (search?.trim()) {
     const q = search.trim().toLowerCase()

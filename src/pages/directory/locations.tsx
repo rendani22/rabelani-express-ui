@@ -12,6 +12,7 @@ import {
 import { reportError } from '@/lib/logger'
 import { PageBody, PageHeader } from '@/components/layout/page-header'
 import { Button } from '@/components/ui/button'
+import { useConfirm } from '@/components/ui/confirm-dialog'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
@@ -25,6 +26,7 @@ import { LocationDialog } from './location-dialog'
 
 export function LocationsPage() {
   const qc = useQueryClient()
+  const confirm = useConfirm()
   const [search, setSearch] = useState('')
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<DeliveryLocation | null>(null)
@@ -109,7 +111,15 @@ export function LocationsPage() {
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       variant="destructive"
-                      onSelect={() => { if (confirm(`Delete "${l.name}"?`)) remove.mutate(l.id) }}
+                      onSelect={async () => {
+                        const ok = await confirm({
+                          title: 'Delete location?',
+                          description: `“${l.name}” will be permanently deleted.`,
+                          confirmText: 'Delete',
+                          destructive: true,
+                        })
+                        if (ok) remove.mutate(l.id)
+                      }}
                     >
                       <Trash2 /> Delete
                     </DropdownMenuItem>
