@@ -7,6 +7,7 @@ import {
   Boxes,
   ChevronLeft,
   ChevronRight,
+  Download,
   History,
   MoreHorizontal,
   Pencil,
@@ -22,6 +23,7 @@ import type { InventoryItem } from '@/lib/api/inventory'
 import { bulkDeleteInventoryItems, bulkSetInventoryActive, deleteInventoryItem, toggleInventoryItemActive } from '@/lib/api/inventory'
 import { useInventory } from '@/hooks/use-inventory'
 import { reportError } from '@/lib/logger'
+import { downloadCsv, toCsv, yyyymmdd } from '@/lib/csv'
 import { formatZar, isBackordered, isLowStock, isOutOfStock, isStaleStock } from '@/lib/inventory-movements'
 import { PageBody, PageHeader } from '@/components/layout/page-header'
 import { Button } from '@/components/ui/button'
@@ -49,6 +51,7 @@ import { RestockDialog } from './restock-dialog'
 import { MovementHistoryPanel } from './movement-history-panel'
 
 type StockFilter = 'none' | 'low' | 'out' | 'backordered' | 'stale'
+type StatusFilter = 'active' | 'inactive' | 'all'
 const PAGE_SIZES = [5, 10, 25, 50, 100]
 
 /** Windowed page numbers around the current page (max 5), like the old inventory pager. */
@@ -175,7 +178,7 @@ export function InventoryPage() {
   const [search, setSearch] = useState(() => searchParams.get('search') ?? '')
   const [category, setCategory] = useState('')
   const [stockFilter, setStockFilter] = useState<StockFilter>('none')
-  const [showInactive, setShowInactive] = useState(false)
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('active')
   const [highlightId, setHighlightId] = useState<string | null>(null)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(25)
@@ -190,7 +193,7 @@ export function InventoryPage() {
     if (idParam) {
       if (items.length === 0) return // items still loading — re-run once they arrive
       const match = items.find((i) => i.id === idParam)
-      setShowInactive(true)
+      setStatusFilter('all')
       if (match) {
         setSearch(match.name)
         setHighlightId(match.id)
@@ -200,7 +203,7 @@ export function InventoryPage() {
     }
     if (term !== null) {
       setSearch(term)
-      setShowInactive(true)
+      setStatusFilter('all')
       setSearchParams((p) => { p.delete('search'); return p }, { replace: true })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -231,7 +234,8 @@ export function InventoryPage() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
     return items.filter((item) => {
-      if (!showInactive && !item.is_active) return false
+      if (statusFilter === 'active' && !item.is_active) return false
+      if (statusFilter === 'inactive' && item.is_active) return false
       if (category && item.category !== category) return false
       if (stockFilter === 'low' && !isLowStock(item)) return false
       if (stockFilter === 'out' && !isOutOfStock(item)) return false
@@ -245,10 +249,10 @@ export function InventoryPage() {
       }
       return true
     })
-  }, [items, search, category, stockFilter, showInactive])
+  }, [items, search, category, stockFilter, statusFilter])
 
   // reset to page 1 when filters change
-  useEffect(() => setPage(1), [search, category, stockFilter, showInactive, pageSize])
+  useEffect(() => setPage(1), [search, category, stockFilter, statusFilter, pageSize])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
   const clampedPage = Math.min(page, totalPages)
@@ -340,6 +344,26 @@ export function InventoryPage() {
     [stats.categories],
   )
 
+  // Export the currently-filtered items (respects search, category, stock and status filters).
+  const onExport = () => {
+    if (filtered.length === 0) return
+    const csv = toCsv(
+      filtered.map((item) => ({
+        name: item.name,
+        sku: item.sku ?? '',
+        category: item.category ?? '',
+        unit: item.unit,
+        quantity: item.quantity,
+        low_stock_threshold: item.low_stock_threshold,
+        unit_price: item.unit_price ?? '',
+        value: item.unit_price != null ? item.unit_price * item.quantity : '',
+        status: item.is_active ? 'active' : 'inactive',
+      })),
+      ['name', 'sku', 'category', 'unit', 'quantity', 'low_stock_threshold', 'unit_price', 'value', 'status'],
+    )
+    downloadCsv(`inventory-${yyyymmdd()}.csv`, csv)
+  }
+
   const banners = [
     stats.outOfStockCount > 0 && !dismissed.out && {
       key: 'out' as const,
@@ -385,6 +409,9 @@ export function InventoryPage() {
             </Button>
             <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
               <RefreshCw className={isFetching ? 'animate-spin' : ''} /> Refresh
+            </Button>
+            <Button variant="outline" size="sm" onClick={onExport} disabled={isLoading || filtered.length === 0}>
+              <Download /> Export CSV
             </Button>
             <Button size="sm" onClick={openNew}>
               <Plus /> New item
@@ -468,9 +495,23 @@ export function InventoryPage() {
             Stale
           </FilterChip>
           <span className="mx-1 h-5 w-px bg-border" />
-          <FilterChip active={showInactive} onClick={() => setShowInactive((v) => !v)}>
-            Show inactive
-          </FilterChip>
+          {/* Status filter: isolate active-only (default), inactive-only, or show all. */}
+          <div className="inline-flex items-center gap-1 rounded-full border border-border p-0.5">
+            {(['active', 'inactive', 'all'] as const).map((s) => (
+              <button
+                key={s}
+                onClick={() => setStatusFilter(s)}
+                className={cn(
+                  'rounded-full px-2.5 py-0.5 text-xs font-medium capitalize transition-colors',
+                  statusFilter === s
+                    ? 'bg-primary/12 text-primary'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

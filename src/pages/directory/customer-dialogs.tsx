@@ -9,6 +9,7 @@ import {
   deleteReceiverContact,
   listReceiverContacts,
   updateReceiver,
+  type UpdateReceiverProfileDto,
 } from '@/lib/api/receivers'
 import { inviteCustomer, listCompanies, type CustomerRole } from '@/lib/api/customers'
 import { reportError } from '@/lib/logger'
@@ -30,6 +31,13 @@ import { ReceiverAvatar } from '@/components/dispatch/receiver-avatar'
 
 const emptyForm = { name: '', surname: '', email: '', phone: '' }
 const NO_COMPANY = '__none__'
+
+/** Basic email shape: something@something.tld */
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+/** South African phone: 10 local digits (0XXXXXXXXX) or +27 followed by 9 digits. */
+const PHONE_RE = /^(?:\+27\d{9}|0\d{9})$/
+/** Strip spaces/dashes/parens before validating a phone number. */
+const normalizePhone = (v: string) => v.replace(/[\s\-()]/g, '')
 
 export type CustomerDialogTab = 'details' | 'contacts'
 
@@ -73,16 +81,19 @@ export function CustomerDialog({
   const save = useMutation({
     mutationFn: async () => {
       const name = form.name.trim(), surname = form.surname.trim()
-      const email = form.email.trim().toLowerCase(), phone = form.phone.trim() || undefined
+      const email = form.email.trim().toLowerCase()
+      const phone = form.phone.trim()
       const company_id = companyId === NO_COMPANY ? null : companyId
       if (willInvite) {
-        await inviteCustomer({ email, name, surname, phone, company_id: company_id as string, role })
+        await inviteCustomer({ email, name, surname, phone: phone || undefined, company_id: company_id as string, role })
       } else if (customer) {
-        const dto = { name, surname, email, phone, company_id }
-        if (customer.role && invite) Object.assign(dto, { role })
+        // Pass null (not undefined) when the field is cleared so the phone is
+        // actually removed — undefined would be dropped from the update payload.
+        const dto: UpdateReceiverProfileDto = { name, surname, email, phone: phone || null, company_id }
+        if (customer.role && invite) dto.role = role
         await updateReceiver(customer.id, dto)
       } else {
-        await createReceiver({ name, surname, email, phone, company_id })
+        await createReceiver({ name, surname, email, phone: phone || undefined, company_id })
       }
     },
     onSuccess: () => {
@@ -94,7 +105,14 @@ export function CustomerDialog({
   })
 
   const set = (k: keyof typeof emptyForm) => (e: React.ChangeEvent<HTMLInputElement>) => setForm((f) => ({ ...f, [k]: e.target.value }))
-  const baseValid = form.name.trim() && form.surname.trim() && form.email.trim()
+
+  const emailValid = EMAIL_RE.test(form.email.trim())
+  const phoneValid = form.phone.trim() === '' || PHONE_RE.test(normalizePhone(form.phone))
+  // Only surface an error once the user has typed something invalid.
+  const emailError = form.email.trim() !== '' && !emailValid
+  const phoneError = form.phone.trim() !== '' && !phoneValid
+
+  const baseValid = form.name.trim() && form.surname.trim() && emailValid && phoneValid
   const canSubmit = !!baseValid && (!invite || companyId !== NO_COMPANY) && !save.isPending
   const isEdit = !!customer
 
@@ -112,11 +130,24 @@ export function CustomerDialog({
       </div>
       <div className="flex flex-col gap-1.5">
         <Label>Email *</Label>
-        <Input type="email" value={form.email} onChange={set('email')} />
+        <Input
+          type="email"
+          value={form.email}
+          onChange={set('email')}
+          aria-invalid={emailError}
+        />
+        {emailError && <p className="text-xs text-destructive">Enter a valid email address.</p>}
       </div>
       <div className="flex flex-col gap-1.5">
         <Label>Phone</Label>
-        <Input value={form.phone} onChange={set('phone')} className="mono" />
+        <Input
+          value={form.phone}
+          onChange={set('phone')}
+          className="mono"
+          placeholder="0XXXXXXXXX or +27XXXXXXXXX"
+          aria-invalid={phoneError}
+        />
+        {phoneError && <p className="text-xs text-destructive">Enter 10 digits (0…) or +27 followed by 9 digits.</p>}
       </div>
 
       <div className="tear-line" />
@@ -167,13 +198,23 @@ export function CustomerDialog({
     </div>
   )
 
+  // When the invite is on but no company is picked, explain why the action is
+  // blocked right next to the button — instead of leaving it silently disabled.
+  const inviteNeedsCompany = invite && companyId === NO_COMPANY
   const detailsFooter = (
-    <DialogFooter className="border-t p-4">
-      <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-      <Button onClick={() => save.mutate()} disabled={!canSubmit}>
-        {save.isPending && <Loader2 className="animate-spin" />}
-        {willInvite ? 'Send invite' : customer ? 'Save' : 'Add customer'}
-      </Button>
+    <DialogFooter className="flex-col items-stretch gap-2 border-t p-4 sm:flex-row sm:items-center sm:justify-end">
+      {inviteNeedsCompany && (
+        <p className="mr-auto text-xs text-muted-foreground">
+          Pick a company to send an invite, or turn off portal access to just save the customer.
+        </p>
+      )}
+      <div className="flex justify-end gap-2">
+        <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
+        <Button onClick={() => save.mutate()} disabled={!canSubmit}>
+          {save.isPending && <Loader2 className="animate-spin" />}
+          {willInvite ? 'Send invite' : customer ? 'Save' : 'Add customer'}
+        </Button>
+      </div>
     </DialogFooter>
   )
 

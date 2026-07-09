@@ -203,6 +203,12 @@ export function CustomersPage() {
   // Groups keyed by company id (or UNASSIGNED), ordered: companies A–Z, then Unassigned.
   const groups = useMemo(() => {
     const byKey = new Map<string, ReceiverProfile[]>()
+    // Seed an (empty) group for every known company so companies show up in the
+    // directory even before any customer is assigned to them. Skipped while
+    // searching so empty companies don't clutter search results.
+    if (!search.trim()) {
+      for (const c of companies.data ?? []) byKey.set(c.id, [])
+    }
     for (const r of filtered) {
       const key = r.company_id ?? UNASSIGNED
       const list = byKey.get(key) ?? []
@@ -217,7 +223,7 @@ export function CustomersPage() {
     return unassigned && unassigned.length
       ? [...companyGroups, { id: UNASSIGNED, name: 'Unassigned', customers: unassigned }]
       : companyGroups
-  }, [filtered, companyName])
+  }, [filtered, companyName, companies.data, search])
 
   const visibleGroups = companyFilter === 'all' ? groups : groups.filter((g) => g.id === companyFilter)
 
@@ -278,18 +284,31 @@ export function CustomersPage() {
                   <span className="rounded-full bg-muted px-1.5 py-0.5 text-[11px] tabular-nums text-muted-foreground">{g.customers.length}</span>
                   {breakdown && <span className="ml-auto text-[11px] text-muted-foreground">{breakdown}</span>}
                 </div>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                  {g.customers.map((r) => (
-                    <CustomerCard
-                      key={r.id}
-                      r={r}
-                      onEdit={() => openCustomer(r, 'details')}
-                      onContacts={() => openCustomer(r, 'contacts')}
-                      onToggle={() => toggle.mutate(r)}
-                      onHistory={() => setHistoryFor(r)}
-                    />
-                  ))}
-                </div>
+                {g.customers.length > 0 ? (
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    {g.customers.map((r) => (
+                      <CustomerCard
+                        key={r.id}
+                        r={r}
+                        onEdit={() => openCustomer(r, 'details')}
+                        onContacts={() => openCustomer(r, 'contacts')}
+                        onToggle={() => toggle.mutate(r)}
+                        onHistory={() => setHistoryFor(r)}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
+                    No customers assigned yet.{' '}
+                    <button
+                      type="button"
+                      onClick={() => openCustomer(null)}
+                      className="font-medium text-primary underline-offset-2 hover:underline"
+                    >
+                      Add one
+                    </button>
+                  </div>
+                )}
               </section>
             )
           })}

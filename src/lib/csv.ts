@@ -16,19 +16,28 @@ function escapeCell(value: unknown): string {
 /**
  * Build a CSV string from an array of row objects.
  * The `columns` array controls both header order and which keys are emitted.
+ *
+ * Rows are terminated with CRLF per RFC 4180 so Excel reliably breaks each
+ * record onto its own line instead of folding cells together.
  */
 export function toCsv<T extends Record<string, unknown>>(
   rows: readonly T[],
   columns: ReadonlyArray<keyof T & string>,
 ): string {
+  const eol = '\r\n'
   const header = columns.map(escapeCell).join(',')
-  const body = rows.map((row) => columns.map((col) => escapeCell(row[col])).join(',')).join('\n')
-  return body ? `${header}\n${body}\n` : `${header}\n`
+  const body = rows.map((row) => columns.map((col) => escapeCell(row[col])).join(',')).join(eol)
+  return body ? `${header}${eol}${body}${eol}` : `${header}${eol}`
 }
+
+/** UTF-8 byte order mark — makes Excel detect the encoding and honour the comma delimiter. */
+const UTF8_BOM = '﻿'
 
 /** Trigger a browser download for the given CSV content. */
 export function downloadCsv(filename: string, csv: string): void {
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  // Prepend a BOM so Excel opens the file as UTF-8 and splits on commas
+  // instead of dumping every row into a single column.
+  const blob = new Blob([UTF8_BOM, csv], { type: 'text/csv;charset=utf-8;' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url

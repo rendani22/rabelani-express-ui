@@ -35,7 +35,8 @@ export interface UpdateReceiverProfileDto {
   name?: string
   surname?: string
   email?: string
-  phone?: string
+  /** Pass `null` to explicitly clear the stored phone number. */
+  phone?: string | null
   is_active?: boolean
   company_id?: string | null
   /** Portal role. Only change for customers who already have access (no re-invite). */

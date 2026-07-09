@@ -20,6 +20,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { cn } from '@/lib/utils'
 import { LocationDialog } from './location-dialog'
 
@@ -28,6 +29,7 @@ export function LocationsPage() {
   const [search, setSearch] = useState('')
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<DeliveryLocation | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<DeliveryLocation | null>(null)
 
   const { data, isLoading } = useQuery({ queryKey: ['locations'], queryFn: listDeliveryLocations })
 
@@ -53,7 +55,7 @@ export function LocationsPage() {
   })
   const remove = useMutation({
     mutationFn: (id: string) => deleteDeliveryLocation(id),
-    onSuccess: () => { toast.success('Location deleted.'); invalidate() },
+    onSuccess: () => { toast.success('Location deleted.'); setPendingDelete(null); invalidate() },
     onError: (e) => toast.error(reportError(e, 'Could not delete the location.', { op: 'locations.delete' })),
   })
 
@@ -109,7 +111,7 @@ export function LocationsPage() {
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       variant="destructive"
-                      onSelect={() => { if (confirm(`Delete "${l.name}"?`)) remove.mutate(l.id) }}
+                      onSelect={() => setPendingDelete(l)}
                     >
                       <Trash2 /> Delete
                     </DropdownMenuItem>
@@ -137,6 +139,17 @@ export function LocationsPage() {
       )}
 
       <LocationDialog location={editing} open={dialogOpen} onOpenChange={setDialogOpen} />
+
+      <ConfirmDialog
+        open={!!pendingDelete}
+        onOpenChange={(o) => { if (!o) setPendingDelete(null) }}
+        title={pendingDelete ? `Delete “${pendingDelete.name}”?` : 'Delete location?'}
+        description="This permanently removes the location and cannot be undone."
+        confirmLabel="Delete"
+        destructive
+        loading={remove.isPending}
+        onConfirm={() => { if (pendingDelete) remove.mutate(pendingDelete.id) }}
+      />
     </PageBody>
   )
 }

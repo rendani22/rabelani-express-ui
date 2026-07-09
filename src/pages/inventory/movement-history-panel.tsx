@@ -49,7 +49,8 @@ export function MovementHistoryPanel({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-lg">
         <SheetHeader className="border-b p-5">
-          <div className="flex items-start justify-between gap-3">
+          {/* pr-10 leaves room for the Sheet's built-in close button (absolute top-4 right-4) */}
+          <div className="flex items-start justify-between gap-3 pr-10">
             <div className="flex min-w-0 items-center gap-3">
               <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-chart-2/12 text-chart-2">
                 <History className="size-[18px]" />
@@ -60,7 +61,7 @@ export function MovementHistoryPanel({
               </div>
             </div>
             <Button
-              variant="outline"
+              variant="default"
               size="sm"
               onClick={onExport}
               disabled={isLoading || movements.length === 0}
