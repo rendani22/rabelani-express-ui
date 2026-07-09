@@ -139,7 +139,7 @@ export function RecentMovementsPage() {
                         </div>
                       </td>
                       <td className="px-4 py-3">
-                        <span className={cn('inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium', movementSourceTone(m.source))}>
+                        <span className={cn('inline-flex items-center whitespace-nowrap rounded-full border px-2 py-0.5 text-[11px] font-medium', movementSourceTone(m.source))}>
                           {movementSourceLabel(m.source)}
                         </span>
                       </td>

@@ -123,7 +123,7 @@ export function MovementHistoryPanel({
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <span
                           className={cn(
-                            'inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium',
+                            'inline-flex items-center whitespace-nowrap rounded-full border px-2 py-0.5 text-[11px] font-medium',
                             movementSourceTone(m.source),
                           )}
                         >
