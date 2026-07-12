@@ -18,7 +18,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Combobox } from '@/components/ui/combobox'
 
-const ROLES: StaffRole[] = ['admin', 'manager', 'driver', 'collection', 'staff', 'viewer']
+const ROLES: StaffRole[] = ['admin', 'warehouse', 'driver', 'collection']
+const DEFAULT_ROLE: StaffRole = 'warehouse'
 const roleLabel = (r: string) => r.charAt(0).toUpperCase() + r.slice(1)
 
 export function UserDialog({
@@ -32,14 +33,14 @@ export function UserDialog({
 }) {
   const qc = useQueryClient()
   const isEdit = !!user
-  const [form, setForm] = useState({ full_name: '', email: '', password: '', role: 'staff', phone: '', department: '' })
+  const [form, setForm] = useState({ full_name: '', email: '', password: '', role: DEFAULT_ROLE, phone: '', department: '' })
 
   useEffect(() => {
     if (open) {
       setForm(
         user
-          ? { full_name: user.full_name ?? '', email: user.email ?? '', password: '', role: user.role ?? 'staff', phone: user.phone ?? '', department: user.department ?? '' }
-          : { full_name: '', email: '', password: '', role: 'staff', phone: '', department: '' },
+          ? { full_name: user.full_name ?? '', email: user.email ?? '', password: '', role: user.role ?? DEFAULT_ROLE, phone: user.phone ?? '', department: user.department ?? '' }
+          : { full_name: '', email: '', password: '', role: DEFAULT_ROLE, phone: '', department: '' },
       )
     }
   }, [open, user])

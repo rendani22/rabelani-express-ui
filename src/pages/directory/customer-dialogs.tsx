@@ -90,7 +90,9 @@ export function CustomerDialog({
         // Pass null (not undefined) when the field is cleared so the phone is
         // actually removed — undefined would be dropped from the update payload.
         const dto: UpdateReceiverProfileDto = { name, surname, email, phone: phone || null, company_id }
-        if (customer.role && invite) dto.role = role
+        // Existing portal customer: mirror the switch. Keep/update the role while
+        // access is on, or revoke it (role → null) when the admin turns it off.
+        if (customer.role) dto.role = invite ? role : null
         await updateReceiver(customer.id, dto)
       } else {
         await createReceiver({ name, surname, email, phone: phone || undefined, company_id })

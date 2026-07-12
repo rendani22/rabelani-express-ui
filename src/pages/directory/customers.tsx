@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Building2, ChevronRight, Contact, Loader2, Mail, MoreVertical, Package as PackageIcon, Pencil, Phone, Plus, Search, Power, Users } from 'lucide-react'
+import { Building2, ChevronRight, Contact, Loader2, Mail, MoreVertical, Package as PackageIcon, Pencil, Phone, Plus, Search, Power, Trash2, Users } from 'lucide-react'
 import type { ReceiverProfile } from '@/lib/api/receivers'
 import { deactivateReceiver, listReceivers, reactivateReceiver } from '@/lib/api/receivers'
-import { createCompany, listCompanies, type CustomerRole } from '@/lib/api/customers'
+import { createCompany, deleteCompany, listCompanies, type Company, type CustomerRole } from '@/lib/api/customers'
 import { fetchPackagesByReceiver } from '@/lib/api/orders'
 import { reportError } from '@/lib/logger'
 import { PageBody, PageHeader } from '@/components/layout/page-header'
@@ -14,6 +14,7 @@ import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -84,10 +85,12 @@ function RoleTag({ role }: { role: CustomerRole }) {
   )
 }
 
-function NewCompanyDialog() {
+function NewCompanyDialog({ companies }: { companies: Company[] }) {
   const qc = useQueryClient()
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
+  const trimmed = name.trim()
+  const isDuplicate = trimmed !== '' && companies.some((c) => c.name.trim().toLowerCase() === trimmed.toLowerCase())
   const create = useMutation({
     mutationFn: () => createCompany(name),
     onSuccess: () => { toast.success('Company added.'); qc.invalidateQueries({ queryKey: ['companies'] }); setOpen(false); setName('') },
@@ -100,11 +103,12 @@ function NewCompanyDialog() {
       </DialogTrigger>
       <DialogContent>
         <DialogHeader><DialogTitle>Add a company</DialogTitle></DialogHeader>
-        <form className="flex flex-col gap-2" onSubmit={(e) => { e.preventDefault(); if (name.trim()) create.mutate() }}>
+        <form className="flex flex-col gap-2" onSubmit={(e) => { e.preventDefault(); if (trimmed && !isDuplicate) create.mutate() }}>
           <Label htmlFor="company-name">Company name</Label>
-          <Input id="company-name" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+          <Input id="company-name" value={name} onChange={(e) => setName(e.target.value)} autoFocus aria-invalid={isDuplicate} />
+          {isDuplicate && <p className="text-xs text-destructive">A company with this name already exists.</p>}
           <DialogFooter className="mt-2">
-            <Button type="submit" disabled={!name.trim() || create.isPending}>
+            <Button type="submit" disabled={!trimmed || isDuplicate || create.isPending}>
               {create.isPending ? <Loader2 className="animate-spin" /> : <Plus className="size-4" />} Add company
             </Button>
           </DialogFooter>
@@ -173,6 +177,7 @@ export function CustomersPage() {
   const [editing, setEditing] = useState<ReceiverProfile | null>(null)
   const [editTab, setEditTab] = useState<CustomerDialogTab>('details')
   const [historyFor, setHistoryFor] = useState<ReceiverProfile | null>(null)
+  const [companyToRemove, setCompanyToRemove] = useState<{ id: string; name: string } | null>(null)
 
   const openCustomer = (r: ReceiverProfile | null, tab: CustomerDialogTab = 'details') => {
     setEditing(r); setEditTab(tab); setDialogOpen(true)
@@ -233,6 +238,17 @@ export function CustomersPage() {
     onError: (e) => toast.error(reportError(e, 'Could not update the customer.', { op: 'customers.toggle' })),
   })
 
+  const removeCompany = useMutation({
+    mutationFn: (id: string) => deleteCompany(id),
+    onSuccess: () => {
+      toast.success('Company removed.')
+      qc.invalidateQueries({ queryKey: ['companies'] })
+      setCompanyToRemove(null)
+      if (companyToRemove && companyFilter === companyToRemove.id) setCompanyFilter('all')
+    },
+    onError: (e) => toast.error(reportError(e, 'Could not remove the company.', { op: 'companies.delete' })),
+  })
+
   return (
     <PageBody>
       <PageHeader
@@ -241,7 +257,7 @@ export function CustomersPage() {
         description="Companies, their Buyers and Runners, contacts, and package history."
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <NewCompanyDialog />
+            <NewCompanyDialog companies={companies.data ?? []} />
             <Button size="sm" onClick={() => openCustomer(null)}>
               <Users className="size-4" /> Add customer
             </Button>
@@ -298,15 +314,27 @@ export function CustomersPage() {
                     ))}
                   </div>
                 ) : (
-                  <div className="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
-                    No customers assigned yet.{' '}
-                    <button
-                      type="button"
-                      onClick={() => openCustomer(null)}
-                      className="font-medium text-primary underline-offset-2 hover:underline"
-                    >
-                      Add one
-                    </button>
+                  <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
+                    <p>
+                      No customers assigned yet.{' '}
+                      <button
+                        type="button"
+                        onClick={() => openCustomer(null)}
+                        className="font-medium text-primary underline-offset-2 hover:underline"
+                      >
+                        Add one
+                      </button>
+                    </p>
+                    {g.id !== UNASSIGNED && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive hover:text-destructive"
+                        onClick={() => setCompanyToRemove({ id: g.id, name: g.name })}
+                      >
+                        <Trash2 className="size-4" /> Remove company
+                      </Button>
+                    )}
                   </div>
                 )}
               </section>
@@ -322,6 +350,16 @@ export function CustomersPage() {
 
       <CustomerDialog customer={editing} open={dialogOpen} onOpenChange={setDialogOpen} initialTab={editTab} />
       <HistoryPanel customer={historyFor} open={!!historyFor} onOpenChange={(o) => !o && setHistoryFor(null)} />
+      <ConfirmDialog
+        open={!!companyToRemove}
+        onOpenChange={(o) => { if (!o && !removeCompany.isPending) setCompanyToRemove(null) }}
+        title="Remove company?"
+        description={companyToRemove ? `“${companyToRemove.name}” will be removed. This can't be undone.` : undefined}
+        confirmLabel="Remove company"
+        destructive
+        loading={removeCompany.isPending}
+        onConfirm={() => companyToRemove && removeCompany.mutate(companyToRemove.id)}
+      />
     </PageBody>
   )
 }

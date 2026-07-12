@@ -44,9 +44,37 @@ export async function listCompanies(): Promise<Company[]> {
 }
 
 export async function createCompany(name: string): Promise<Company> {
-  const { data, error } = await supabase.from('companies').insert({ name: name.trim() }).select().single()
+  const clean = name.trim()
+  // Company names must be unique. The DB has no UNIQUE constraint, so guard here
+  // (case-insensitive). `%`/`_` are ilike wildcards — escape them for an exact match.
+  const pattern = clean.replace(/[\\%_]/g, '\\$&')
+  const { data: existing, error: dupError } = await supabase
+    .from('companies')
+    .select('id')
+    .ilike('name', pattern)
+    .maybeSingle()
+  if (dupError) throw dupError
+  if (existing) throw new Error('A company with this name already exists.')
+
+  const { data, error } = await supabase.from('companies').insert({ name: clean }).select().single()
   if (error) throw error
   return data as Company
+}
+
+/**
+ * Delete a company. Refuses if any receiver profiles (accounts) are still
+ * assigned to it — a company can only be removed once it's empty.
+ */
+export async function deleteCompany(id: string): Promise<void> {
+  const { count, error: countError } = await supabase
+    .from('receiver_profiles')
+    .select('id', { count: 'exact', head: true })
+    .eq('company_id', id)
+  if (countError) throw countError
+  if ((count ?? 0) > 0) throw new Error('This company still has accounts assigned to it.')
+
+  const { error } = await supabase.from('companies').delete().eq('id', id)
+  if (error) throw error
 }
 
 export interface InviteCustomerDto {
