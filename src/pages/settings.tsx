@@ -1,8 +1,9 @@
 import { useNavigate } from 'react-router-dom'
 import { useTheme } from 'next-themes'
-import { LayoutGrid, List, LogOut, Map as MapIcon, Moon, Package, RotateCcw, Sun, User } from 'lucide-react'
+import { Compass, LayoutGrid, List, LogOut, Map as MapIcon, Moon, Package, Play, RotateCcw, Sun, User } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 import { REFRESH_INTERVAL_OPTIONS, useSettings } from '@/lib/settings-store'
+import { ALL_TOUR_IDS, TOUR_LABELS, useTourStore } from '@/lib/tour-store'
 import { ORDER_STATUS_FILTERS } from '@/hooks/use-orders'
 import { PageBody, PageHeader } from '@/components/layout/page-header'
 import { Button } from '@/components/ui/button'
@@ -85,11 +86,26 @@ function Segmented<T extends string>({
   )
 }
 
+/** A tour's home route — a tour targets elements on its own page. */
+const TOUR_ROUTES: Record<string, string> = {
+  dashboard: '/dashboard',
+  orders: '/orders',
+  'purchase-orders': '/purchase-orders',
+}
+
 export function SettingsPage() {
   const navigate = useNavigate()
   const { user, signOut } = useAuth()
   const { resolvedTheme, setTheme } = useTheme()
   const s = useSettings()
+  const restartTour = useTourStore((t) => t.restart)
+
+  const replayTour = (id: (typeof ALL_TOUR_IDS)[number]) => {
+    const route = TOUR_ROUTES[id]
+    // Navigate to the tour's page first, then start once it has mounted.
+    if (route) navigate(route)
+    window.setTimeout(() => restartTour(id), route ? 350 : 0)
+  }
 
   return (
     <PageBody className="mx-auto w-full max-w-3xl">
@@ -164,6 +180,16 @@ export function SettingsPage() {
         </Button>
         <span className="text-xs text-muted-foreground">Preferences are saved automatically.</span>
       </div>
+
+      <Card icon={Compass} title="Help & onboarding" description="Replay a guided product tour at any time.">
+        {ALL_TOUR_IDS.map((id) => (
+          <Row key={id} name={`${TOUR_LABELS[id]} tour`} hint="Walk through the key features of this page">
+            <Button variant="outline" size="sm" onClick={() => replayTour(id)}>
+              <Play /> Replay
+            </Button>
+          </Row>
+        ))}
+      </Card>
 
       <Card icon={User} title="Account" description="Your current session.">
         <Row name="Signed in as" hint={user?.email ?? 'Not signed in'}>

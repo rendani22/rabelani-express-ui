@@ -27,6 +27,7 @@ import { downloadCsv, toCsv, yyyymmdd } from '@/lib/csv'
 import { formatZar, isBackordered, isLowStock, isOutOfStock, isStaleStock } from '@/lib/inventory-movements'
 import { PageBody, PageHeader } from '@/components/layout/page-header'
 import { Button } from '@/components/ui/button'
+import { useConfirm } from '@/components/ui/confirm-dialog'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Combobox } from '@/components/ui/combobox'
@@ -172,6 +173,7 @@ function StockBadge({ item }: { item: InventoryItem }) {
 
 export function InventoryPage() {
   const qc = useQueryClient()
+  const confirm = useConfirm()
   const { items, stats, isLoading, isError, error, isFetching, refetch } = useInventory()
 
   const [searchParams, setSearchParams] = useSearchParams()
@@ -530,10 +532,15 @@ export function InventoryPage() {
               variant="outline"
               size="sm"
               className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-              onClick={() => {
+              onClick={async () => {
                 const n = selected.size
-                if (confirm(`Permanently delete ${n} item${n === 1 ? '' : 's'}? This cannot be undone.`))
-                  bulkRemove.mutate([...selected])
+                const ok = await confirm({
+                  title: `Delete ${n} item${n === 1 ? '' : 's'}?`,
+                  description: 'This permanently removes the selected inventory items and cannot be undone.',
+                  confirmText: 'Delete',
+                  destructive: true,
+                })
+                if (ok) bulkRemove.mutate([...selected])
               }}
               disabled={bulkRemove.isPending}
             >
@@ -668,9 +675,14 @@ export function InventoryPage() {
                               <DropdownMenuSeparator />
                               <DropdownMenuItem
                                 variant="destructive"
-                                onSelect={() => {
-                                  if (confirm(`Permanently delete "${item.name}"? This cannot be undone.`))
-                                    remove.mutate(item)
+                                onSelect={async () => {
+                                  const ok = await confirm({
+                                    title: 'Delete item?',
+                                    description: `“${item.name}” will be permanently deleted. This cannot be undone.`,
+                                    confirmText: 'Delete',
+                                    destructive: true,
+                                  })
+                                  if (ok) remove.mutate(item)
                                 }}
                               >
                                 <Trash2 /> Delete

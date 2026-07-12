@@ -38,6 +38,7 @@ export function timeAgo(dateString?: string | null): string {
 /** "first.last@example.com" → "First Last". */
 export function nameFromEmail(email?: string | null): string {
   if (!email) return ''
+  /* v8 ignore next -- defensive: String.split always yields at least one element */
   const local = email.split('@')[0] ?? ''
   return local
     .replace(/[._-]+/g, ' ')
@@ -76,6 +77,7 @@ export function parseNotes(notes?: string | null): { photoUrls: string[]; text: 
 export function avatarInitials(name: string): { initials: string; hue: number } {
   const safe = (name || 'Receiver').replace(/[^a-zA-Z ]/g, ' ').trim() || 'Receiver'
   const parts = safe.split(/\s+/).filter(Boolean)
+  /* v8 ignore next -- defensive: `safe` is never empty, so parts[0][0] and the 'R' fallback can't be reached */
   const initials = ((parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '')).toUpperCase() || 'R'
   let hash = 0
   for (let i = 0; i < safe.length; i++) hash = (hash * 31 + safe.charCodeAt(i)) | 0

@@ -364,7 +364,24 @@ export async function loadPackages(
       query = query.is('deleted_at', null)
     }
 
-    if (filters?.status) {
+    if (filters?.companyId) {
+      // Scope to a company: packages whose receiver_id is one of the company's
+      // receiver profiles. Fetch the ids first (PostgREST has no subquery filter).
+      const { data: rcv } = await supabase
+        .from('receiver_profiles')
+        .select('id')
+        .eq('company_id', filters.companyId)
+      const ids = (rcv ?? []).map((r) => (r as { id: string }).id)
+      // Empty → a sentinel that matches nothing (no packages for this company).
+      query = query.in('receiver_id', ids.length > 0 ? ids : ['00000000-0000-0000-0000-000000000000'])
+    }
+
+    if (filters?.status === PACKAGE_STATUS.DELIVERED) {
+      // `delivered` is NOT a value of the package_status enum — querying it
+      // errors. It's a display distinction: a `collected` order that carries a
+      // delivery-photo marker (a driver delivery). Translate the filter to that.
+      query = query.eq('status', PACKAGE_STATUS.COLLECTED).ilike('notes', '%delivery photo%')
+    } else if (filters?.status) {
       query = query.eq('status', filters.status)
     }
 
@@ -832,7 +849,7 @@ export async function receiveAtCollection(
  * which will re-deduct stock (and may push it negative if other orders
  * have since consumed it).
  *
- * Only the privileged "order deleter" account may call this method.
+ * Only admin staff may call this method — enforced server-side by the RPC (is_order_admin).
  * Returns the soft-deleted package on success along with the number of
  * inventory items that were returned for context in the confirmation toast.
  */
@@ -906,7 +923,7 @@ export async function deletePackageWithInventoryReturn(id: string): Promise<{
  * orders the deduction will push inventory negative — this is surfaced
  * as a warning rather than blocking the restore.
  *
- * Only the privileged "order deleter" account may call this method.
+ * Only admin staff may call this method — enforced server-side by the RPC (is_order_admin).
  */
 export async function restorePackage(id: string): Promise<{
   success: boolean

@@ -6,8 +6,11 @@ import type { Package } from '@/lib/models/package'
 // Types (ported from core/models/driver.models.ts + staff-profile.model.ts)
 // ============================================================================
 
+// Kept in sync with the same-named union in `@/lib/api/staff` — every value the
+// DB `staff_role` enum can hold. Both are structurally identical.
 export type StaffRole =
   | 'admin'
+  | 'warehouse'
   | 'manager'
   | 'driver'
   | 'staff'

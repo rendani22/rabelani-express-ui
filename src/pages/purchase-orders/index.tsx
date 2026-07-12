@@ -4,7 +4,10 @@ import { AlertCircle, ClipboardList, Plus, RefreshCw, Search, X } from 'lucide-r
 import type { PurchaseOrderFilters } from '@/lib/api/purchase-orders'
 import { computePurchaseOrderStats, filterPurchaseOrders, loadPurchaseOrders } from '@/lib/api/purchase-orders'
 import { PageBody, PageHeader } from '@/components/layout/page-header'
+import { useAutoTour } from '@/hooks/use-auto-tour'
+import { useCompanies } from '@/hooks/use-dashboard'
 import { Button } from '@/components/ui/button'
+import { Combobox } from '@/components/ui/combobox'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
@@ -37,8 +40,10 @@ function StatTile({ label, value, sub, tone }: { label: string; value: number; s
 }
 
 export function PurchaseOrdersPage() {
+  useAutoTour('purchase-orders')
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState<StatusKey>('all')
+  const [company, setCompany] = useState('all')
   const [createOpen, setCreateOpen] = useState(false)
   const [editPo, setEditPo] = useState<string | null>(null)
   const [editOpen, setEditOpen] = useState(false)
@@ -48,9 +53,21 @@ export function PurchaseOrdersPage() {
     queryFn: loadPurchaseOrders,
   })
 
+  const companies = useCompanies()
+  const companyOptions = useMemo(
+    () => [
+      { value: 'all', label: 'All companies' },
+      ...(companies.data ?? []).map((c) => ({ value: c.id, label: c.name })),
+    ],
+    [companies.data],
+  )
+
   const orders = useMemo(() => data ?? [], [data])
   const stats = useMemo(() => computePurchaseOrderStats(orders), [orders])
-  const filtered = useMemo(() => filterPurchaseOrders(orders, { search, status }), [orders, search, status])
+  const filtered = useMemo(
+    () => filterPurchaseOrders(orders, { search, status, company }),
+    [orders, search, status, company],
+  )
 
   const openEdit = (poNumber: string) => {
     setEditPo(poNumber)
@@ -60,6 +77,7 @@ export function PurchaseOrdersPage() {
   const clearFilters = () => {
     setSearch('')
     setStatus('all')
+    setCompany('all')
   }
 
   return (
@@ -73,7 +91,7 @@ export function PurchaseOrdersPage() {
             <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
               <RefreshCw className={isFetching ? 'animate-spin' : ''} /> Refresh
             </Button>
-            <Button size="sm" onClick={() => setCreateOpen(true)}>
+            <Button size="sm" onClick={() => setCreateOpen(true)} data-tour="po-create">
               <Plus /> Create PO
             </Button>
           </>
@@ -81,7 +99,7 @@ export function PurchaseOrdersPage() {
       />
 
       {/* stats */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+      <div data-tour="po-stats" className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
         <StatTile label="Total POs" value={stats.totalPOs} sub="All time" />
         <StatTile label="In progress" value={stats.activePOs} sub="Active POs" tone="chart-2" />
         <StatTile label="Completed" value={stats.completedPOs} sub="Fulfilled" tone="success" />
@@ -92,7 +110,7 @@ export function PurchaseOrdersPage() {
 
       {/* filters */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative min-w-0 flex-1 sm:max-w-md">
+        <div data-tour="po-search" className="relative min-w-0 flex-1 sm:max-w-md">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Search PO, order ref, receiver, inventory…"
@@ -110,7 +128,16 @@ export function PurchaseOrdersPage() {
             </button>
           )}
         </div>
-        <div className="flex shrink-0 rounded-md border p-0.5">
+        <div className="w-full shrink-0 sm:w-[210px]">
+          <Combobox
+            options={companyOptions}
+            value={company}
+            onChange={setCompany}
+            placeholder="All companies"
+            searchPlaceholder="Filter companies…"
+          />
+        </div>
+        <div data-tour="po-status" className="flex shrink-0 rounded-md border p-0.5">
           {STATUS_TABS.map((t) => (
             <button
               key={t.key}
@@ -147,20 +174,20 @@ export function PurchaseOrdersPage() {
           <span className="flex size-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
             <ClipboardList className="size-6" />
           </span>
-          <p className="text-sm font-medium">{search || status !== 'all' ? 'No results found' : 'No purchase orders yet'}</p>
+          <p className="text-sm font-medium">{search || status !== 'all' || company !== 'all' ? 'No results found' : 'No purchase orders yet'}</p>
           <p className="max-w-sm text-sm text-muted-foreground">
-            {search || status !== 'all'
+            {search || status !== 'all' || company !== 'all'
               ? 'Try adjusting your search or filters.'
               : 'Purchase orders appear here once created. Use Create PO to add your first.'}
           </p>
-          {(search || status !== 'all') && (
+          {(search || status !== 'all' || company !== 'all') && (
             <Button variant="outline" size="sm" onClick={clearFilters}>
               <X /> Clear filters
             </Button>
           )}
         </div>
       ) : (
-        <div className="flex flex-col gap-3">
+        <div data-tour="po-list" className="flex flex-col gap-3">
           {filtered.map((po) => (
             <PoCard key={po.poNumber} po={po} onEdit={openEdit} />
           ))}

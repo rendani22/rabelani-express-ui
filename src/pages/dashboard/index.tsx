@@ -1,11 +1,16 @@
+import { useMemo, useState } from 'react'
 import { AlertCircle, RefreshCw } from 'lucide-react'
 import { PageBody, PageHeader } from '@/components/layout/page-header'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
+import { Combobox } from '@/components/ui/combobox'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useOperationsDashboard } from '@/hooks/use-dashboard'
+import { useCompanies, useOperationsDashboard } from '@/hooks/use-dashboard'
+import { useAutoTour } from '@/hooks/use-auto-tour'
 import { OperationsDashboard } from './operations-dashboard'
 import { ExecutiveDashboard } from './executive-dashboard'
+
+const ALL_COMPANIES = 'all'
 
 function DashboardSkeleton() {
   return (
@@ -37,23 +42,53 @@ function ErrorState({ message, onRetry }: { message: string; onRetry: () => void
 }
 
 export function DashboardPage() {
-  const ops = useOperationsDashboard()
+  useAutoTour('dashboard')
+  const [company, setCompany] = useState<string>(ALL_COMPANIES)
+  const companyId = company === ALL_COMPANIES ? null : company
+  const companyScoped = companyId !== null
+
+  const companies = useCompanies()
+  const ops = useOperationsDashboard(companyId)
+
+  const companyOptions = useMemo(
+    () => [
+      { value: ALL_COMPANIES, label: 'All companies' },
+      ...(companies.data ?? []).map((c) => ({ value: c.id, label: c.name })),
+    ],
+    [companies.data],
+  )
 
   return (
     <PageBody>
       <PageHeader
         eyebrow="Overview"
         title="Dashboard"
-        description="Live operational picture of the dispatch network."
+        description={
+          companyScoped
+            ? 'Orders and revenue for the selected company. Network-wide resources (drivers, inventory) are hidden.'
+            : 'Live operational picture of the dispatch network.'
+        }
+        tourId="dashboard-title"
         actions={
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => ops.refetch()}
-            disabled={ops.isFetching}
-          >
-            <RefreshCw className={ops.isFetching ? 'animate-spin' : ''} /> Refresh
-          </Button>
+          <>
+            <div className="w-[210px]">
+              <Combobox
+                options={companyOptions}
+                value={company}
+                onChange={setCompany}
+                placeholder="All companies"
+                searchPlaceholder="Filter companies…"
+              />
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => ops.refetch()}
+              disabled={ops.isFetching}
+            >
+              <RefreshCw className={ops.isFetching ? 'animate-spin' : ''} /> Refresh
+            </Button>
+          </>
         }
       />
 
@@ -69,12 +104,12 @@ export function DashboardPage() {
           ) : ops.isError ? (
             <ErrorState message={(ops.error as Error)?.message ?? 'Unknown error'} onRetry={() => ops.refetch()} />
           ) : ops.data ? (
-            <OperationsDashboard data={ops.data} />
+            <OperationsDashboard data={ops.data} companyScoped={companyScoped} />
           ) : null}
         </TabsContent>
 
         <TabsContent value="executive">
-          <ExecutiveDashboard />
+          <ExecutiveDashboard companyId={companyId} />
         </TabsContent>
       </Tabs>
     </PageBody>

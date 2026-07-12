@@ -1,6 +1,11 @@
 import { supabase } from '@/lib/supabase'
 
-export type StaffRole = 'admin' | 'driver' | 'collection' | string
+/** The DB `staff_role` enum — these are the ONLY valid values. */
+// Every value the DB `staff_role` enum can hold after all migrations (base
+// admin/warehouse/driver/collection + the manager/staff/viewer added later).
+// The Users dialog only *offers* a subset; this type must still represent any
+// stored value so existing rows read cleanly.
+export type StaffRole = 'admin' | 'warehouse' | 'manager' | 'driver' | 'staff' | 'viewer' | 'collection'
 
 export interface StaffProfile {
   id: string
@@ -64,7 +69,6 @@ export interface CreateStaffProfileDto {
   full_name: string
   role: StaffRole
   phone?: string
-  department?: string
   avatar_url?: string
 }
 
@@ -74,7 +78,6 @@ export interface UpdateStaffProfileDto {
   role?: StaffRole
   is_active?: boolean
   phone?: string
-  department?: string
   avatar_url?: string
 }
 

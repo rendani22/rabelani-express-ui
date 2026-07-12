@@ -149,6 +149,8 @@ export interface PackageFilters {
   readonly page?: number
   /** Page size for server-side pagination. */
   readonly pageSize?: number
+  /** Scope to packages whose receiver belongs to this company (receiver_profiles.company_id). */
+  readonly companyId?: string
 }
 
 // ============================================================================
@@ -184,10 +186,12 @@ export interface Package {
   readonly po_number?: string | null
   /** auth.users.id of the driver currently assigned to this package, if any */
   readonly picked_up_by?: string | null
+  /** true once a customer has requested a reschedule (persists; never clears) */
+  readonly reschedule_requested?: boolean
   /**
    * ISO timestamp the package was soft-deleted. `null` for live orders.
    * Soft-deleted rows are hidden from the standard order list and most
-   * dashboard queries; only the privileged "order deleter" account can see
+   * dashboard queries; only admin staff can see
    * them via the dedicated "Deleted orders" view.
    */
   readonly deleted_at?: string | null

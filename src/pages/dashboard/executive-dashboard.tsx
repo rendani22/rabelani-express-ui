@@ -397,8 +397,8 @@ function ExecutiveContent({ data }: { data: ExecutiveDashboardData }) {
 }
 
 /* ── entry ── */
-export function ExecutiveDashboard() {
-  const exec = useExecutiveDashboard()
+export function ExecutiveDashboard({ companyId }: { companyId?: string | null }) {
+  const exec = useExecutiveDashboard(companyId)
 
   if (exec.isLoading) {
     return (

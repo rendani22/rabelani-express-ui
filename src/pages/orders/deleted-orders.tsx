@@ -8,12 +8,14 @@ import { fetchDeletedOrders } from '@/lib/api/orders'
 import { reportError } from '@/lib/logger'
 import { PageBody, PageHeader } from '@/components/layout/page-header'
 import { Button } from '@/components/ui/button'
+import { useConfirm } from '@/components/ui/confirm-dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatusStamp, TrackingNumber } from '@/components/dispatch'
 import { ReceiverAvatar } from '@/components/dispatch/receiver-avatar'
 import { formatDateTime, nameFromEmail } from '@/lib/format'
 
 function RestoreButton({ pkg, onDone }: { pkg: Package; onDone: () => void }) {
+  const confirm = useConfirm()
   const restore = useMutation({
     mutationFn: () => restorePackage(pkg.id),
     onSuccess: (res) => {
@@ -31,10 +33,13 @@ function RestoreButton({ pkg, onDone }: { pkg: Package; onDone: () => void }) {
       variant="outline"
       size="sm"
       disabled={restore.isPending}
-      onClick={() => {
-        if (confirm(`Restore order ${pkg.reference}? Linked inventory stock will be re-deducted.`)) {
-          restore.mutate()
-        }
+      onClick={async () => {
+        const ok = await confirm({
+          title: 'Restore order?',
+          description: `Order ${pkg.reference} will return to the active orders, and its linked inventory stock will be re-deducted.`,
+          confirmText: 'Restore order',
+        })
+        if (ok) restore.mutate()
       }}
     >
       {restore.isPending ? <Loader2 className="animate-spin" /> : <RotateCcw />} Restore

@@ -89,7 +89,10 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 /** Sticky desktop sidebar column. */
 export function DesktopSidebar() {
   return (
-    <aside className="sticky top-0 hidden h-svh w-[248px] shrink-0 border-r lg:block">
+    <aside
+      data-tour="sidebar"
+      className="sticky top-0 hidden h-svh w-[248px] shrink-0 border-r lg:block"
+    >
       <SidebarContent />
     </aside>
   )
