@@ -7,11 +7,31 @@ import { PodDocument } from '@/pages/orders/pod-document'
  * html2canvas-pro understands Tailwind v4's oklch() colours (plain html2canvas
  * throws on them). Shared by the single-POD dialog and the bulk zip export.
  */
+/**
+ * html2canvas rasterises whatever has painted *now*, so any image that has not
+ * finished loading (the remote Rabelani MM logo in the POD header) would come
+ * out blank. Wait for every <img> to settle first; a failed one resolves rather
+ * than rejects, so a logo that 404s costs us the mark, not the whole PDF.
+ */
+async function waitForImages(node: HTMLElement): Promise<void> {
+  const pending = [...node.querySelectorAll('img')]
+    .filter((img) => !img.complete)
+    .map(
+      (img) =>
+        new Promise<void>((resolve) => {
+          img.addEventListener('load', () => resolve(), { once: true })
+          img.addEventListener('error', () => resolve(), { once: true })
+        }),
+    )
+  await Promise.all(pending)
+}
+
 export async function nodeToPdfBlob(node: HTMLElement): Promise<Blob> {
   const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
     import('html2canvas-pro'),
     import('jspdf'),
   ])
+  await waitForImages(node)
   const canvas = await html2canvas(node, { scale: 2, useCORS: true, backgroundColor: '#ffffff' })
   const imgData = canvas.toDataURL('image/jpeg', 0.98)
   const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' })

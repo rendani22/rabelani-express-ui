@@ -9,6 +9,9 @@ import { logger } from '@/lib/logger'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 
+/** The Rabelani MM mark, served from the company site — the same asset the email templates use. */
+const POD_LOGO_URL = 'https://www.rabelanimm.co.za/images/logo.png'
+
 function completionStatus(pkg: Package, pod: PodRecord): string {
   if (/delivery photo/i.test(pkg.notes ?? '')) return 'Delivered'
   if (pod.completion_status) return pod.completion_status
@@ -90,8 +93,15 @@ export function PodDocument({ pkg, pod }: { pkg: Package; pod: PodRecord }) {
       {/* header */}
       <header className="mb-6 flex items-start justify-between border-b-2 border-gray-900 pb-5">
         <div>
+          {/* Same mark the email templates use, served CORS-open from the company
+              site so html2canvas ({ useCORS: true }) can rasterise it into the PDF. */}
+          <img
+            src={POD_LOGO_URL}
+            alt="Rabelani MM Trading Enterprise"
+            crossOrigin="anonymous"
+            className="mb-3 h-12 w-auto"
+          />
           <h1 className="text-3xl font-bold tracking-tight">PROOF OF DELIVERY</h1>
-          <p className="mt-1 text-sm text-gray-600">Rabelani Express</p>
         </div>
         <div className="text-right">
           <p className="text-xs uppercase tracking-wide text-gray-500">Purchase Order · Reference</p>
