@@ -1,5 +1,16 @@
 import { useNavigate } from 'react-router-dom'
-import { CalendarDays, CheckCircle2, Clock, FileSignature, Inbox, Package, Truck, Users } from 'lucide-react'
+import {
+  CalendarDays,
+  CheckCircle2,
+  Clock,
+  Download,
+  FileSignature,
+  Inbox,
+  Loader2,
+  Package,
+  Truck,
+  Users,
+} from 'lucide-react'
 import type {
   DriverPerformance,
   DriverStats,
@@ -18,6 +29,8 @@ import type {
 import { DashboardCard } from '@/components/dashboard/dashboard-card'
 import { DonutChart, HorizontalBars, TrendAreaChart, VolumeBarChart } from '@/components/dashboard/charts'
 import { StatusStamp } from '@/components/dispatch'
+import { Button } from '@/components/ui/button'
+import { useDownloadSlaBreaches } from '@/hooks/use-dashboard'
 import { statusColor } from '@/lib/chart'
 import { cn } from '@/lib/utils'
 
@@ -242,29 +255,46 @@ function CycleTime({ m }: { m: LifecycleMetrics }) {
 }
 
 /* ── SLA alerts ── */
-function StuckList({ items, onClick }: { items: StuckPackage[]; onClick: (s: StuckPackage) => void }) {
+function StuckList({
+  items,
+  total,
+  onClick,
+}: {
+  items: StuckPackage[]
+  /** Full breach count — `items` is only the worst 10. */
+  total: number
+  onClick: (s: StuckPackage) => void
+}) {
   if (!items.length)
     return <p className="py-8 text-center text-sm text-muted-foreground">No SLA breaches — all moving.</p>
   return (
-    <ul className="flex flex-col divide-y">
-      {items.map((s) => (
-        <li key={s.id}>
-          <button
-            onClick={() => onClick(s)}
-            className="flex w-full items-center gap-3 py-2.5 text-left transition-colors hover:bg-accent/50"
-          >
-            <div className="flex min-w-0 flex-1 flex-col gap-1">
-              <span className="mono truncate text-[0.8125rem]">{s.reference}</span>
-              <span className="truncate text-xs text-muted-foreground">{s.receiverEmail}</span>
-            </div>
-            <StatusStamp status={s.status} />
-            <span className="tabular w-16 shrink-0 text-right text-sm font-semibold text-destructive">
-              {fmtHours(s.hoursStuck)}
-            </span>
-          </button>
-        </li>
-      ))}
-    </ul>
+    <div className="flex flex-col gap-3">
+      <ul className="flex flex-col divide-y">
+        {items.map((s) => (
+          <li key={s.id}>
+            <button
+              onClick={() => onClick(s)}
+              className="flex w-full items-center gap-3 py-2.5 text-left transition-colors hover:bg-accent/50"
+            >
+              <div className="flex min-w-0 flex-1 flex-col gap-1">
+                <span className="mono truncate text-[0.8125rem]">{s.reference}</span>
+                <span className="truncate text-xs text-muted-foreground">{s.receiverEmail}</span>
+              </div>
+              <StatusStamp status={s.status} />
+              <span className="tabular w-16 shrink-0 text-right text-sm font-semibold text-destructive">
+                {fmtHours(s.hoursStuck)}
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+
+      {total > items.length && (
+        <p className="text-xs text-muted-foreground">
+          Showing the worst {num(items.length)} of {num(total)} breaches — download for the full list.
+        </p>
+      )}
+    </div>
   )
 }
 
@@ -398,13 +428,20 @@ function TimelineSummary({ stats, drivers }: { stats: PackageStats; drivers: Dri
 /* ── page ── */
 export function OperationsDashboard({
   data,
+  companyId,
+  companyName,
   companyScoped,
 }: {
   data: OperationsDashboardData
+  /** Scopes the SLA export to one company; null = the whole network. */
+  companyId?: string | null
+  /** Used to name the exported file. */
+  companyName?: string | null
   /** When scoped to a company, hide network-wide cards (driver roster, POD, inventory). */
   companyScoped?: boolean
 }) {
   const navigate = useNavigate()
+  const download = useDownloadSlaBreaches(companyId, companyName)
 
   const weekly: TimeSeriesDataPoint[] = data.weeklyTimeSeries
   const monthly: TimeSeriesDataPoint[] = data.monthlyTimeSeries
@@ -451,8 +488,27 @@ export function OperationsDashboard({
       <DashboardCard title="Cycle-Time Insights" className="lg:col-span-6">
         <CycleTime m={data.lifecycleMetrics} />
       </DashboardCard>
-      <DashboardCard title="SLA Alerts" className="lg:col-span-6">
-        <StuckList items={data.stuckPackages} onClick={(s) => navigate(`/orders?id=${s.id}`)} />
+      <DashboardCard
+        title="SLA Alerts"
+        eyebrow="Live — all open orders"
+        className="lg:col-span-6"
+        action={
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => download.mutate()}
+            disabled={download.isPending || data.stuckTotal === 0}
+          >
+            {download.isPending ? <Loader2 className="animate-spin" /> : <Download />}
+            Download
+          </Button>
+        }
+      >
+        <StuckList
+          items={data.stuckPackages}
+          total={data.stuckTotal}
+          onClick={(s) => navigate(`/orders?id=${s.id}`)}
+        />
       </DashboardCard>
 
       {/* driver perf + top items */}

@@ -264,7 +264,10 @@ interface DashboardOpsPayload {
     avgReceiveToCollectHours: number | null
     completedSampleSize: number
   }
+  /** The worst 10 breaches only — count with `stuckTotal`, never `.length`. */
   stuckPackages: Array<{ id: string }>
+  /** True number of packages past their SLA threshold. */
+  stuckTotal: number
   inventoryHealth: {
     totalValue: number
     lowStock: number
@@ -842,7 +845,7 @@ function buildScorecard(m: ExecutiveMetricsPayload, ops: DashboardOpsPayload | n
   })
 
   // 4. Revenue at risk — orders past their SLA threshold.
-  const stuck = ops?.stuckPackages?.length ?? 0
+  const stuck = ops?.stuckTotal ?? 0
   tiles.push({
     key: 'risk',
     label: 'Revenue at Risk',
@@ -1006,7 +1009,7 @@ function buildPeriodBriefing(
 
   // The single most important watch item, in priority order. A steep revenue
   // fall is period-specific and ranks above standing concentration risk.
-  const stuck = ops?.stuckPackages?.length ?? 0
+  const stuck = ops?.stuckTotal ?? 0
   const outOfStock = ops?.inventoryHealth?.outOfStock ?? 0
   const ret = returns
 

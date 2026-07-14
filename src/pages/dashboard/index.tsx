@@ -58,6 +58,11 @@ export function DashboardPage() {
     [companies.data],
   )
 
+  const companyName = useMemo(
+    () => (companyId ? ((companies.data ?? []).find((c) => c.id === companyId)?.name ?? null) : null),
+    [companies.data, companyId],
+  )
+
   return (
     <PageBody>
       <PageHeader
@@ -104,7 +109,12 @@ export function DashboardPage() {
           ) : ops.isError ? (
             <ErrorState message={(ops.error as Error)?.message ?? 'Unknown error'} onRetry={() => ops.refetch()} />
           ) : ops.data ? (
-            <OperationsDashboard data={ops.data} companyScoped={companyScoped} />
+            <OperationsDashboard
+              data={ops.data}
+              companyId={companyId}
+              companyName={companyName}
+              companyScoped={companyScoped}
+            />
           ) : null}
         </TabsContent>
 

@@ -162,6 +162,21 @@ export interface StuckPackage {
   receiverEmail: string
 }
 
+/**
+ * A breaching package with the contact and timing detail needed to work the
+ * list — the export shape, from the uncapped `get_sla_breaches` RPC. The
+ * dashboard's `stuckPackages` is the same set, truncated to the worst 10.
+ */
+export interface SlaBreach extends StuckPackage {
+  /** From receiver_profiles; null when the package has no linked profile. */
+  receiverName: string | null
+  receiverPhone: string | null
+  /** hoursStuck − thresholdHours: how far past the SLA this order actually is. */
+  hoursOverdue: number
+  createdAt: string
+  updatedAt: string
+}
+
 /** Inventory health snapshot for the dashboard. */
 export interface InventoryHealth {
   totalItems: number
@@ -220,6 +235,8 @@ interface DashboardMetricsPayload {
   driverPerformance: DriverPerformance[]
   lifecycleMetrics: LifecycleMetrics
   stuckPackages: Array<Omit<StuckPackage, 'statusLabel'>>
+  /** True count of breaching packages — `stuckPackages` is capped at 10. */
+  stuckTotal: number
   driverStats: DriverStats
   podStats: PodStats
   locationDistribution: LocationDistribution[]
@@ -244,7 +261,10 @@ export interface OperationsDashboardData {
   topReceivers: TopReceiver[]
   driverPerformance: DriverPerformance[]
   lifecycleMetrics: LifecycleMetrics
+  /** The worst 10 breaches — the SLA card's list. */
   stuckPackages: StuckPackage[]
+  /** How many breaches there are in total; `stuckPackages.length` is capped at 10. */
+  stuckTotal: number
   inventoryHealth: InventoryHealth
   topShippedItems: TopShippedItem[]
   hourlyHeatmap: HourlyHeatmap
@@ -327,6 +347,7 @@ function emptyDashboard(): OperationsDashboardData {
     driverPerformance: [],
     lifecycleMetrics: EMPTY_LIFECYCLE,
     stuckPackages: [],
+    stuckTotal: 0,
     inventoryHealth: EMPTY_INVENTORY,
     topShippedItems: [],
     hourlyHeatmap: emptyHeatmap(),
@@ -376,6 +397,29 @@ export async function fetchOperationsDashboard(
   }
 }
 
+/**
+ * Every package currently past its SLA threshold — the full list behind the
+ * dashboard's top-10 card, for the CSV export.
+ *
+ * No date range: a breach is measured from `updated_at` against now(), so it is
+ * always "as of this moment". Company scope still applies. Unlike
+ * `fetchOperationsDashboard` this throws on failure, because it is called from a
+ * user-initiated download that must surface an error rather than silently hand
+ * back an empty file.
+ */
+export async function fetchSlaBreaches(companyId?: string | null): Promise<SlaBreach[]> {
+  const { data, error } = await supabase.rpc('get_sla_breaches', {
+    p_company_id: companyId ?? null,
+  })
+
+  if (error) {
+    logger.error(error, { op: 'operationsDashboard.get_sla_breaches' })
+    throw error
+  }
+
+  return buildStuckPackages((data ?? []) as Array<Omit<SlaBreach, 'statusLabel'>>)
+}
+
 /** Maps the RPC payload onto the presentation bundle (port of `applyMetrics`). */
 function mapMetrics(m: DashboardMetricsPayload): OperationsDashboardData {
   return {
@@ -389,6 +433,8 @@ function mapMetrics(m: DashboardMetricsPayload): OperationsDashboardData {
     driverPerformance: m.driverPerformance ?? [],
     lifecycleMetrics: m.lifecycleMetrics,
     stuckPackages: buildStuckPackages(m.stuckPackages),
+    // Falls back to the (capped) list length if the RPC predates stuckTotal.
+    stuckTotal: m.stuckTotal ?? m.stuckPackages?.length ?? 0,
     driverStats: {
       ...m.driverStats,
       drivers: (m.driverStats?.drivers ?? []) as StaffProfile[],
@@ -506,7 +552,10 @@ function buildHeatmap(
   return { counts, max, total }
 }
 
-function buildStuckPackages(rows: Array<Omit<StuckPackage, 'statusLabel'>>): StuckPackage[] {
+/** Adds the display label to any stuck/breaching row, preserving its extra fields. */
+function buildStuckPackages<T extends Omit<StuckPackage, 'statusLabel'>>(
+  rows: T[],
+): Array<T & { statusLabel: string }> {
   return (rows ?? []).map(r => ({
     ...r,
     statusLabel: getStatusLabel(r.status),
