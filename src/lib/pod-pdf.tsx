@@ -33,6 +33,22 @@ export async function nodeToPdfBlob(node: HTMLElement): Promise<Blob> {
 }
 
 /**
+ * Same document as {@link generatePodPdfBlob}, as raw base64 with no
+ * `data:` prefix — the shape `update-package` expects in `pod.pdf_base64`
+ * so it can attach the POD to the "Package Completed" email.
+ */
+export async function generatePodPdfBase64(pkg: Package, pod: PodRecord): Promise<string> {
+  const blob = await generatePodPdfBlob(pkg, pod)
+  const dataUrl: string = await new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = () => reject(reader.error ?? new Error('Could not read the POD PDF'))
+    reader.readAsDataURL(blob)
+  })
+  return dataUrl.slice(dataUrl.indexOf(',') + 1)
+}
+
+/**
  * Render `<PodDocument>` off-screen and produce its PDF blob. Used to generate
  * PODs client-side for the bulk zip export (PODs are not stored server-side).
  */

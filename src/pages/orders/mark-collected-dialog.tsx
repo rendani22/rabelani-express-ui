@@ -6,7 +6,8 @@ import type { MarkCollectedPayload, Package, PodParty } from '@/lib/models/packa
 import { PACKAGE_STATUS } from '@/lib/status'
 import { updatePackage } from '@/lib/api/packages'
 import { getCurrentStaffProfile } from '@/lib/api/staff'
-import { reportError } from '@/lib/logger'
+import { generatePodPdfBase64 } from '@/lib/pod-pdf'
+import { logger, reportError } from '@/lib/logger'
 import {
   Dialog,
   DialogContent,
@@ -104,11 +105,47 @@ export function MarkCollectedDialog({
         signature_data_url: sig,
       })
 
+      const collected_at = new Date().toISOString()
+
+      // The POD row doesn't exist until the edge function writes it, so render
+      // the document from what was just captured. Best-effort: a PDF failure
+      // must not block the completion — the email then goes without the POD.
+      let pdf_base64: string | undefined
+      try {
+        pdf_base64 = await generatePodPdfBase64(pkg!, {
+          id: '',
+          package_id: pkg!.id,
+          pod_reference: null,
+          is_locked: false,
+          locked_at: null,
+          receiver_name: receiver.name.trim(),
+          receiver_employee_number: receiver.employee_number.trim(),
+          receiver_phone: receiver.phone.trim(),
+          receiver_signature: rSig,
+          witness_name: witness.name.trim(),
+          witness_employee_number: witness.employee_number.trim(),
+          witness_phone: witness.phone.trim(),
+          witness_signature: wSig,
+          completed_at: collected_at,
+          completed_by: staff?.user_id ?? null,
+          staff_name: staff ? [staff.name, staff.surname].filter(Boolean).join(' ') || staff.email : null,
+          completion_status,
+        })
+      } catch (err) {
+        logger.warn(err, { op: 'orders.markCollected.pdf', reference: pkg!.reference })
+      }
+
       const pod: MarkCollectedPayload = {
         receiver: toParty(receiver, rSig),
         witness: toParty(witness, wSig),
-        collected_at: new Date().toISOString(),
+        collected_at,
         completion_status,
+        ...(pdf_base64
+          ? {
+              pdf_base64,
+              pdf_filename: `${pkg!.po_number ? `${pkg!.po_number}-` : ''}${pkg!.reference}.pdf`,
+            }
+          : {}),
       }
       return updatePackage(pkg!.id, { status: PACKAGE_STATUS.COLLECTED, pod })
     },
@@ -154,8 +191,8 @@ export function MarkCollectedDialog({
           <PartyFields legend="Receiver" value={receiver} onChange={setReceiver} sigRef={receiverSig} />
           <PartyFields legend="Witness" value={witness} onChange={setWitness} sigRef={witnessSig} />
           <p className="text-xs text-muted-foreground">
-            The receiver is emailed a completion notice on confirmation. (PDF attachment of the signed
-            POD is generated server-side in a later update.)
+            On confirmation the receiver is emailed a completion notice with the signed POD attached
+            as a PDF.
           </p>
         </div>
 
