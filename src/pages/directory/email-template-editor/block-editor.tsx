@@ -38,7 +38,7 @@ export function ConditionSelect({
   )
 }
 
-/** Editor for the coloured header band: title, colour, and gated sub-lines. */
+/** Editor for the masthead: document label, accent rule colour, and gated sub-lines. */
 export function BannerEditor({
   banner,
   catalog,
@@ -55,13 +55,13 @@ export function BannerEditor({
   return (
     <div className="flex flex-col gap-3 rounded-lg border bg-card p-3">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-muted-foreground">Header band</span>
+        <span className="text-xs font-medium text-muted-foreground">Masthead</span>
         <div className="flex items-center gap-2">
           <Label className="text-xs">Colour</Label>
           <input type="color" value={banner.bg} onChange={(e) => onChange({ ...banner, bg: e.target.value })} className="h-7 w-10 cursor-pointer rounded border bg-transparent" aria-label="Header colour" />
         </div>
       </div>
-      <TokenField label="Title" value={banner.title} onChange={(v) => onChange({ ...banner, title: v })} catalog={catalog} />
+      <TokenField label="Document label" value={banner.title} onChange={(v) => onChange({ ...banner, title: v })} catalog={catalog} />
       {banner.lines.map((l, i) => (
         <div key={i} className="flex flex-col gap-2 rounded-md border border-dashed p-2">
           <TokenField label={`Sub-line ${i + 1}`} value={l.text} onChange={(v) => setLine(i, v, l.showWhen)} catalog={catalog} />
@@ -114,6 +114,27 @@ export function BlockEditor({
       </div>
 
       <div className="flex flex-col gap-3 p-3">
+        {block.kind === 'reference_strip' && (
+          <>
+            <div className="flex items-end gap-2">
+              <div className="flex-1">
+                <TokenField label="Status chip" value={block.status} onChange={(v) => patch({ status: v })} catalog={catalog} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs">Colour</Label>
+                <input type="color" value={block.accent} onChange={(e) => patch({ accent: e.target.value })} className="h-8 w-10 cursor-pointer rounded border bg-transparent" aria-label="Status colour" />
+              </div>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-xs">Label</Label>
+              <Input value={block.label} onChange={(e) => patch({ label: e.target.value })} className="h-8 text-sm" />
+            </div>
+            <TokenField label="Value (shown large)" value={block.value} onChange={(v) => patch({ value: v })} catalog={catalog} />
+            <TokenField label="Meta line (optional)" value={block.meta ?? ''} onChange={(v) => patch({ meta: v || undefined })} catalog={catalog} />
+            <ConditionSelect catalog={catalog} value={block.metaShowWhen} onChange={(v) => patch({ metaShowWhen: v })} />
+          </>
+        )}
+
         {block.kind === 'heading' && (
           <>
             <TokenField label="Heading text" value={block.text} onChange={(v) => patch({ text: v })} catalog={catalog} />

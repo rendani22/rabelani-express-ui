@@ -33,6 +33,7 @@ export function isKnownTemplateKey(key: string): key is EmailTemplateKey {
 export type RichText = string
 
 export type BlockKind =
+  | 'reference_strip'
   | 'heading'
   | 'paragraph'
   | 'note'
@@ -44,6 +45,29 @@ export type BlockKind =
 interface BaseBlock {
   /** Stable id for React keys + reordering. */
   id: string
+}
+
+/**
+ * The waybill strip — the email's focal element, and the one block that only
+ * exists for this product. A status chip over the package reference set large
+ * in mono, on paper, closed by a tear-line: the depot slip a customer is handed
+ * at the counter. The reference is what they actually need when they arrive, so
+ * it leads the email rather than trailing a greeting.
+ */
+export interface ReferenceStripBlock extends BaseBlock {
+  kind: 'reference_strip'
+  /** Chip text, e.g. 'Ready for collection'. */
+  status: RichText
+  /** Chip background (hex). Cargo orange, or green once delivered. */
+  accent: string
+  /** Small label above the value, e.g. 'Package reference'. */
+  label: string
+  /** The large mono value — usually the `{{reference}}` token. */
+  value: RichText
+  /** Optional meta line below, e.g. 'Purchase order · {{po_number}}'. */
+  meta?: RichText
+  /** Variable name gating the meta line (e.g. `po_number`). */
+  metaShowWhen?: string
 }
 
 export interface HeadingBlock extends BaseBlock {
@@ -102,6 +126,7 @@ export interface HtmlBlock extends BaseBlock {
 }
 
 export type Block =
+  | ReferenceStripBlock
   | HeadingBlock
   | ParagraphBlock
   | NoteBlock
@@ -139,7 +164,18 @@ export interface TemplateDoc {
   footerReview?: boolean
 }
 
-export const DEFAULT_BANNER_BG = '#f75757'
+/**
+ * Cargo orange — the app's `--primary`, converted to hex because mail clients
+ * don't understand oklch(). Emails and the Dispatch console are one product and
+ * share one accent; the old coral (#f75757) belonged to neither.
+ */
+export const DEFAULT_BANNER_BG = '#ea6600'
+
+/**
+ * Reflective-sign green. Semantic, and reserved: it appears only when an order
+ * is actually delivered/completed — never as decoration.
+ */
+export const DELIVERED_ACCENT = '#3b9555'
 
 let idCounter = 0
 /** Stable-ish id: crypto.randomUUID when available, else a counter fallback. */
@@ -154,6 +190,17 @@ function newId(): string {
 export function makeBlock(kind: BlockKind): Block {
   const id = newId()
   switch (kind) {
+    case 'reference_strip':
+      return {
+        id,
+        kind,
+        status: 'Update',
+        accent: DEFAULT_BANNER_BG,
+        label: 'Package reference',
+        value: '{{reference}}',
+        meta: 'Purchase order · {{po_number}}',
+        metaShowWhen: 'po_number',
+      }
     case 'heading':
       return { id, kind, text: 'Heading', level: 3 }
     case 'paragraph':
@@ -183,6 +230,7 @@ export function makeBlock(kind: BlockKind): Block {
 
 /** Human labels for the "Add block" menu. */
 export const BLOCK_LABELS: Record<BlockKind, string> = {
+  reference_strip: 'Reference strip',
   heading: 'Heading',
   paragraph: 'Paragraph',
   note: 'Note / callout',

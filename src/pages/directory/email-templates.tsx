@@ -42,7 +42,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const invalidEmails = (csv: string) =>
   csv.split(',').map((s) => s.trim()).filter(Boolean).filter((e) => !EMAIL_RE.test(e))
 
-const ADD_ORDER: BlockKind[] = ['paragraph', 'heading', 'note', 'button', 'items_table', 'divider', 'html']
+const ADD_ORDER: BlockKind[] = ['paragraph', 'heading', 'note', 'reference_strip', 'button', 'items_table', 'divider', 'html']
 
 /** Parse a template row's `content` into a doc, falling back to its raw HTML. */
 function docFor(t: EmailTemplate): TemplateDoc {

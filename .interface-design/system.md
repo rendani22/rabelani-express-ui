@@ -76,7 +76,11 @@ in_transit→ready via edge fns), QR label dialog (qrcode.react), copy-ref, gate
 Orders CHUNK 2 done — create-package dialog (receiver/location/PO-lookup+dup-check/notes/items via
 inventory-select or PO-line allocation/draft toggle → createPackage), assign-driver dialog
 (updatePackage in_transit + driver_user_id), mark-collected POD dialog with dual signature capture
-(`SignaturePad` canvas → updatePackage collected + pod payload; PDF attachment deferred to server).
+(`SignaturePad` canvas → updatePackage collected + pod payload). The POD PDF is now ATTACHED to the
+"Package Completed" email: `mark-collected-dialog` renders the just-captured POD via
+`generatePodPdfBase64` (`src/lib/pod-pdf.tsx`) and sends `pod.pdf_base64` + `pdf_filename`
+(`<po>-<ref>.pdf`, the same formula `update-package` falls back to), which the edge fn hands to Resend.
+Best-effort: a PDF failure logs and still completes the order (the email just goes without it).
 Delete now admin-gated via `src/lib/api/staff.ts` (isCurrentUserAdmin, role==='admin'). Supporting
 services ported: `src/lib/api/{receivers,delivery-locations,inventory,drivers}.ts`.
 Orders CHUNK 3 done — completed-orders (`/orders/completed`: collected+delivered, date range, select +
@@ -245,6 +249,51 @@ Uptime logging: `src/lib/uptime.ts` `startUptimeReporting()` (called from `main.
 `session_end` on pagehide — each with `sessionId`, `uptimeMs`, `path`, `visibility`. Each ping flushes
 immediately (near-real-time liveness, not the 5-min batch). Cadence via `VITE_OPS_HEARTBEAT_MS` (default
 300000 = 5min; 0 disables).
+
+## Transactional emails — "the depot slip"
+
+The 5 transactional emails share the console's design language: the email a customer gets and the
+app the depot runs are one product. Everything lives in `src/lib/email/` (`blocks.ts` model,
+`compile.ts` renderer, `seed-content.ts` the 5 templates, `render.ts` the Mustache subset).
+
+**Direction:** the paper slip handed over at the collection counter. Warm paper, ink, one hi-vis
+cargo-orange accent, mono for the machine-readable values (reference, PO, qty, POD filename).
+
+**Signature — the waybill strip** (`reference_strip` block): status chip over the reference at
+26px/600 mono on paper `#fcfaf7`, closed by a dashed tear-line. It LEADS every email — the reference
+is what the customer needs at the counter, so it never trails a greeting. Chip: `6px 10px · 4px
+radius · 10px/700 uppercase · 0.1em`, accent bg + `#201308` ink (black-on-orange, hi-vis).
+
+**Palette (hex — mail clients can't parse oklch; these mirror `src/index.css`, change BOTH):**
+page `#f3f1ed` · card `#fffefd` · paper `#fcfaf7` · ink `#1f1915` · muted `#6e6762` · faint
+`#a49d97` · border `#e1ddda` · hairline `#f3f1ed` · **cargo orange `#ea6600`** · ink-on-orange
+`#201308` · **delivered green `#3b9555`**.
+
+- ONE accent (orange), ~10% of the surface. Green ONLY on `package_completed` — enforced by test.
+- Type: no web fonts survive mail clients → `'Helvetica Neue', Helvetica, Arial` + a
+  `ui-monospace, 'SF Mono', Menlo, Consolas` stack. Hierarchy from weight+size+colour, never size.
+  Section label = `10px/600 uppercase 0.14em muted`. Body `14px/1.6`. Focal value `26px/600 mono`.
+- Depth: hairlines + tonal fills, NO shadows. Radius 4 chips / 6 buttons+callouts / 10 card.
+  Gutter 28px, vertical rhythm 22–24px. Card `width:100%; max-width:600px` so it reflows on a phone.
+- Footer is deliberately QUIET (hairline, small print, 72px QR, review as a text link). It used to be
+  a dark slab whose 160px QR outweighed the content — do not let it grow back.
+
+**Rejected defaults (do not reintroduce):** centred coral hero band with a white headline; dark
+footer slab + pill CTA; coral `#f75757` (belonged to neither app nor brand); size-only hierarchy.
+
+**THREE COPIES, ONE SOURCE (the big gotcha):** the same HTML lives in the DB (`body_html`), the edge
+fallback (`supabase/functions/_shared/email-templates.ts`), and the editor's compiler. They drifted
+before — editor-saved templates silently dropped the footer and customers stopped receiving it. All
+three are now GENERATED from `compileBlocks(SEED_CONTENT[key])` and `src/lib/email/fidelity.test.ts`
+fails the build if any copy diverges byte-for-byte. Never hand-edit one copy: change the block seed,
+regenerate all three. Migration `20260714170000_email_depot_slip_redesign.sql` seeds `body_html` AND
+`content` (unlike 20260714120000, which cleared `content` so the editor opened raw HTML — the block
+model can now express the design, so templates open as editable blocks).
+
+Editor: `src/pages/directory/email-templates.tsx` + `email-template-editor/` (block editor, token
+field, preview pane). Preview gotcha: an iframe whose `srcdoc` is swapped while its initial (empty)
+document is still loading drops the navigation and renders BLANK — so `preview-pane.tsx` never mounts
+the iframe until there is content, and settles updates (200ms) instead of re-navigating per keystroke.
 
 ALL rewrite pages now DONE. Every route in `App.tsx` points to a real page (no PlaceholderPage left
 except any intentional stubs). Feature set complete: Login, Dashboard (ops+exec), Orders (+completed/
