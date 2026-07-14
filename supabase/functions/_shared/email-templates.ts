@@ -238,6 +238,49 @@ export function buildCommonVars(envGet: (k: string) => string | undefined): Ctx 
 // Mirrors the seeded HTML in the email_templates migration. Kept in sync by
 // the Email Templates admin page; if you edit one, edit both.
 
+// The brand footer shared by every fallback. Must stay identical to the footer
+// the editor compiles (src/lib/email/compile.ts → compileFooter) so a template
+// renders the same whether it comes from the DB or from here.
+//
+// `review` carries the QR + "Please Review Our Services" call-to-action. The
+// invite email passes false — an invited customer has not received a package to
+// review yet. Elsewhere the rows are gated on their vars, so an unset
+// REVIEW_FORM_URL drops them rather than emailing a broken image.
+function footerHtml(review: boolean): string {
+  const reviewRows = review
+    ? `
+                  {{#review_qr_code_url}}
+                  <div style="background: #ffffff; display: inline-block; padding: 14px; border-radius: 8px; margin: 0 0 14px 0;">
+                    <img src="{{review_qr_code_url}}" alt="Scan to review our services" width="160" height="160" style="display: block; width: 160px; height: 160px;" />
+                  </div>
+                  <p style="margin: 0 0 14px 0; font-size: 12px; color: #c9c9c9; letter-spacing: 0.04em;">
+                    Scan the QR code to review our services
+                  </p>
+                  {{/review_qr_code_url}}
+                  {{#review_form_url}}
+                  <a href="{{review_form_url}}" style="display: inline-block; padding: 12px 28px; background: #f75757; color: #ffffff; text-decoration: none; font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; border-radius: 50px;">
+                    Please Review Our Services
+                  </a>
+                  {{/review_form_url}}`
+    : ''
+
+  return `
+                <div style="background: #242424; padding: 28px 24px; border-radius: 0 0 8px 8px; text-align: center;">
+                  <p style="margin: 0 0 12px 0; font-size: 14px; color: #c9c9c9;">
+                    Questions? Contact us at <a href="mailto:{{support_email}}" style="color: #f75757; text-decoration: none; font-weight: 600;">{{support_email}}</a>
+                  </p>
+                  <p style="margin: 0 0 18px 0; font-size: 11px; color: #919194; line-height: 1.5;">
+                    This is an automated message from the POD System. Please do not reply directly to this email.
+                  </p>${reviewRows}
+                  <p style="margin: 18px 0 0 0; font-size: 11px; color: #666666;">
+                    &copy; {{current_year}} Rabelani MM Trading Enterprise &middot; <a href="https://www.rabelanimm.co.za/" style="color: #919194; text-decoration: none;">www.rabelanimm.co.za</a>
+                  </p>
+                </div>`
+}
+
+const FOOTER_HTML = footerHtml(true)
+const FOOTER_HTML_NO_REVIEW = footerHtml(false)
+
 // Role-aware welcome + set-password link — the single invite email sent by the
 // invite-customer function (Supabase sends nothing). Vars: {{name}},
 // {{company_name}}, {{action_link}} (set-password link), {{portal_url}}, and the
@@ -266,8 +309,8 @@ const CUSTOMER_INVITED_HTML = `
                     <a href="{{action_link}}" style="background:#f75757; color:#ffffff; text-decoration:none; padding:12px 22px; border-radius:6px; font-weight:600; display:inline-block;">Set your password</a>
                   </p>
                   <p style="color:#666; font-size:13px;">This link expires after a while — if it stops working, ask your administrator to re-send the invite.</p>
-                  <p style="color:#666; font-size:13px;">Questions? <a href="mailto:{{support_email}}" style="color:#f75757;">{{support_email}}</a></p>
                 </div>
+                ${FOOTER_HTML_NO_REVIEW}
               </body>
               </html>`
 
@@ -300,9 +343,7 @@ const REGISTERED_HTML = `
                   {{#location_address}}<p>{{location_address}}</p>{{/location_address}}
                   <p>Contact Number: {{collection_contact}}</p>
                 </div>
-                <div style="background: #242424; color: #ccc; padding: 16px; text-align: center;">
-                  Questions? <a href="mailto:{{support_email}}" style="color: #f75757;">{{support_email}}</a>
-                </div>
+                ${FOOTER_HTML}
               </body></html>`
 
 const READY_HTML = `
@@ -321,11 +362,21 @@ const READY_HTML = `
                     <tbody>{{#items}}<tr><td>{{quantity}}</td><td>{{description}}</td></tr>{{/items}}</tbody>
                   </table>
                   {{/has_items}}
-                  <p>Contact: {{collection_contact}}</p>
+                  <hr style="border: none; border-top: 1px solid #eeeeee; margin: 20px 0;">
+                  <h3 style="margin: 20px 0 8px; font-size: 16px;">📍 Delivery Point</h3>
+                  <p style="margin: 0 0 12px;"><strong>{{location_name}}</strong></p>
+                  {{#location_address}}<p style="margin: 0 0 12px;">{{location_address}}</p>{{/location_address}}
+                  <p style="margin: 0 0 12px;">Contact Number: {{collection_contact}}</p>
+                  <h3 style="margin: 20px 0 8px; font-size: 16px;">Collection Hours</h3>
+                  <p style="margin: 0 0 12px;">{{collection_hours_weekday}}</p>
+                  <p style="margin: 0 0 12px;">{{collection_hours_saturday}}</p>
+                  <p style="margin: 0 0 12px;">{{collection_hours_sunday}}</p>
+                  <p style="margin: 0 0 12px;">{{collection_hours_holidays}}</p>
+                  <h3 style="margin: 20px 0 8px; font-size: 16px;">What to bring when collecting</h3>
+                  <p style="margin: 0 0 12px;">&bull; Your PO reference number (shown above)</p>
+                  <p style="margin: 0 0 12px;">&bull; Valid Staff Employee Card for verification, and a Witness to sign with</p>
                 </div>
-                <div style="background:#242424; color:#ccc; padding: 16px; text-align:center;">
-                  <a href="mailto:{{support_email}}" style="color:#f75757;">{{support_email}}</a>
-                </div>
+                ${FOOTER_HTML}
               </body></html>`
 
 const COMPLETED_HTML = `
@@ -345,9 +396,7 @@ const COMPLETED_HTML = `
                   </table>
                   {{/has_items}}
                 </div>
-                <div style="background:#242424; color:#ccc; padding: 16px; text-align:center;">
-                  <a href="mailto:{{support_email}}" style="color:#f75757;">{{support_email}}</a>
-                </div>
+                ${FOOTER_HTML}
               </body></html>`
 
 const CONTENTS_UPDATED_HTML = `
@@ -379,9 +428,7 @@ const CONTENTS_UPDATED_HTML = `
                   {{#notes}}<h3>Notes</h3><p style="white-space: pre-wrap;">{{notes}}</p>{{/notes}}
                   <p>Thank you for your Order.</p>
                 </div>
-                <div style="background:#242424; color:#ccc; padding: 16px; text-align:center;">
-                  <a href="mailto:{{support_email}}" style="color:#f75757;">{{support_email}}</a>
-                </div>
+                ${FOOTER_HTML}
               </body></html>`
 
 export const FALLBACK_TEMPLATES: Record<EmailTemplateKey, EmailTemplate> = {

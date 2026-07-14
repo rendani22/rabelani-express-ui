@@ -8,8 +8,9 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
 interface CreateStaffRequest {
   email: string
   full_name: string
-  role: 'warehouse' | 'driver' | 'admin'
+  role: 'admin' | 'warehouse' | 'driver' | 'collection'
   phone?: string
+  department?: string
   password: string
 }
 
@@ -81,7 +82,7 @@ serve(async (req) => {
     }
 
     const body: CreateStaffRequest = await req.json()
-    const { email, full_name, role, phone, password } = body
+    const { email, full_name, role, phone, department, password } = body
 
     if (!email || !full_name || !role || !password) {
       return new Response(
@@ -135,6 +136,7 @@ serve(async (req) => {
         full_name,
         role,
         phone: phone || null,
+        department: department || null,
         created_by: callingUser.id
       })
       .select()

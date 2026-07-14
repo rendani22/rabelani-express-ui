@@ -34,14 +34,14 @@ export function UserDialog({
 }) {
   const qc = useQueryClient()
   const isEdit = !!user
-  const [form, setForm] = useState<{ full_name: string; email: string; password: string; role: StaffRole; phone: string }>({ full_name: '', email: '', password: '', role: DEFAULT_ROLE, phone: '' })
+  const [form, setForm] = useState<{ full_name: string; email: string; password: string; role: StaffRole; phone: string; department: string }>({ full_name: '', email: '', password: '', role: DEFAULT_ROLE, phone: '', department: '' })
 
   useEffect(() => {
     if (open) {
       setForm(
         user
-          ? { full_name: user.full_name ?? '', email: user.email ?? '', password: '', role: user.role ?? DEFAULT_ROLE, phone: user.phone ?? '' }
-          : { full_name: '', email: '', password: '', role: DEFAULT_ROLE, phone: '' },
+          ? { full_name: user.full_name ?? '', email: user.email ?? '', password: '', role: user.role ?? DEFAULT_ROLE, phone: user.phone ?? '', department: user.department ?? '' }
+          : { full_name: '', email: '', password: '', role: DEFAULT_ROLE, phone: '', department: '' },
       )
     }
   }, [open, user])
@@ -53,6 +53,7 @@ export function UserDialog({
           full_name: form.full_name.trim(),
           role: form.role as StaffRole,
           phone: form.phone.trim() || undefined,
+          department: form.department.trim() || undefined,
         })
       }
       return createStaff({
@@ -61,6 +62,7 @@ export function UserDialog({
         full_name: form.full_name.trim(),
         role: form.role as StaffRole,
         phone: form.phone.trim() || undefined,
+        department: form.department.trim() || undefined,
       })
     },
     onSuccess: () => {
@@ -107,9 +109,13 @@ export function UserDialog({
               searchPlaceholder="Search role…"
             />
           </div>
-          <div className="col-span-2 flex flex-col gap-1.5">
+          <div className="flex flex-col gap-1.5">
             <Label>Phone</Label>
             <Input value={form.phone} onChange={set('phone')} />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label>Department</Label>
+            <Input value={form.department} onChange={set('department')} />
           </div>
         </div>
         <DialogFooter>

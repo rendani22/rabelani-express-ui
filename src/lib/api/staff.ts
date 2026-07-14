@@ -69,6 +69,7 @@ export interface CreateStaffProfileDto {
   full_name: string
   role: StaffRole
   phone?: string
+  department?: string
   avatar_url?: string
 }
 
@@ -78,6 +79,7 @@ export interface UpdateStaffProfileDto {
   role?: StaffRole
   is_active?: boolean
   phone?: string
+  department?: string
   avatar_url?: string
 }
 
