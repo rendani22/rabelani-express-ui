@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { Download, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import podLogo from '@/assets/rabelani-mm-logo.png'
 import type { Package, PodRecord } from '@/lib/models/package'
 import { PACKAGE_STATUS } from '@/lib/status'
 import { statusMeta } from '@/lib/status'
@@ -8,9 +9,6 @@ import { formatDateTime, parseNotes } from '@/lib/format'
 import { logger } from '@/lib/logger'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-
-/** The Rabelani MM mark, served from the company site — the same asset the email templates use. */
-const POD_LOGO_URL = 'https://www.rabelanimm.co.za/images/logo.png'
 
 function completionStatus(pkg: Package, pod: PodRecord): string {
   if (/delivery photo/i.test(pkg.notes ?? '')) return 'Delivered'
@@ -93,14 +91,9 @@ export function PodDocument({ pkg, pod }: { pkg: Package; pod: PodRecord }) {
       {/* header */}
       <header className="mb-6 flex items-start justify-between border-b-2 border-gray-900 pb-5">
         <div>
-          {/* Same mark the email templates use, served CORS-open from the company
-              site so html2canvas ({ useCORS: true }) can rasterise it into the PDF. */}
-          <img
-            src={POD_LOGO_URL}
-            alt="Rabelani MM Trading Enterprise"
-            crossOrigin="anonymous"
-            className="mb-3 h-12 w-auto"
-          />
+          {/* Bundled, not hot-linked: html2canvas rasterises the DOM, so a same-origin
+              asset keeps the canvas untainted and the PDF renderable offline. */}
+          <img src={podLogo} alt="Rabelani MM Trading Enterprise" className="mb-3 h-12 w-auto" />
           <h1 className="text-3xl font-bold tracking-tight">PROOF OF DELIVERY</h1>
         </div>
         <div className="text-right">
