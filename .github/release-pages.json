@@ -1,0 +1,21 @@
+{
+  "$comment": "Frozen taxonomy of application pages for release-note grouping. When you add or rename a page, update this file IN THE SAME PR. The classifier may only assign a feature to one of these page names (or the reserved 'Under the hood' bucket). 'paths' are glob-ish prefixes used as a deterministic hint to the classifier and as the fallback when AI is unavailable. Order here is the order sections appear in the notes.",
+  "pages": [
+    { "name": "Dashboard", "paths": ["src/pages/dashboard", "src/hooks/use-dashboard", "src/lib/api/dashboard"] },
+    { "name": "Orders", "paths": ["src/pages/orders", "src/hooks/use-packages", "src/hooks/use-orders", "src/lib/api/packages", "supabase/functions/create-package", "supabase/functions/update-package"] },
+    { "name": "Proof of Delivery", "paths": ["src/pages/pods", "src/hooks/use-pod", "src/lib/api/pod", "supabase/functions/receive-at-collection"] },
+    { "name": "Purchase Orders", "paths": ["src/pages/purchase-orders", "src/hooks/use-purchase-orders", "src/lib/api/purchase-orders"] },
+    { "name": "Inventory", "paths": ["src/pages/inventory", "src/hooks/use-inventory", "src/lib/api/inventory"] },
+    { "name": "Drivers", "paths": ["src/pages/drivers", "src/hooks/use-drivers", "src/lib/api/drivers", "supabase/functions/driver-pickup"] },
+    { "name": "Customers", "paths": ["src/pages/directory/customers", "src/hooks/use-customers", "src/lib/api/customers", "src/hooks/use-receivers", "src/lib/api/receivers"] },
+    { "name": "User Management", "paths": ["src/pages/directory/users", "src/hooks/use-users", "src/hooks/use-staff", "src/lib/api/staff", "src/pages/accept-invite"] },
+    { "name": "Delivery Locations", "paths": ["src/pages/directory/locations", "src/hooks/use-locations", "src/lib/api/delivery-locations"] },
+    { "name": "Email Templates", "paths": ["src/pages/directory/email-templates", "src/hooks/use-email-templates", "src/lib/api/email-templates"] },
+    { "name": "Access Control", "paths": ["src/pages/access-control", "src/components/permission-route", "src/hooks/use-permissions", "src/lib/api/policies"] },
+    { "name": "Settings", "paths": ["src/pages/settings", "src/lib/settings-store"] },
+    { "name": "My Packages (Customer Portal)", "paths": ["src/pages/my-packages", "src/components/layout/customer-layout"] },
+    { "name": "Sign-in & Accounts", "paths": ["src/pages/login", "src/pages/reset-password", "src/lib/auth", "src/components/protected-route"] },
+    { "name": "Notifications", "paths": ["src/components/notifications", "src/hooks/use-notifications", "src/lib/api/notifications"] }
+  ],
+  "underTheHoodLabel": "Under the hood"
+}
