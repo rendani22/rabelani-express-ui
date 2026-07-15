@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { PermissionButton } from '@/components/dispatch/permission-button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -117,10 +118,10 @@ export function RestockDialog({
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={() => restock.mutate()} disabled={!valid || restock.isPending}>
+          <PermissionButton permission="inventory.restock" onClick={() => restock.mutate()} disabled={!valid || restock.isPending}>
             {restock.isPending && <Loader2 className="animate-spin" />}
             Add stock
-          </Button>
+          </PermissionButton>
         </DialogFooter>
       </DialogContent>
     </Dialog>

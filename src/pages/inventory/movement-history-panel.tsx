@@ -2,7 +2,7 @@ import { Download, History, Loader2, Package as PackageIcon, X } from 'lucide-re
 import type { InventoryItem } from '@/lib/api/inventory'
 import { useItemMovements } from '@/hooks/use-inventory'
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
-import { Button } from '@/components/ui/button'
+import { PermissionButton } from '@/components/dispatch/permission-button'
 import { formatDateTime } from '@/lib/format'
 import { downloadCsv, slugify, toCsv, yyyymmdd } from '@/lib/csv'
 import {
@@ -61,14 +61,15 @@ export function MovementHistoryPanel({
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-2">
-              <Button
+              <PermissionButton
+                permission="inventory.export"
                 variant="outline"
                 size="sm"
                 onClick={onExport}
                 disabled={isLoading || movements.length === 0}
               >
                 <Download /> CSV
-              </Button>
+              </PermissionButton>
               <SheetClose className="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 <X className="size-4" />
                 <span className="sr-only">Close</span>

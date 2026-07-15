@@ -185,14 +185,25 @@ serve(async (req) => {
       )
     }
 
-    // Drivers complete deliveries from the mobile app, so they must be able
-    // to call this function (e.g. to mark a package as `collected`). The
-    // remaining roles continue to manage other transitions.
-    if (!['warehouse', 'admin', 'collection', 'driver'].includes(callerProfile.role)) {
+    // Authorization is now the `orders.update` permission (see
+    // docs/access-control-policy-design.md).
+    //
+    // COMPATIBILITY FALLBACK: an active `driver` is allowed through even without
+    // the permission. Drivers complete deliveries from the native mobile app, and
+    // a wrong permission default here would strand them in the field with no way
+    // to mark a package collected. Remove this fallback — and the OR below —
+    // once the driver role's permission set has been verified against what the
+    // mobile app actually calls.
+    const { data: hasOrdersUpdate } = await userClient.rpc('has_permission', {
+      p_key: 'orders.update'
+    })
+    const isDriverFallback = callerProfile.is_active && callerProfile.role === 'driver'
+
+    if (!hasOrdersUpdate && !isDriverFallback) {
       return new Response(
         JSON.stringify({
           error: 'Insufficient permissions to update packages',
-          details: `User role is '${callerProfile.role}'`
+          details: `User role is '${callerProfile.role}' and lacks the 'orders.update' permission`
         }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )

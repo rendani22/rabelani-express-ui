@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { PermissionButton } from '@/components/dispatch/permission-button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -179,10 +180,10 @@ export function CreatePoDialog({ open, onOpenChange }: { open: boolean; onOpenCh
           <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={save.isPending}>
             Cancel
           </Button>
-          <Button onClick={() => save.mutate()} disabled={!valid || save.isPending}>
+          <PermissionButton permission="purchase_orders.create" onClick={() => save.mutate()} disabled={!valid || save.isPending}>
             {save.isPending && <Loader2 className="animate-spin" />}
             Create PO
-          </Button>
+          </PermissionButton>
         </DialogFooter>
       </DialogContent>
     </Dialog>

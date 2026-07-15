@@ -153,11 +153,15 @@ serve(async (req) => {
       )
     }
 
-    if (!['warehouse', 'admin'].includes(callerProfile.role)) {
+    const { data: canCreateOrders } = await userClient.rpc('has_permission', {
+      p_key: 'orders.create'
+    })
+
+    if (!canCreateOrders) {
       return new Response(
         JSON.stringify({
-          error: 'Only warehouse staff and admins can create packages',
-          details: `User role is '${callerProfile.role}'`
+          error: 'You do not have permission to create packages',
+          details: `User role is '${callerProfile.role}' and lacks the 'orders.create' permission`
         }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )

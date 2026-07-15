@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Eye, Loader2, Mail, Pencil, Plus, RefreshCw, RotateCcw, Save, Send } from 'lucide-react'
 import { listEmailTemplates, sendTestEmail, updateEmailTemplate, type EmailTemplate } from '@/lib/api/email-templates'
-import { isCurrentUserAdmin } from '@/lib/api/staff'
+import { usePermissions } from '@/hooks/use-permissions'
 import { useAuth } from '@/lib/auth'
 import { reportError } from '@/lib/logger'
 import {
@@ -61,7 +61,7 @@ export function EmailTemplatesPage() {
   const [bcc, setBcc] = useState('')
 
   const templates = useQuery({ queryKey: ['email-templates'], queryFn: listEmailTemplates })
-  const admin = useQuery({ queryKey: ['is-admin'], queryFn: isCurrentUserAdmin })
+  const { can } = usePermissions()
 
   const rows = templates.data ?? []
   const selected = useMemo(() => rows.find((t) => t.id === selectedId) ?? rows[0] ?? null, [rows, selectedId])
@@ -117,7 +117,8 @@ export function EmailTemplatesPage() {
     onError: (e) => toast.error(reportError(e, 'Could not send the test email.', { op: 'emailTemplates.test' })),
   })
 
-  const canEdit = admin.data === true
+  const canEdit = can('email_templates.edit')
+  const canSendTest = can('email.send_test')
   const badEmails = invalidEmails(cc).length > 0 || invalidEmails(bcc).length > 0
 
   // ---- block operations ----
@@ -293,7 +294,7 @@ export function EmailTemplatesPage() {
                         {selected.bcc?.length ? <p className="truncate"><span className="font-semibold">BCC:</span> <span className="mono text-xs">{selected.bcc.join(', ')}</span></p> : null}
                       </div>
                     ) : null}
-                    {canEdit && (
+                    {canSendTest && (
                       <div className="flex flex-wrap gap-2 border-t pt-3">
                         <Button variant="outline" size="sm" onClick={() => test.mutate()} disabled={test.isPending || !user?.email}>
                           {test.isPending ? <Loader2 className="animate-spin" /> : <Send className="size-4" />} Send test to my email
@@ -308,7 +309,7 @@ export function EmailTemplatesPage() {
               {/* live preview column */}
               <div className="xl:sticky xl:top-4 xl:self-start">
                 <PreviewPane subject={previewSubject} html={previewHtml} />
-                {mode === 'edit' && canEdit && (
+                {mode === 'edit' && canSendTest && (
                   <Button variant="outline" size="sm" className="mt-3" onClick={() => test.mutate()} disabled={test.isPending || !user?.email}>
                     {test.isPending ? <Loader2 className="animate-spin" /> : <Send className="size-4" />} Send test to my email
                   </Button>

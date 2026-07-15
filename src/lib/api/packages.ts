@@ -21,7 +21,6 @@ import { supabase } from '@/lib/supabase'
 import { config } from '@/lib/config'
 import { logger } from '@/lib/logger'
 import { PACKAGE_STATUS } from '@/lib/status'
-import { isCurrentUserAdmin } from '@/lib/api/staff'
 import type {
   Package,
   PackageFilters,
@@ -109,11 +108,21 @@ async function currentUserId(): Promise<string | null> {
 }
 
 /**
- * True when the currently authenticated user may delete orders.
- * Restricted to admin staff accounts (staff_profiles.role === 'admin').
+ * True when the currently authenticated user may soft-delete orders.
+ *
+ * Asks the database rather than inspecting the role, so per-user grants and
+ * denies are honoured. This is a courtesy check that produces a clean error —
+ * RLS and the soft_delete_package RPC reject the write regardless.
  */
 export async function canDeleteOrders(): Promise<boolean> {
-  return isCurrentUserAdmin()
+  const { data } = await supabase.rpc('has_permission', { p_key: 'orders.delete' })
+  return data === true
+}
+
+/** True when the user may PERMANENTLY delete an order (no undo, no stock return). */
+export async function canHardDeleteOrders(): Promise<boolean> {
+  const { data } = await supabase.rpc('has_permission', { p_key: 'orders.delete_hard' })
+  return data === true
 }
 
 /** Makes an authenticated call to a Supabase Edge Function. */
@@ -1035,6 +1044,10 @@ export async function loadDeletedPackages(): Promise<GetPackagesResult> {
 export async function deletePackage(
   id: string
 ): Promise<{ success: boolean; error?: string }> {
+  if (!(await canHardDeleteOrders())) {
+    return { success: false, error: 'You are not permitted to delete orders.' }
+  }
+
   try {
     const { error } = await supabase.from('packages').delete().eq('id', id)
 
@@ -1062,6 +1075,15 @@ export async function deletePackages(ids: readonly string[]): Promise<{
 }> {
   if (ids.length === 0) {
     return { success: true, deleted: 0, failed: 0 }
+  }
+
+  if (!(await canHardDeleteOrders())) {
+    return {
+      success: false,
+      deleted: 0,
+      failed: ids.length,
+      error: 'You are not permitted to delete orders.',
+    }
   }
 
   try {

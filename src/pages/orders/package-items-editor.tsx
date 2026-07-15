@@ -7,6 +7,7 @@ import { getPoRestrictedInventoryIds, updatePackage } from '@/lib/api/packages'
 import { listActiveInventoryItems } from '@/lib/api/inventory'
 import { reportError } from '@/lib/logger'
 import { Button } from '@/components/ui/button'
+import { PermissionButton } from '@/components/dispatch/permission-button'
 import { Input } from '@/components/ui/input'
 import { Combobox } from '@/components/ui/combobox'
 import { cn } from '@/lib/utils'
@@ -218,9 +219,9 @@ export function PackageItemsEditor({
         <Button variant="ghost" size="sm" onClick={onCancel} disabled={save.isPending}>
           <X /> Cancel
         </Button>
-        <Button size="sm" onClick={() => save.mutate()} disabled={!hasChanges || save.isPending}>
+        <PermissionButton permission="orders.update" size="sm" onClick={() => save.mutate()} disabled={!hasChanges || save.isPending}>
           {save.isPending ? <Loader2 className="animate-spin" /> : <Check />} Save items
-        </Button>
+        </PermissionButton>
       </div>
     </div>
   )

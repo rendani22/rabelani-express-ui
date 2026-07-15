@@ -8,7 +8,7 @@ import { statusMeta } from '@/lib/status'
 import { formatDateTime, parseNotes } from '@/lib/format'
 import { logger } from '@/lib/logger'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
+import { PermissionButton } from '@/components/dispatch/permission-button'
 
 function completionStatus(pkg: Package, pod: PodRecord): string {
   if (/delivery photo/i.test(pkg.notes ?? '')) return 'Delivered'
@@ -262,9 +262,9 @@ export function PodDocumentDialog({
       <DialogContent className="max-h-[92svh] gap-0 overflow-y-auto p-0 sm:max-w-3xl">
         <DialogHeader className="flex-row items-center justify-between gap-3 border-b p-4">
           <DialogTitle>Proof of delivery</DialogTitle>
-          <Button size="sm" onClick={download} disabled={!pod || generating} className="mr-8">
+          <PermissionButton permission="pod.view" size="sm" onClick={download} disabled={!pod || generating} className="mr-8">
             {generating ? <Loader2 className="animate-spin" /> : <Download />} Download PDF
-          </Button>
+          </PermissionButton>
         </DialogHeader>
         {pod ? (
           <div ref={docRef}>

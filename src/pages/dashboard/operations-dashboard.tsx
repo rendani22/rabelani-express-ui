@@ -29,8 +29,8 @@ import type {
 import { DashboardCard } from '@/components/dashboard/dashboard-card'
 import { DonutChart, HorizontalBars, TrendAreaChart, VolumeBarChart } from '@/components/dashboard/charts'
 import { StatusStamp } from '@/components/dispatch'
-import { Button } from '@/components/ui/button'
 import { useDownloadSlaBreaches } from '@/hooks/use-dashboard'
+import { PermissionButton } from '@/components/dispatch/permission-button'
 import { statusColor } from '@/lib/chart'
 import { cn } from '@/lib/utils'
 
@@ -493,15 +493,17 @@ export function OperationsDashboard({
         eyebrow="Live — all open orders"
         className="lg:col-span-6"
         action={
-          <Button
+          <PermissionButton
+            permission="sla.export"
             variant="outline"
             size="sm"
             onClick={() => download.mutate()}
             disabled={download.isPending || data.stuckTotal === 0}
+            deniedReason="This export includes customer names, emails and phone numbers — ask an admin."
           >
             {download.isPending ? <Loader2 className="animate-spin" /> : <Download />}
             Download
-          </Button>
+          </PermissionButton>
         }
       >
         <StuckList

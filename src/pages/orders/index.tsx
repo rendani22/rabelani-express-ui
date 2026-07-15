@@ -27,6 +27,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { Combobox } from '@/components/ui/combobox'
 import { StatusStamp, TrackingNumber } from '@/components/dispatch'
+import { PermissionButton } from '@/components/dispatch/permission-button'
 import { ReceiverAvatar } from '@/components/dispatch/receiver-avatar'
 import { formatDateShort, nameFromEmail, timeAgo } from '@/lib/format'
 import { PackageDetailsPanel } from './package-details-panel'
@@ -138,9 +139,9 @@ export function OrdersPage() {
             <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching} data-tour="orders-refresh">
               <RefreshCw className={isFetching ? 'animate-spin' : ''} /> Refresh
             </Button>
-            <Button size="sm" onClick={() => setCreateOpen(true)} data-tour="orders-create">
+            <PermissionButton permission="orders.create" size="sm" onClick={() => setCreateOpen(true)} data-tour="orders-create">
               <Plus /> New package
-            </Button>
+            </PermissionButton>
           </>
         }
       />

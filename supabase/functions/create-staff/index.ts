@@ -63,19 +63,18 @@ serve(async (req) => {
       )
     }
 
-    // Check if calling user is admin
-    const { data: callerProfile, error: profileError } = await userClient
-      .from('staff_profiles')
-      .select('role')
-      .eq('user_id', callingUser.id)
-      .single()
+    // Creating a staff member assigns a role, which grants privilege — so this
+    // is gated on users.manage, which is seeded to admins only.
+    const { data: canManageUsers } = await userClient.rpc('has_permission', {
+      p_key: 'users.manage'
+    })
 
-    if (profileError || callerProfile?.role !== 'admin') {
+    if (!canManageUsers) {
       return new Response(
         JSON.stringify({
-          error: 'Only admins can create staff profiles',
-          details: profileError?.message || `User role is '${callerProfile?.role || 'none'}', not 'admin'`,
-          hint: 'Ensure the logged-in user has a staff_profiles entry with role=admin'
+          error: 'You do not have permission to create staff profiles',
+          details: "Requires the 'users.manage' permission",
+          hint: 'Ensure the logged-in user is an active admin, or has been granted users.manage'
         }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )

@@ -25,6 +25,7 @@ import { reportError } from '@/lib/logger'
 import { formatZar } from '@/lib/inventory-movements'
 import { formatDateShort } from '@/lib/format'
 import { Button } from '@/components/ui/button'
+import { PermissionButton } from '@/components/dispatch/permission-button'
 import { StatusStamp, TrackingNumber } from '@/components/dispatch'
 import { cn } from '@/lib/utils'
 import {
@@ -379,7 +380,8 @@ export function PoCard({ po, onEdit }: { po: PurchaseOrder; onEdit: (poNumber: s
                 </Button>
               )}
               {po.packages.length > 0 && (
-                <Button
+                <PermissionButton
+                  permission="pod.export_bulk"
                   variant="outline"
                   size="sm"
                   onClick={downloadPods}
@@ -388,12 +390,12 @@ export function PoCard({ po, onEdit }: { po: PurchaseOrder; onEdit: (poNumber: s
                 >
                   {downloading ? <Loader2 className="animate-spin" /> : <FileDown />}
                   PODs{podCount > 0 ? ` (${podCount})` : ''}
-                </Button>
+                </PermissionButton>
               )}
               {po.source === 'purchase_order' && (
-                <Button variant="outline" size="sm" onClick={() => onEdit(po.poNumber)}>
+                <PermissionButton permission="purchase_orders.update" variant="outline" size="sm" onClick={() => onEdit(po.poNumber)}>
                   <Pencil /> Edit
-                </Button>
+                </PermissionButton>
               )}
               <Button size="sm" onClick={() => goToOrders(po.poNumber)}>
                 <ExternalLink /> Open in Orders

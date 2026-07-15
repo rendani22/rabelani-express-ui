@@ -12,6 +12,8 @@ import {
 import { reportError } from '@/lib/logger'
 import { PageBody, PageHeader } from '@/components/layout/page-header'
 import { Button } from '@/components/ui/button'
+import { PermissionButton } from '@/components/dispatch/permission-button'
+import { usePermissions } from '@/hooks/use-permissions'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
@@ -26,6 +28,7 @@ import { LocationDialog } from './location-dialog'
 
 export function LocationsPage() {
   const qc = useQueryClient()
+  const { can } = usePermissions()
   const [search, setSearch] = useState('')
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<DeliveryLocation | null>(null)
@@ -69,9 +72,9 @@ export function LocationsPage() {
         title="Delivery locations"
         description="Collection points and depots packages can be routed to."
         actions={
-          <Button size="sm" onClick={openNew}>
+          <PermissionButton permission="locations.create" size="sm" onClick={openNew}>
             <Plus /> New location
-          </Button>
+          </PermissionButton>
         }
       />
 
@@ -105,13 +108,14 @@ export function LocationsPage() {
                     <Button variant="ghost" size="icon-sm" aria-label="Actions"><MoreVertical /></Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem onSelect={() => openEdit(l)}><Pencil /> Edit</DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => toggle.mutate(l)}>
+                    <DropdownMenuItem onSelect={() => openEdit(l)} disabled={!can('locations.update')}><Pencil /> Edit</DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => toggle.mutate(l)} disabled={!can('locations.update')}>
                       <Power /> {l.is_active ? 'Deactivate' : 'Reactivate'}
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       variant="destructive"
                       onSelect={() => setPendingDelete(l)}
+                      disabled={!can('locations.delete')}
                     >
                       <Trash2 /> Delete
                     </DropdownMenuItem>
@@ -134,7 +138,7 @@ export function LocationsPage() {
             <MapPin className="size-5" />
           </span>
           <p className="text-sm font-medium">{search ? 'No locations match' : 'No locations yet'}</p>
-          {!search && <Button variant="outline" size="sm" onClick={openNew}><Plus /> Add the first location</Button>}
+          {!search && <PermissionButton permission="locations.create" variant="outline" size="sm" onClick={openNew}><Plus /> Add the first location</PermissionButton>}
         </div>
       )}
 

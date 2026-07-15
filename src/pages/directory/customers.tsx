@@ -9,6 +9,8 @@ import { fetchPackagesByReceiver } from '@/lib/api/orders'
 import { reportError } from '@/lib/logger'
 import { PageBody, PageHeader } from '@/components/layout/page-header'
 import { Button } from '@/components/ui/button'
+import { PermissionButton } from '@/components/dispatch/permission-button'
+import { usePermissions } from '@/hooks/use-permissions'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -99,7 +101,7 @@ function NewCompanyDialog({ companies }: { companies: Company[] }) {
   return (
     <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) setName('') }}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm"><Building2 className="size-4" /> New company</Button>
+        <PermissionButton permission="companies.create" variant="outline" size="sm"><Building2 className="size-4" /> New company</PermissionButton>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader><DialogTitle>Add a company</DialogTitle></DialogHeader>
@@ -108,9 +110,9 @@ function NewCompanyDialog({ companies }: { companies: Company[] }) {
           <Input id="company-name" value={name} onChange={(e) => setName(e.target.value)} autoFocus aria-invalid={isDuplicate} />
           {isDuplicate && <p className="text-xs text-destructive">A company with this name already exists.</p>}
           <DialogFooter className="mt-2">
-            <Button type="submit" disabled={!trimmed || isDuplicate || create.isPending}>
+            <PermissionButton permission="companies.create" type="submit" disabled={!trimmed || isDuplicate || create.isPending}>
               {create.isPending ? <Loader2 className="animate-spin" /> : <Plus className="size-4" />} Add company
-            </Button>
+            </PermissionButton>
           </DialogFooter>
         </form>
       </DialogContent>
@@ -126,6 +128,7 @@ function CustomerCard({ r, onEdit, onContacts, onToggle, onHistory }: {
   onToggle: () => void
   onHistory: () => void
 }) {
+  const { can } = usePermissions()
   return (
     <div className={cn('group flex flex-col rounded-lg border bg-card transition-colors hover:border-foreground/15', !r.is_active && 'opacity-60')}>
       <div className="flex items-start justify-between gap-2 p-4 pb-3">
@@ -146,9 +149,9 @@ function CustomerCard({ r, onEdit, onContacts, onToggle, onHistory }: {
             <Button variant="ghost" size="icon-sm" aria-label="Actions" className="-mr-1 text-muted-foreground"><MoreVertical /></Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onSelect={onEdit}><Pencil /> Edit</DropdownMenuItem>
-            <DropdownMenuItem onSelect={onContacts}><Contact /> Manage contacts</DropdownMenuItem>
-            <DropdownMenuItem onSelect={onToggle}><Power /> {r.is_active ? 'Deactivate' : 'Reactivate'}</DropdownMenuItem>
+            <DropdownMenuItem onSelect={onEdit} disabled={!can('customers.update')}><Pencil /> Edit</DropdownMenuItem>
+            <DropdownMenuItem onSelect={onContacts} disabled={!can('customers.update')}><Contact /> Manage contacts</DropdownMenuItem>
+            <DropdownMenuItem onSelect={onToggle} disabled={!can('customers.deactivate')}><Power /> {r.is_active ? 'Deactivate' : 'Reactivate'}</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -171,6 +174,7 @@ function CustomerCard({ r, onEdit, onContacts, onToggle, onHistory }: {
 
 export function CustomersPage() {
   const qc = useQueryClient()
+  const { can } = usePermissions()
   const [search, setSearch] = useState('')
   const [companyFilter, setCompanyFilter] = useState<string>('all')
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -258,9 +262,9 @@ export function CustomersPage() {
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <NewCompanyDialog companies={companies.data ?? []} />
-            <Button size="sm" onClick={() => openCustomer(null)}>
+            <PermissionButton permission="customers.create" size="sm" onClick={() => openCustomer(null)}>
               <Users className="size-4" /> Add customer
-            </Button>
+            </PermissionButton>
           </div>
         }
       />
@@ -317,23 +321,26 @@ export function CustomersPage() {
                   <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
                     <p>
                       No customers assigned yet.{' '}
-                      <button
-                        type="button"
-                        onClick={() => openCustomer(null)}
-                        className="font-medium text-primary underline-offset-2 hover:underline"
-                      >
-                        Add one
-                      </button>
+                      {can('customers.create') && (
+                        <button
+                          type="button"
+                          onClick={() => openCustomer(null)}
+                          className="font-medium text-primary underline-offset-2 hover:underline"
+                        >
+                          Add one
+                        </button>
+                      )}
                     </p>
                     {g.id !== UNASSIGNED && (
-                      <Button
+                      <PermissionButton
+                        permission="companies.delete"
                         variant="ghost"
                         size="sm"
                         className="text-destructive hover:text-destructive"
                         onClick={() => setCompanyToRemove({ id: g.id, name: g.name })}
                       >
                         <Trash2 className="size-4" /> Remove company
-                      </Button>
+                      </PermissionButton>
                     )}
                   </div>
                 )}

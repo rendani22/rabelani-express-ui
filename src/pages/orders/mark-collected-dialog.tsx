@@ -21,6 +21,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { SignaturePad, type SignaturePadHandle } from '@/components/dispatch/signature-pad'
 import { TrackingNumber } from '@/components/dispatch'
+import { PermissionButton } from '@/components/dispatch/permission-button'
 
 interface PartyForm {
   name: string
@@ -200,10 +201,10 @@ export function MarkCollectedDialog({
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={() => submit.mutate()} disabled={submit.isPending}>
+          <PermissionButton permission="orders.update" onClick={() => submit.mutate()} disabled={submit.isPending}>
             {submit.isPending && <Loader2 className="animate-spin" />}
             Confirm collection
-          </Button>
+          </PermissionButton>
         </DialogFooter>
       </DialogContent>
     </Dialog>

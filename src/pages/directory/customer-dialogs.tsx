@@ -21,6 +21,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { PermissionButton } from '@/components/dispatch/permission-button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
@@ -203,6 +204,7 @@ export function CustomerDialog({
   // When the invite is on but no company is picked, explain why the action is
   // blocked right next to the button — instead of leaving it silently disabled.
   const inviteNeedsCompany = invite && companyId === NO_COMPANY
+  const savePermission = willInvite ? 'customers.invite' : isEdit ? 'customers.update' : 'customers.create'
   const detailsFooter = (
     <DialogFooter className="flex-col items-stretch gap-2 border-t p-4 sm:flex-row sm:items-center sm:justify-end">
       {inviteNeedsCompany && (
@@ -212,10 +214,10 @@ export function CustomerDialog({
       )}
       <div className="flex justify-end gap-2">
         <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-        <Button onClick={() => save.mutate()} disabled={!canSubmit}>
+        <PermissionButton permission={savePermission} onClick={() => save.mutate()} disabled={!canSubmit}>
           {save.isPending && <Loader2 className="animate-spin" />}
           {willInvite ? 'Send invite' : customer ? 'Save' : 'Add customer'}
-        </Button>
+        </PermissionButton>
       </div>
     </DialogFooter>
   )
@@ -302,7 +304,8 @@ function ContactsTab({ customer }: { customer: ReceiverProfile }) {
                 <span className="truncate text-sm font-medium leading-tight">{c.name}</span>
                 <span className="mono truncate text-xs text-muted-foreground">{c.phone}</span>
               </div>
-              <Button
+              <PermissionButton
+                permission="customers.update"
                 variant="ghost"
                 size="icon-sm"
                 aria-label={`Remove ${c.name}`}
@@ -311,7 +314,7 @@ function ContactsTab({ customer }: { customer: ReceiverProfile }) {
                 onClick={() => remove.mutate(c.id)}
               >
                 <Trash2 />
-              </Button>
+              </PermissionButton>
             </li>
           ))}
         </ul>
@@ -335,9 +338,9 @@ function ContactsTab({ customer }: { customer: ReceiverProfile }) {
           <Label className="text-xs">Phone</Label>
           <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+27…" className="mono" />
         </div>
-        <Button type="submit" size="icon" disabled={!name.trim() || !phone.trim() || add.isPending} aria-label="Add contact">
+        <PermissionButton permission="customers.update" type="submit" size="icon" disabled={!name.trim() || !phone.trim() || add.isPending} aria-label="Add contact">
           {add.isPending ? <Loader2 className="animate-spin" /> : <Plus />}
-        </Button>
+        </PermissionButton>
       </form>
     </div>
   )

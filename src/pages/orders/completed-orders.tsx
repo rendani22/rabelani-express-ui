@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatusStamp, TrackingNumber } from '@/components/dispatch'
+import { PermissionButton } from '@/components/dispatch/permission-button'
 import { displayStatusMeta } from '@/lib/status'
 import { ReceiverAvatar } from '@/components/dispatch/receiver-avatar'
 import { formatDateTime, nameFromEmail } from '@/lib/format'
@@ -101,10 +102,10 @@ export function CompletedOrdersPage() {
             <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-40" />
           </div>
         </div>
-        <Button onClick={downloadSelected} disabled={selected.size === 0 || downloading}>
+        <PermissionButton permission="pod.export_bulk" onClick={downloadSelected} disabled={selected.size === 0 || downloading}>
           {downloading ? <Loader2 className="animate-spin" /> : <Download />}
           Download PODs{selected.size > 0 ? ` (${selected.size})` : ''}
-        </Button>
+        </PermissionButton>
       </div>
 
       {isError && (

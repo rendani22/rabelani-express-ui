@@ -2,7 +2,8 @@ import { NavLink } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import { Logo } from '@/components/brand/logo'
 import { SectionLabel } from '@/components/dispatch'
-import { NAV_GROUPS, SETTINGS_ITEM, type NavItem } from './nav-items'
+import { usePermissions } from '@/hooks/use-permissions'
+import { SETTINGS_ITEM, visibleNavGroups, type NavItem } from './nav-items'
 
 function NavRow({ item, onNavigate }: { item: NavItem; onNavigate?: () => void }) {
   const Icon = item.icon
@@ -42,6 +43,8 @@ function NavRow({ item, onNavigate }: { item: NavItem; onNavigate?: () => void }
 /** Sidebar content — used directly on desktop and inside the mobile Sheet. */
 export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const SettingsIcon = SETTINGS_ITEM.icon
+  const { can } = usePermissions()
+  const groups = visibleNavGroups(can)
   return (
     <div className="flex h-full flex-col bg-sidebar">
       <div className="flex h-16 items-center px-5">
@@ -49,7 +52,7 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       </div>
 
       <nav className="flex flex-1 flex-col gap-6 overflow-y-auto px-3 py-4">
-        {NAV_GROUPS.map((group) => (
+        {groups.map((group) => (
           <div key={group.label} className="flex flex-col gap-1">
             <SectionLabel className="px-2.5 pb-1">{group.label}</SectionLabel>
             {group.items.map((item) => (

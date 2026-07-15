@@ -3,7 +3,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { ArrowLeft, Loader2, RotateCcw, ShieldX, Trash2 } from 'lucide-react'
 import type { Package } from '@/lib/models/package'
-import { canDeleteOrders, restorePackage } from '@/lib/api/packages'
+import { restorePackage } from '@/lib/api/packages'
+import { usePermissions } from '@/hooks/use-permissions'
 import { fetchDeletedOrders } from '@/lib/api/orders'
 import { reportError } from '@/lib/logger'
 import { PageBody, PageHeader } from '@/components/layout/page-header'
@@ -49,11 +50,12 @@ function RestoreButton({ pkg, onDone }: { pkg: Package; onDone: () => void }) {
 
 export function DeletedOrdersPage() {
   const qc = useQueryClient()
-  const admin = useQuery({ queryKey: ['can-delete-orders'], queryFn: canDeleteOrders })
+  const { can, isLoading: permsLoading } = usePermissions()
+  const canRestore = can('orders.restore')
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['orders', 'deleted'],
     queryFn: fetchDeletedOrders,
-    enabled: admin.data === true,
+    enabled: canRestore,
   })
 
   const afterRestore = () => {
@@ -77,7 +79,7 @@ export function DeletedOrdersPage() {
     />
   )
 
-  if (admin.isLoading) {
+  if (permsLoading) {
     return (
       <PageBody>
         {header}
@@ -86,7 +88,7 @@ export function DeletedOrdersPage() {
     )
   }
 
-  if (!admin.data) {
+  if (!canRestore) {
     return (
       <PageBody>
         {header}

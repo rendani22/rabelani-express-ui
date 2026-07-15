@@ -26,6 +26,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { PermissionButton } from '@/components/dispatch/permission-button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -415,10 +416,10 @@ export function CreatePackageDialog({
 
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={() => create.mutate()} disabled={!canSubmit || create.isPending}>
+          <PermissionButton permission="orders.create" onClick={() => create.mutate()} disabled={!canSubmit || create.isPending}>
             {create.isPending && <Loader2 className="animate-spin" />}
             {asDraft ? 'Save draft' : 'Create package'}
-          </Button>
+          </PermissionButton>
         </DialogFooter>
       </DialogContent>
     </Dialog>

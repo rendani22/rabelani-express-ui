@@ -24,6 +24,8 @@ import { bulkDeleteInventoryItems, bulkSetInventoryActive, deleteInventoryItem, 
 import { useInventory } from '@/hooks/use-inventory'
 import { reportError } from '@/lib/logger'
 import { downloadCsv, toCsv, yyyymmdd } from '@/lib/csv'
+import { PermissionButton } from '@/components/dispatch/permission-button'
+import { usePermissions } from '@/hooks/use-permissions'
 import { formatZar, isBackordered, isLowStock, isOutOfStock, isStaleStock } from '@/lib/inventory-movements'
 import { PageBody, PageHeader } from '@/components/layout/page-header'
 import { Button } from '@/components/ui/button'
@@ -174,6 +176,7 @@ function StockBadge({ item }: { item: InventoryItem }) {
 export function InventoryPage() {
   const qc = useQueryClient()
   const confirm = useConfirm()
+  const { can } = usePermissions()
   const { items, stats, isLoading, isError, error, isFetching, refetch } = useInventory()
 
   const [searchParams, setSearchParams] = useSearchParams()
@@ -412,12 +415,18 @@ export function InventoryPage() {
             <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
               <RefreshCw className={isFetching ? 'animate-spin' : ''} /> Refresh
             </Button>
-            <Button variant="outline" size="sm" onClick={onExport} disabled={isLoading || filtered.length === 0}>
+            <PermissionButton
+              permission="inventory.export"
+              variant="outline"
+              size="sm"
+              onClick={onExport}
+              disabled={isLoading || filtered.length === 0}
+            >
               <Download /> Export CSV
-            </Button>
-            <Button size="sm" onClick={openNew}>
+            </PermissionButton>
+            <PermissionButton permission="inventory.create" size="sm" onClick={openNew}>
               <Plus /> New item
-            </Button>
+            </PermissionButton>
           </>
         }
       />
@@ -522,13 +531,14 @@ export function InventoryPage() {
         <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-accent/40 px-3.5 py-2.5 text-sm">
           <span className="font-medium">{selected.size} selected</span>
           <div className="ml-auto flex flex-wrap items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => bulkActive.mutate({ ids: [...selected], active: true })} disabled={bulkActive.isPending}>
+            <PermissionButton permission="inventory.update" variant="outline" size="sm" onClick={() => bulkActive.mutate({ ids: [...selected], active: true })} disabled={bulkActive.isPending}>
               <Power /> Activate
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => bulkActive.mutate({ ids: [...selected], active: false })} disabled={bulkActive.isPending}>
+            </PermissionButton>
+            <PermissionButton permission="inventory.update" variant="outline" size="sm" onClick={() => bulkActive.mutate({ ids: [...selected], active: false })} disabled={bulkActive.isPending}>
               <Power /> Deactivate
-            </Button>
-            <Button
+            </PermissionButton>
+            <PermissionButton
+              permission="inventory.delete"
               variant="outline"
               size="sm"
               className="text-destructive hover:bg-destructive/10 hover:text-destructive"
@@ -545,7 +555,7 @@ export function InventoryPage() {
               disabled={bulkRemove.isPending}
             >
               <Trash2 /> Delete
-            </Button>
+            </PermissionButton>
             <Button variant="ghost" size="sm" onClick={clearSelection}>
               Clear
             </Button>
@@ -660,21 +670,22 @@ export function InventoryPage() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem onSelect={() => openRestock(item)}>
+                              <DropdownMenuItem disabled={!can('inventory.restock')} onSelect={() => openRestock(item)}>
                                 <TrendingUp /> Add stock
                               </DropdownMenuItem>
                               <DropdownMenuItem onSelect={() => openHistory(item)}>
                                 <History /> Movement history
                               </DropdownMenuItem>
-                              <DropdownMenuItem onSelect={() => openEdit(item)}>
+                              <DropdownMenuItem disabled={!can('inventory.update')} onSelect={() => openEdit(item)}>
                                 <Pencil /> Edit
                               </DropdownMenuItem>
-                              <DropdownMenuItem onSelect={() => toggleActive.mutate(item)}>
+                              <DropdownMenuItem disabled={!can('inventory.update')} onSelect={() => toggleActive.mutate(item)}>
                                 <Power /> {item.is_active ? 'Deactivate' : 'Reactivate'}
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem
                                 variant="destructive"
+                                disabled={!can('inventory.delete')}
                                 onSelect={async () => {
                                   const ok = await confirm({
                                     title: 'Delete item?',

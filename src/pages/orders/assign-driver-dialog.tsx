@@ -18,6 +18,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Combobox } from '@/components/ui/combobox'
 import { TrackingNumber } from '@/components/dispatch'
+import { PermissionButton } from '@/components/dispatch/permission-button'
 
 export function AssignDriverDialog({
   pkg,
@@ -96,10 +97,10 @@ export function AssignDriverDialog({
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={() => assign.mutate()} disabled={!driverId || assign.isPending}>
+          <PermissionButton permission="orders.update" onClick={() => assign.mutate()} disabled={!driverId || assign.isPending}>
             {assign.isPending && <Loader2 className="animate-spin" />}
             Dispatch package
-          </Button>
+          </PermissionButton>
         </DialogFooter>
       </DialogContent>
     </Dialog>

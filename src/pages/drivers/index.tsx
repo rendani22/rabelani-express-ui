@@ -1,10 +1,9 @@
 import { useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { List, Mail, Map as MapIcon, Phone, Plus, RefreshCw, Search, Truck, UserX, X } from 'lucide-react'
 import type { DriverProfile } from '@/lib/api/drivers'
 import { getDriverStatus, toDriverMapMarkers } from '@/lib/api/drivers'
-import { isCurrentUserAdmin } from '@/lib/api/staff'
+import { usePermissions } from '@/hooks/use-permissions'
 import { useDriverPackages, useDrivers } from '@/hooks/use-drivers'
 import { useSettings } from '@/lib/settings-store'
 import { DRIVER_STATUS } from '@/lib/driver-status'
@@ -151,7 +150,7 @@ export function DriversPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
   const { data, isLoading, isError, error, isFetching, refetch } = useDrivers()
-  const admin = useQuery({ queryKey: ['is-admin'], queryFn: isCurrentUserAdmin })
+  const { can } = usePermissions()
 
   const drivers = data ?? []
   const filtered = useMemo(() => {
@@ -190,7 +189,7 @@ export function DriversPage() {
             <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
               <RefreshCw className={isFetching ? 'animate-spin' : ''} /> Refresh
             </Button>
-            {admin.data && (
+            {can('users.manage') && (
               <Button size="sm" onClick={() => toast.info('Add-driver lands in a later update.')}>
                 <Plus /> Add driver
               </Button>

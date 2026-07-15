@@ -14,13 +14,14 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { PermissionButton } from '@/components/dispatch/permission-button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Combobox } from '@/components/ui/combobox'
 
 // The DB `staff_role` enum — only these are valid (anything else fails the insert).
-const ROLES: StaffRole[] = ['admin', 'warehouse', 'driver', 'collection']
-const DEFAULT_ROLE: StaffRole = 'warehouse'
+const ROLES: StaffRole[] = ['admin', 'manager', 'warehouse', 'staff', 'driver', 'collection', 'viewer']
+const DEFAULT_ROLE: StaffRole = 'staff'
 const roleLabel = (r: string) => r.charAt(0).toUpperCase() + r.slice(1)
 
 export function UserDialog({
@@ -120,10 +121,10 @@ export function UserDialog({
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={() => save.mutate()} disabled={!canSubmit || save.isPending}>
+          <PermissionButton permission="users.manage" onClick={() => save.mutate()} disabled={!canSubmit || save.isPending}>
             {save.isPending && <Loader2 className="animate-spin" />}
             {isEdit ? 'Save' : 'Create user'}
-          </Button>
+          </PermissionButton>
         </DialogFooter>
       </DialogContent>
     </Dialog>

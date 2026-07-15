@@ -49,13 +49,11 @@ serve(async (req) => {
     const { data: { user: caller }, error: userError } = await userClient.auth.getUser()
     if (userError || !caller) return json({ error: 'Unauthorized', details: userError?.message }, 401)
 
-    const { data: callerProfile } = await userClient
-      .from('staff_profiles')
-      .select('role, is_active')
-      .eq('user_id', caller.id)
-      .single()
-    if (!callerProfile || !callerProfile.is_active || callerProfile.role !== 'admin') {
-      return json({ error: 'Only active admins can send test emails' }, 403)
+    const { data: canSendTest } = await userClient.rpc('has_permission', {
+      p_key: 'email.send_test'
+    })
+    if (!canSendTest) {
+      return json({ error: "You do not have permission to send test emails ('email.send_test')" }, 403)
     }
 
     const body: SendTestRequest = await req.json()

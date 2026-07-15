@@ -6,6 +6,7 @@ import { listRecentMovements } from '@/lib/api/inventory'
 import { getStaffNamesByIds } from '@/lib/api/staff'
 import { PageBody, PageHeader } from '@/components/layout/page-header'
 import { Button } from '@/components/ui/button'
+import { PermissionButton } from '@/components/dispatch/permission-button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { SectionLabel } from '@/components/dispatch'
 import { formatDateTime } from '@/lib/format'
@@ -85,9 +86,9 @@ export function RecentMovementsPage() {
             <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
               <RefreshCw className={isFetching ? 'animate-spin' : ''} /> Refresh
             </Button>
-            <Button size="sm" onClick={onExport} disabled={isLoading || movements.length === 0}>
+            <PermissionButton permission="inventory.export" size="sm" onClick={onExport} disabled={isLoading || movements.length === 0}>
               <Download /> Export CSV
-            </Button>
+            </PermissionButton>
           </>
         }
       />

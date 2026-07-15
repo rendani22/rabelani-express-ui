@@ -10,11 +10,16 @@ import {
   CommandSeparator,
 } from '@/components/ui/command'
 import { useUIStore } from '@/lib/ui-store'
-import { NAV_GROUPS, SETTINGS_ITEM } from './nav-items'
+import { usePermissions } from '@/hooks/use-permissions'
+import { SETTINGS_ITEM, visibleNavGroups } from './nav-items'
 
 export function CommandPalette() {
   const navigate = useNavigate()
   const { commandOpen, setCommandOpen, toggleCommand } = useUIStore()
+  const { can } = usePermissions()
+  // The palette is a navigation surface, so it hides what the sidebar hides —
+  // otherwise ⌘K becomes a way to walk into pages that will just reject you.
+  const groups = visibleNavGroups(can)
 
   // ⌘K / Ctrl-K to toggle
   useEffect(() => {
@@ -38,7 +43,7 @@ export function CommandPalette() {
       <CommandInput placeholder="Search pages, or type a command…" />
       <CommandList>
         <CommandEmpty>No results found.</CommandEmpty>
-        {NAV_GROUPS.map((group) => (
+        {groups.map((group) => (
           <CommandGroup key={group.label} heading={group.label}>
             {group.items.map((item) => {
               const Icon = item.icon

@@ -52,13 +52,11 @@ serve(async (req) => {
     const { data: { user: caller }, error: userError } = await userClient.auth.getUser()
     if (userError || !caller) return json({ error: 'Unauthorized', details: userError?.message }, 401)
 
-    const { data: callerProfile } = await userClient
-      .from('staff_profiles')
-      .select('role, is_active')
-      .eq('user_id', caller.id)
-      .single()
-    if (!callerProfile || !callerProfile.is_active || !['admin', 'warehouse'].includes(callerProfile.role)) {
-      return json({ error: 'Only active warehouse staff and admins can invite customers' }, 403)
+    const { data: canInvite } = await userClient.rpc('has_permission', {
+      p_key: 'customers.invite'
+    })
+    if (!canInvite) {
+      return json({ error: "You do not have permission to invite customers ('customers.invite')" }, 403)
     }
 
     const body: InviteCustomerRequest = await req.json()

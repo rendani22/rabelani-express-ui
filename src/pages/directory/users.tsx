@@ -4,7 +4,9 @@ import { toast } from 'sonner'
 import { Mail, MoreVertical, Pencil, Phone, Power, Search, UserCog } from 'lucide-react'
 import type { StaffProfileRow } from '@/lib/api/drivers'
 import { listStaffProfiles } from '@/lib/api/drivers'
-import { deactivateStaff, isCurrentUserAdmin, reactivateStaff } from '@/lib/api/staff'
+import { deactivateStaff, reactivateStaff } from '@/lib/api/staff'
+import { usePermissions } from '@/hooks/use-permissions'
+import { PermissionButton } from '@/components/dispatch/permission-button'
 import { reportError } from '@/lib/logger'
 import { PageBody, PageHeader } from '@/components/layout/page-header'
 import { Button } from '@/components/ui/button'
@@ -46,7 +48,8 @@ export function UsersPage() {
   const [editing, setEditing] = useState<StaffProfileRow | null>(null)
 
   const { data, isLoading } = useQuery({ queryKey: ['staff'], queryFn: listStaffProfiles })
-  const admin = useQuery({ queryKey: ['is-admin'], queryFn: isCurrentUserAdmin })
+  const { can } = usePermissions()
+  const canManage = can('users.manage')
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -74,11 +77,14 @@ export function UsersPage() {
         title="Users"
         description="Staff accounts, roles, and access."
         actions={
-          admin.data && (
-            <Button size="sm" onClick={() => { setEditing(null); setDialogOpen(true) }}>
-              <UserCog className="size-4" /> Add user
-            </Button>
-          )
+          <PermissionButton
+            permission="users.manage"
+            size="sm"
+            onClick={() => { setEditing(null); setDialogOpen(true) }}
+            deniedReason="Only accounts with user management can add staff — ask an admin."
+          >
+            <UserCog className="size-4" /> Add user
+          </PermissionButton>
         }
       />
 
@@ -103,7 +109,7 @@ export function UsersPage() {
                     <RoleBadge role={u.role} />
                   </div>
                 </div>
-                {admin.data && (
+                {canManage && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" size="icon-sm" aria-label="Actions"><MoreVertical /></Button>

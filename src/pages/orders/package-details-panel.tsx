@@ -8,7 +8,6 @@ import { isPackageEditable } from '@/lib/models/package'
 import { PACKAGE_STATUS } from '@/lib/status'
 import { displayStatusMeta, statusMeta } from '@/lib/status'
 import {
-  canDeleteOrders,
   deletePackageWithInventoryReturn,
   getPackageAuditLog,
   getPackageLockStatus,
@@ -16,7 +15,8 @@ import {
   receiveAtCollection,
   updatePackage,
 } from '@/lib/api/packages'
-import { getStaffNamesByIds, isCurrentUserAdmin } from '@/lib/api/staff'
+import { getStaffNamesByIds } from '@/lib/api/staff'
+import { usePermissions } from '@/hooks/use-permissions'
 import { reportError } from '@/lib/logger'
 import { auditStatusChange, formatAuditAction } from '@/lib/audit-log'
 import { cn } from '@/lib/utils'
@@ -30,6 +30,7 @@ import { Separator } from '@/components/ui/separator'
 import { Textarea } from '@/components/ui/textarea'
 import { Combobox } from '@/components/ui/combobox'
 import { RouteTimeline, StatusStamp, TrackingNumber } from '@/components/dispatch'
+import { PermissionButton } from '@/components/dispatch/permission-button'
 import { ReceiverAvatar } from '@/components/dispatch/receiver-avatar'
 import { AssignDriverDialog } from './assign-driver-dialog'
 import { MarkCollectedDialog } from './mark-collected-dialog'
@@ -138,7 +139,9 @@ export function PackageDetailsPanel({
     setAuditOpen(false)
   }, [pkg?.id, pkg?.status, pkg?.notes, pkg?.customer_notes])
 
-  const canDelete = useQuery({ queryKey: ['can-delete-orders'], queryFn: canDeleteOrders })
+  const { can } = usePermissions()
+  const canDelete = can('orders.delete')
+  const canUpdate = can('orders.update')
   const lock = useQuery({
     queryKey: ['pod-lock', pkg?.id],
     queryFn: () => getPackageLockStatus(pkg!.id),
@@ -151,12 +154,12 @@ export function PackageDetailsPanel({
     enabled: !!pkg && open && isDone,
   })
 
-  // Admin-only audit log, lazily loaded when the section is first expanded.
-  const admin = useQuery({ queryKey: ['is-admin'], queryFn: isCurrentUserAdmin })
+  // Audit log, lazily loaded when the section is first expanded.
+  const canViewAudit = can('orders.audit.view')
   const audit = useQuery({
     queryKey: ['package-audit', pkg?.id],
     queryFn: () => getPackageAuditLog(pkg!.id),
-    enabled: !!pkg && open && auditOpen && !!admin.data,
+    enabled: !!pkg && open && auditOpen && canViewAudit,
   })
   const actorIds = useMemo(
     () => [...new Set((audit.data ?? []).map((e) => e.performed_by).filter((v): v is string => !!v))],
@@ -313,10 +316,10 @@ export function PackageDetailsPanel({
           <div className="flex flex-col gap-6 p-5">
             {/* primary action */}
             {primary && (
-              <Button onClick={primary.run} disabled={advance.isPending} className="w-full" size="lg">
+              <PermissionButton permission="orders.update" onClick={primary.run} disabled={advance.isPending} className="w-full" size="lg">
                 {advance.isPending && <Loader2 className="animate-spin" />}
                 {primary.label}
-              </Button>
+              </PermissionButton>
             )}
 
             {/* manual status change (hidden once the POD is finalized) */}
@@ -327,7 +330,7 @@ export function PackageDetailsPanel({
                   options={statusTargets.map((s) => ({ value: s, label: statusMeta(s).label }))}
                   value=""
                   onChange={(v) => changeStatus(v as PackageStatus)}
-                  disabled={setStatusMut.isPending}
+                  disabled={setStatusMut.isPending || !canUpdate}
                   placeholder={setStatusMut.isPending ? 'Updating…' : 'Set a different status…'}
                   searchPlaceholder="Search status…"
                 />
@@ -359,7 +362,7 @@ export function PackageDetailsPanel({
             <div className="flex flex-col gap-1.5">
               <div className="flex items-center justify-between">
                 <SectionLabel>Internal notes</SectionLabel>
-                {!editingNotes && isPackageEditable({ status }) && (
+                {!editingNotes && isPackageEditable({ status }) && canUpdate && (
                   <button
                     type="button"
                     className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
@@ -392,7 +395,7 @@ export function PackageDetailsPanel({
             <div className="flex flex-col gap-1.5">
               <div className="flex items-center justify-between">
                 <SectionLabel>Customer notes</SectionLabel>
-                {!editingCustomerNotes && isPackageEditable({ status }) && (
+                {!editingCustomerNotes && isPackageEditable({ status }) && canUpdate && (
                   <button
                     type="button"
                     className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
@@ -475,11 +478,11 @@ export function PackageDetailsPanel({
                 )}
                 <div className="flex flex-wrap gap-2 pt-1">
                   {pod.data && (
-                    <Button variant="outline" size="sm" onClick={() => setPodOpen(true)}>
+                    <PermissionButton permission="pod.view" variant="outline" size="sm" onClick={() => setPodOpen(true)}>
                       <FileText /> View / print POD
-                    </Button>
+                    </PermissionButton>
                   )}
-                  {lock.data?.pdfUrl && (
+                  {lock.data?.pdfUrl && can('pod.view') && (
                     <Button variant="outline" size="sm" asChild>
                       <a href={lock.data.pdfUrl} target="_blank" rel="noreferrer">
                         <ImageIcon /> Stored PDF
@@ -497,7 +500,7 @@ export function PackageDetailsPanel({
               <div className="flex flex-col gap-2">
                 <div className="flex items-center justify-between">
                   <SectionLabel>Items ({pkg.items?.length ?? 0})</SectionLabel>
-                  {isPackageEditable({ status }) && !editingItems && (
+                  {isPackageEditable({ status }) && !editingItems && canUpdate && (
                     <button
                       type="button"
                       className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
@@ -537,8 +540,8 @@ export function PackageDetailsPanel({
               <RouteTimeline stops={stops} />
             </div>
 
-            {/* audit log (admin only) */}
-            {admin.data && (
+            {/* audit log */}
+            {canViewAudit && (
               <>
                 <Separator />
                 <div className="flex flex-col gap-3">
@@ -599,7 +602,7 @@ export function PackageDetailsPanel({
               <Button variant="outline" size="sm" onClick={() => navigator.clipboard.writeText(pkg.reference)}>
                 <Copy /> Copy ref
               </Button>
-              {canDelete.data && (
+              {canDelete && (
                 <Button
                   variant="ghost"
                   size="sm"

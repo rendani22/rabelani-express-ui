@@ -7,6 +7,7 @@ import { PageBody, PageHeader } from '@/components/layout/page-header'
 import { useAutoTour } from '@/hooks/use-auto-tour'
 import { useCompanies } from '@/hooks/use-dashboard'
 import { Button } from '@/components/ui/button'
+import { PermissionButton } from '@/components/dispatch/permission-button'
 import { Combobox } from '@/components/ui/combobox'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -91,9 +92,9 @@ export function PurchaseOrdersPage() {
             <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
               <RefreshCw className={isFetching ? 'animate-spin' : ''} /> Refresh
             </Button>
-            <Button size="sm" onClick={() => setCreateOpen(true)} data-tour="po-create">
+            <PermissionButton permission="purchase_orders.create" size="sm" onClick={() => setCreateOpen(true)} data-tour="po-create">
               <Plus /> Create PO
-            </Button>
+            </PermissionButton>
           </>
         }
       />

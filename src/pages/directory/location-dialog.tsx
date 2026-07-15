@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { PermissionButton } from '@/components/dispatch/permission-button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -101,10 +102,10 @@ export function LocationDialog({
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={() => save.mutate()} disabled={!form.name.trim() || save.isPending}>
+          <PermissionButton permission={location ? 'locations.update' : 'locations.create'} onClick={() => save.mutate()} disabled={!form.name.trim() || save.isPending}>
             {save.isPending && <Loader2 className="animate-spin" />}
             {location ? 'Save' : 'Add location'}
-          </Button>
+          </PermissionButton>
         </DialogFooter>
       </DialogContent>
     </Dialog>

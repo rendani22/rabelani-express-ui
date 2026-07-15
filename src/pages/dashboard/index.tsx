@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Combobox } from '@/components/ui/combobox'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useCompanies, useOperationsDashboard } from '@/hooks/use-dashboard'
+import { usePermissions } from '@/hooks/use-permissions'
 import { useAutoTour } from '@/hooks/use-auto-tour'
 import { OperationsDashboard } from './operations-dashboard'
 import { ExecutiveDashboard } from './executive-dashboard'
@@ -49,6 +50,8 @@ export function DashboardPage() {
 
   const companies = useCompanies()
   const ops = useOperationsDashboard(companyId)
+  const { can } = usePermissions()
+  const canViewExec = can('dashboard.exec.view')
 
   const companyOptions = useMemo(
     () => [
@@ -100,7 +103,9 @@ export function DashboardPage() {
       <Tabs defaultValue="operations" className="gap-6">
         <TabsList>
           <TabsTrigger value="operations">Operations</TabsTrigger>
-          <TabsTrigger value="executive">Executive</TabsTrigger>
+          {/* Revenue. The RPC behind it now rejects callers without the
+              permission, so showing the tab would only produce a 42501. */}
+          {canViewExec && <TabsTrigger value="executive">Executive</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="operations">
@@ -118,9 +123,11 @@ export function DashboardPage() {
           ) : null}
         </TabsContent>
 
-        <TabsContent value="executive">
-          <ExecutiveDashboard companyId={companyId} />
-        </TabsContent>
+        {canViewExec && (
+          <TabsContent value="executive">
+            <ExecutiveDashboard companyId={companyId} />
+          </TabsContent>
+        )}
       </Tabs>
     </PageBody>
   )
