@@ -63,7 +63,21 @@ export function AppHeader() {
       </Sheet>
 
       {ENV_LABEL && (
-        <span className="hidden h-6 items-center rounded-full border border-warning/40 bg-warning/12 px-2.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-warning-foreground sm:inline-flex dark:text-warning">
+        // Hazard-placard env marker: a stenciled tag reading like depot equipment
+        // markings. Rectangular to echo the waybill-stamp signature, mono because
+        // it's a system identifier, amber for "caution — not production".
+        <span
+          title={`${ENV_LABEL} environment — not production`}
+          className="hidden h-6 select-none items-center gap-1.5 overflow-hidden rounded-[3px] border border-warning/45 bg-warning/12 pr-2 font-mono text-[10.5px] font-bold uppercase leading-none tracking-[0.12em] text-warning-foreground sm:inline-flex dark:text-warning"
+        >
+          <span
+            aria-hidden
+            className="h-full w-2 self-stretch"
+            style={{
+              backgroundImage:
+                'repeating-linear-gradient(-45deg, var(--warning) 0 3px, transparent 3px 6px)',
+            }}
+          />
           {ENV_LABEL}
         </span>
       )}
