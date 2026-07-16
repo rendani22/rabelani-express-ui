@@ -185,7 +185,7 @@ function CustomerCard({ r, buyerName, onEdit, onContacts, onToggle, onHistory }:
         className="flex items-center justify-between px-4 py-2.5 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:text-foreground"
       >
         <span className="flex items-center gap-2"><PackageIcon className="size-3.5" /> Package history</span>
-        <ChevronRight className="size-4 opacity-40 transition-transform group-hover:translate-x-0.5" />
+        <ChevronRight className="size-4 opacity-40 transition-transform duration-150 ease-out group-hover-fine:translate-x-0.5" />
       </button>
     </div>
   )

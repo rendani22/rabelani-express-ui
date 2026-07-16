@@ -8,6 +8,26 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
+  Hover variants that only fire for a real pointer. On touch, a tap counts as a
+  hover and the state sticks after your finger leaves — so anything that *moves*
+  on hover is gated behind these rather than plain hover:/group-hover:.
+*/
+@custom-variant hover-fine {
+  @media (hover: hover) and (pointer: fine) {
+    &:hover {
+      @slot;
+    }
+  }
+}
+@custom-variant group-hover-fine {
+  @media (hover: hover) and (pointer: fine) {
+    &:is(:where(.group):hover *) {
+      @slot;
+    }
+  }
+}
+
+/*
   DISPATCH — an operational control surface for a courier depot.
   Light = warm "label stock" paper. Dark = cool depot-at-night graphite.
   One accent: cargo orange (hi-vis), used only for primary actions & brand.
@@ -141,6 +161,23 @@
   --font-sans: 'Archivo Variable', ui-sans-serif, system-ui, sans-serif;
   --font-mono: 'JetBrains Mono Variable', ui-monospace, monospace;
 
+  /*
+    Motion. Dispatch is a tool people drive all day, so motion here is crisp and
+    short — it confirms an action happened, it never performs. The stock CSS
+    easings are too weak to read at these durations; these curves have the punch
+    that makes 150ms feel deliberate rather than accidental.
+
+    Overriding Tailwind's own --ease-* keys means `ease-out` everywhere (both the
+    transition utility AND tw-animate-css's --tw-ease keyframes) picks these up.
+  */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+
+  /* any bare `transition` utility gets the good curve, not Tailwind's default */
+  --default-transition-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
+  --default-transition-duration: 150ms;
+
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -219,6 +256,38 @@
   input[type='number'] {
     -moz-appearance: textfield;
     appearance: textfield;
+  }
+
+  /*
+    Reduced motion means gentler, not none. Opacity and colour still carry
+    meaning (a dialog fading in still reads as "this arrived"), so keep those and
+    drop only the travel — translate, scale, spin.
+  */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 120ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 120ms !important;
+      scroll-behavior: auto !important;
+      --tw-enter-translate-x: 0 !important;
+      --tw-enter-translate-y: 0 !important;
+      --tw-exit-translate-x: 0 !important;
+      --tw-exit-translate-y: 0 !important;
+      --tw-enter-scale: 1 !important;
+      --tw-exit-scale: 1 !important;
+      --tw-enter-rotate: 0 !important;
+      --tw-exit-rotate: 0 !important;
+    }
+    /* the spinner is a load indicator — keep it turning, just calmer */
+    .animate-spin {
+      animation-duration: 1.2s !important;
+      animation-iteration-count: infinite !important;
+    }
+    .animate-pulse {
+      animation-iteration-count: infinite !important;
+    }
   }
 }
 

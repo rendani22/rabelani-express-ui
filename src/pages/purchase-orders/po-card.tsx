@@ -162,7 +162,7 @@ export function PoCard({ po, onEdit }: { po: PurchaseOrder; onEdit: (poNumber: s
           {showCompletion(po) && (
             <div className="mt-1.5 flex items-center gap-2">
               <div className="h-1.5 w-full max-w-[120px] overflow-hidden rounded-full bg-muted">
-                <div className={cn('h-full rounded-full transition-all', completionBar)} style={{ width: `${po.completionPercentage}%` }} />
+                <div className={cn('h-full rounded-full transition-[width] duration-300 ease-out', completionBar)} style={{ width: `${po.completionPercentage}%` }} />
               </div>
               <span className="tabular shrink-0 text-xs text-muted-foreground">
                 {po.completionPercentage}% {po.source === 'purchase_order' ? 'allocated' : 'complete'}
@@ -213,7 +213,7 @@ export function PoCard({ po, onEdit }: { po: PurchaseOrder; onEdit: (poNumber: s
                     <span className={cn('tabular ml-auto text-xs font-semibold', deliveredValueTextClass(dTone))}>{deliveredValuePercent(po)}%</span>
                   </div>
                   <div className="h-2 overflow-hidden rounded-full bg-muted">
-                    <div className={cn('h-full rounded-full transition-all', deliveredValueBarClass(dTone))} style={{ width: `${deliveredValuePercent(po)}%` }} />
+                    <div className={cn('h-full rounded-full transition-[width] duration-300 ease-out', deliveredValueBarClass(dTone))} style={{ width: `${deliveredValuePercent(po)}%` }} />
                   </div>
                 </div>
               )}

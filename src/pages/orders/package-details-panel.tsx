@@ -440,7 +440,7 @@ export function PackageDetailsPanel({
                       className="group relative aspect-square overflow-hidden rounded-md border bg-muted"
                       title="Open delivery photo"
                     >
-                      <img src={url} alt="Delivery" className="size-full object-cover transition-transform group-hover:scale-105" />
+                      <img src={url} alt="Delivery" className="size-full object-cover transition-transform duration-200 ease-out group-hover-fine:scale-105" />
                     </a>
                   ))}
                 </div>

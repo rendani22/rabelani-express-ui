@@ -332,7 +332,7 @@ export function OnboardingTour() {
             <span
               key={i}
               className={cn(
-                'size-1.5 rounded-full transition-all',
+                'size-1.5 rounded-full transition-[transform,background-color] duration-200 ease-out',
                 i === stepIndex ? 'scale-[1.4] bg-primary' : 'bg-muted-foreground/35',
               )}
             />
