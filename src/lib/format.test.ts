@@ -15,10 +15,12 @@ describe('formatDateShort', () => {
     expect(formatDateShort('')).toBe('—')
   })
 
-  it('formats a date in en-US short form', () => {
+  it('formats a date in en-ZA short form (day before month)', () => {
     const out = formatDateShort('2026-01-05T10:00:00Z')
     expect(out).toContain('2026')
     expect(out).toContain('Jan')
+    // en-ZA reads "05 Jan 2026" — the day leads, unlike en-US's "Jan 5, 2026".
+    expect(out.indexOf('05')).toBeLessThan(out.indexOf('Jan'))
   })
 })
 

@@ -31,7 +31,7 @@ export function RouteTimeline({ stops, className }: { stops: RouteStop[]; classN
             {/* node */}
             <span aria-hidden className="relative mt-1 flex size-[11px] shrink-0 items-center justify-center">
               {stop.state === 'current' && (
-                <span className="absolute inline-flex size-[11px] animate-ping rounded-full bg-primary/40" />
+                <span className="absolute inline-flex size-[11px] animate-ping rounded-full bg-primary/40 motion-reduce:animate-none" />
               )}
               <span
                 className={cn(

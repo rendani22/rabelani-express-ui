@@ -1,8 +1,14 @@
-/** Shared display formatting, ported from the Angular orders component. */
+/**
+ * Shared display formatting, ported from the Angular orders component.
+ *
+ * Dates render in `en-ZA` — this is a South African depot, and its staff and
+ * customers read "16 Jul 2026", not "Jul 16, 2026".
+ */
+const LOCALE = 'en-ZA'
 
 export function formatDateShort(dateString?: string | null): string {
   if (!dateString) return '—'
-  return new Date(dateString).toLocaleDateString('en-US', {
+  return new Date(dateString).toLocaleDateString(LOCALE, {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
@@ -11,7 +17,7 @@ export function formatDateShort(dateString?: string | null): string {
 
 export function formatDateTime(dateString?: string | null): string {
   if (!dateString) return '—'
-  return new Date(dateString).toLocaleString('en-US', {
+  return new Date(dateString).toLocaleString(LOCALE, {
     month: 'short',
     day: 'numeric',
     year: 'numeric',

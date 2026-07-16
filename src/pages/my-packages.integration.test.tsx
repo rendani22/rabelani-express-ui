@@ -44,6 +44,84 @@ beforeEach(() => {
   rescheduleDelivery.mockResolvedValue(undefined)
 })
 
+describe('MyPackagesPage — the customer can see their own record', () => {
+  it('shows a persistent reschedule notice, and stops offering the button again', () => {
+    useMyPackages.mockReturnValue({
+      data: [
+        pkg({ id: 'r1', po_number: 'PO-500', status: 'in_transit', is_receiver: true, reschedule_requested: true }),
+      ],
+      isLoading: false,
+      isError: false,
+    })
+    renderWithProviders(<MyPackagesPage />)
+
+    expect(screen.getByText(/reschedule requested/i)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /request reschedule/i })).not.toBeInTheDocument()
+  })
+
+  it('keeps the notice visible after the parcel moves back to being prepared', () => {
+    // The request persists and never clears — a customer who asked must still see
+    // it once the parcel leaves in_transit, or they'll phone the depot to check.
+    useMyPackages.mockReturnValue({
+      data: [pkg({ id: 'r2', po_number: 'PO-501', status: 'notified', is_receiver: true, reschedule_requested: true })],
+      isLoading: false,
+      isError: false,
+    })
+    renderWithProviders(<MyPackagesPage />)
+
+    expect(screen.getByText(/reschedule requested/i)).toBeInTheDocument()
+  })
+
+  it('shows no notice when nothing was requested', () => {
+    renderWithProviders(<MyPackagesPage />)
+    expect(screen.queryByText(/reschedule requested/i)).not.toBeInTheDocument()
+  })
+
+  it('renders the journey for a parcel still on the move', () => {
+    useMyPackages.mockReturnValue({
+      data: [pkg({ id: 't1', po_number: 'PO-600', status: 'in_transit' })],
+      isLoading: false,
+      isError: false,
+    })
+    renderWithProviders(<MyPackagesPage />)
+
+    // Customer wording, not the depot's ("Picked up by driver" / "Receiver notified").
+    expect(screen.getByText('Order received')).toBeInTheDocument()
+    expect(screen.getByText('Ready for collection')).toBeInTheDocument()
+    expect(screen.queryByText(/picked up by driver/i)).not.toBeInTheDocument()
+  })
+
+  it('labels the dates so a creation date is never mistaken for an ETA', () => {
+    useMyPackages.mockReturnValue({
+      data: [pkg({ id: 'd1', po_number: 'PO-700', status: 'in_transit', updated_at: '2026-07-02T08:00:00Z' })],
+      isLoading: false,
+      isError: false,
+    })
+    renderWithProviders(<MyPackagesPage />)
+
+    expect(screen.getByText('Ordered')).toBeInTheDocument()
+    expect(screen.getByText('Last updated')).toBeInTheDocument()
+  })
+})
+
+describe('MyPackagesPage — error state', () => {
+  it('names the failure, offers a retry, and points at the depot', async () => {
+    const user = userEvent.setup()
+    const refetch = vi.fn()
+    useMyPackages.mockReturnValue({ data: undefined, isLoading: false, isError: true, refetch })
+    renderWithProviders(<MyPackagesPage />)
+
+    expect(screen.getByText(/could not load your packages/i)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /contact the depot/i })).toHaveAttribute(
+      'href',
+      'mailto:support@rabelani.co.za',
+    )
+
+    await user.click(screen.getByRole('button', { name: /try again/i }))
+    expect(refetch).toHaveBeenCalled()
+  })
+})
+
 describe('MyPackagesPage — status filters (integration)', () => {
   it('renders a buyer scope label and only the statuses that are present, with counts', () => {
     renderWithProviders(<MyPackagesPage />)

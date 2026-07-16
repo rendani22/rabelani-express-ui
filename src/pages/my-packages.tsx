@@ -1,13 +1,27 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useId, useMemo, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { CalendarClock, Download, FileCheck2, Loader2, PackageX, Search, User, X } from 'lucide-react'
+import {
+  AlertTriangle,
+  CalendarClock,
+  ChevronRight,
+  Download,
+  FileCheck2,
+  Loader2,
+  Mail,
+  PackageX,
+  RotateCw,
+  Search,
+  User,
+  X,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import { useMyPackages } from '@/hooks/use-my-packages'
 import { useCurrentPrincipal } from '@/hooks/use-current-principal'
-import { StatusStamp, SectionLabel } from '@/components/dispatch'
+import { StatusStamp, SectionLabel, RouteTimeline } from '@/components/dispatch'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import {
   Dialog,
@@ -21,9 +35,21 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { formatDateTime } from '@/lib/format'
 import { PACKAGE_STATUS, type PackageStatus, customerStatusMeta } from '@/lib/status'
+import { customerRouteStops } from '@/lib/package-timeline'
 import { reportError } from '@/lib/logger'
 import { downloadCustomerPod } from '@/lib/api/customer-pod'
 import { rescheduleDelivery, type CustomerPackage } from '@/lib/api/customer-packages'
+
+/** The depot's public support address — the same one the emails and app header use. */
+const SUPPORT_EMAIL = 'support@rabelani.co.za'
+
+/**
+ * Inline links. The brand orange rides the underline rather than the text:
+ * cargo orange is 3.3:1 on a light surface, which fails AA below 18px, so the
+ * text stays ink and the accent marks it as a link.
+ */
+const LINK_CLASS =
+  'rounded-sm font-medium text-foreground underline decoration-primary decoration-2 underline-offset-4 outline-none transition-colors hover:decoration-primary/60 focus-visible:ring-[3px] focus-visible:ring-ring/50'
 
 /** A PO grouping (po set) or a standalone package (po null → key by id). */
 interface PackageGroup {
@@ -61,7 +87,7 @@ function PackageItems({ items }: { items: CustomerPackage['items'] }) {
       {items.map((it, i) => (
         <li key={i} className="flex justify-between gap-3">
           <span className="text-foreground">{it.description}</span>
-          <span className="tabular-nums text-muted-foreground">×{it.quantity}</span>
+          <span className="mono shrink-0 text-muted-foreground">×{it.quantity}</span>
         </li>
       ))}
     </ul>
@@ -117,6 +143,7 @@ function RescheduleButton({ pkg }: { pkg: CustomerPackage }) {
   const qc = useQueryClient()
   const [open, setOpen] = useState(false)
   const [reason, setReason] = useState('')
+  const reasonId = useId()
 
   const mut = useMutation({
     mutationFn: () => rescheduleDelivery(pkg.id, reason.trim()),
@@ -132,12 +159,9 @@ function RescheduleButton({ pkg }: { pkg: CustomerPackage }) {
 
   return (
     <>
-      <Button
-        variant="outline"
-        size="sm"
-        className="mt-3 self-start"
-        onClick={() => setOpen(true)}
-      >
+      {/* The one action on this card — it carries the accent. The POD download
+          stays deliberately neutral: retrieving a record isn't acting on one. */}
+      <Button size="sm" className="mt-3 self-start" onClick={() => setOpen(true)}>
         <CalendarClock /> Request reschedule
       </Button>
 
@@ -146,18 +170,30 @@ function RescheduleButton({ pkg }: { pkg: CustomerPackage }) {
           <DialogHeader>
             <DialogTitle>Reschedule this delivery?</DialogTitle>
             <DialogDescription>
-              The driver won&apos;t attempt delivery today. Tell us why so the warehouse can arrange
-              a better time.
+              The driver won&apos;t attempt delivery today, and the request can&apos;t be undone once
+              sent. Tell us why so the warehouse can arrange a better time.
             </DialogDescription>
           </DialogHeader>
-          <Textarea
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            placeholder="e.g. No one available today — please deliver Thursday morning."
-            rows={3}
-            maxLength={600}
-            autoFocus
-          />
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor={reasonId}>Why do you need a new time?</Label>
+            <Textarea
+              id={reasonId}
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="e.g. No one available today — please deliver Thursday morning."
+              rows={3}
+              maxLength={600}
+            />
+            <span
+              className={cn(
+                'mono self-end text-[11px] text-muted-foreground',
+                reason.length < 500 && 'invisible',
+              )}
+              aria-hidden={reason.length < 500}
+            >
+              {reason.length}/600
+            </span>
+          </div>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setOpen(false)} disabled={mut.isPending}>
               Cancel
@@ -172,32 +208,89 @@ function RescheduleButton({ pkg }: { pkg: CustomerPackage }) {
   )
 }
 
-/** One package's detail inside a group (status + items + notes), no reference. */
+/**
+ * The parcel's journey, worded for the customer. While a parcel is still moving
+ * this IS the answer they came for, so it stays open. Once it has landed the
+ * journey is history and the proof of delivery is the point — so it collapses,
+ * and the card stays scannable for someone reading back through old orders.
+ */
+function CustomerTimeline({ pkg }: { pkg: CustomerPackage }) {
+  const stops = useMemo(() => customerRouteStops(pkg), [pkg])
+  const landed = pkg.status === PACKAGE_STATUS.COLLECTED || pkg.status === PACKAGE_STATUS.DELIVERED
+
+  if (!landed) return <RouteTimeline stops={stops} className="mb-4" />
+
+  return (
+    <details className="group mb-4">
+      <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 rounded-sm py-0.5 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 [&::-webkit-details-marker]:hidden">
+        <ChevronRight className="size-3.5 text-muted-foreground transition-transform duration-150 group-open:rotate-90 motion-reduce:transition-none" />
+        <SectionLabel className="cursor-pointer">Journey</SectionLabel>
+      </summary>
+      <div className="pt-3">
+        <RouteTimeline stops={stops} />
+      </div>
+    </details>
+  )
+}
+
+/** One package's detail inside a group (status + journey + items + notes). */
 function PackageRow({ pkg, showDivider }: { pkg: CustomerPackage; showDivider: boolean }) {
   const podAvailable = pkg.status === PACKAGE_STATUS.COLLECTED || pkg.status === PACKAGE_STATUS.DELIVERED
-  const canReschedule = pkg.status === PACKAGE_STATUS.IN_TRANSIT && pkg.is_receiver
+  // A reschedule already asked for can't be asked for twice — the request
+  // persists, so the notice below replaces the button rather than joining it.
+  const canReschedule =
+    pkg.status === PACKAGE_STATUS.IN_TRANSIT && pkg.is_receiver && !pkg.reschedule_requested
+  const meta = customerStatusMeta(pkg.status)
+  // Only worth showing when it actually differs — otherwise it's the same date twice.
+  const updated = pkg.updated_at && pkg.updated_at !== pkg.created_at ? pkg.updated_at : null
+
   return (
     <div className={showDivider ? 'flex flex-col border-t pt-4' : 'flex flex-col'}>
-      <div className="mb-2 flex items-center justify-between gap-3">
-        <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
-          {formatDateTime(pkg.created_at)}
-          {/* Only a buyer ever sees a parcel that isn't theirs — name whose it is
-              so a mixed list is readable. Your own parcels stay unlabelled. */}
-          {!pkg.is_receiver && pkg.receiver_name && (
-            <span className="flex items-center gap-1 text-foreground/70">
-              <User className="size-3 shrink-0" /> <span className="truncate">{pkg.receiver_name}</span>
-            </span>
-          )}
-        </span>
-        {(() => {
-          const s = customerStatusMeta(pkg.status)
-          return <StatusStamp status={pkg.status} label={s.label} tone={s.tone} />
-        })()}
+      {/* The status leads: it's the question this page exists to answer. */}
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+        <StatusStamp status={pkg.status} label={meta.label} tone={meta.tone} />
+        {/* Only a buyer ever sees a parcel that isn't theirs — name whose it is
+            so a mixed list is readable. Your own parcels stay unlabelled. */}
+        {!pkg.is_receiver && pkg.receiver_name && (
+          <span className="flex min-w-0 items-center gap-1 text-xs text-foreground/70">
+            <User className="size-3 shrink-0" /> <span className="truncate">{pkg.receiver_name}</span>
+          </span>
+        )}
       </div>
+
+      {/* Dates are demoted and labelled — an unlabelled date next to "On the way"
+          reads as an ETA, which is exactly what it isn't. */}
+      <dl className="mb-3 flex flex-wrap items-baseline gap-x-4 gap-y-0.5 text-[11px] text-muted-foreground">
+        <div className="flex items-baseline gap-1.5">
+          <dt>Ordered</dt>
+          <dd className="mono">{formatDateTime(pkg.created_at)}</dd>
+        </div>
+        {updated && (
+          <div className="flex items-baseline gap-1.5">
+            <dt>Last updated</dt>
+            <dd className="mono">{formatDateTime(updated)}</dd>
+          </div>
+        )}
+      </dl>
+
+      <CustomerTimeline pkg={pkg} />
+
       <PackageItems items={pkg.items} />
+
       {pkg.customer_notes && (
         <p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">{pkg.customer_notes}</p>
       )}
+
+      {/* The record of the customer's own request. Amber is the system's
+          "waiting" tone; it persists whatever the parcel does next, because the
+          person who asked is the person who most needs to see it stuck. */}
+      {pkg.reschedule_requested && (
+        <p className="mt-3 flex items-start gap-2 rounded-md border border-warning/45 bg-warning/10 px-2.5 py-2 text-xs text-warning-foreground dark:text-warning">
+          <CalendarClock className="mt-px size-3.5 shrink-0" aria-hidden />
+          <span>Reschedule requested — the depot will arrange a new delivery time.</span>
+        </p>
+      )}
+
       {podAvailable && <DownloadPodButton pkg={pkg} />}
       {canReschedule && <RescheduleButton pkg={pkg} />}
     </div>
@@ -218,7 +311,14 @@ const CUSTOMER_STATUS_ORDER: PackageStatus[] = [
 
 type StatusFilter = 'all' | PackageStatus
 
-/** One filter pill: customer-facing label + a count badge. */
+/**
+ * One filter pill: customer-facing label + a count badge. Selected state is an
+ * orange tint, not an accent fill — the orange belongs to the action on the
+ * card, not to a filter. The label stays ink rather than orange: cargo orange
+ * is only 3.3:1 on a light surface, so orange-on-tint would fail AA at this
+ * size. The tint and border carry the signal; the ink carries the text.
+ * Targets are thumb-sized on a phone and tighten up on a desktop.
+ */
 function FilterChip({
   label,
   count,
@@ -236,17 +336,17 @@ function FilterChip({
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
+        'inline-flex min-h-11 items-center gap-1.5 rounded-full border px-3 text-xs font-medium outline-none transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50 sm:min-h-8',
         active
-          ? 'border-primary bg-primary text-primary-foreground'
-          : 'border-border text-muted-foreground hover:border-border hover:bg-muted/60 hover:text-foreground',
+          ? 'border-primary/40 bg-primary/12 text-foreground'
+          : 'border-border text-muted-foreground hover:bg-muted/60 hover:text-foreground',
       )}
     >
       {label}
       <span
         className={cn(
-          'rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none tabular-nums',
-          active ? 'bg-primary-foreground/20' : 'bg-muted text-muted-foreground',
+          'mono rounded-full px-1.5 py-0.5 text-[11px] font-semibold leading-none',
+          active ? 'bg-primary/20 text-foreground' : 'bg-muted text-muted-foreground',
         )}
       >
         {count}
@@ -257,7 +357,7 @@ function FilterChip({
 
 export function MyPackagesPage() {
   const { data: principal } = useCurrentPrincipal()
-  const { data: packages, isLoading, isError } = useMyPackages()
+  const { data: packages, isLoading, isError, refetch } = useMyPackages()
 
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState<StatusFilter>('all')
@@ -327,7 +427,7 @@ export function MyPackagesPage() {
                 type="button"
                 onClick={() => setQuery('')}
                 aria-label="Clear search"
-                className="absolute right-1 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:text-foreground"
+                className="absolute right-0.5 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-sm text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50"
               >
                 <X className="size-4" />
               </button>
@@ -361,33 +461,56 @@ export function MyPackagesPage() {
           {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-28 rounded-lg" />)}
         </div>
       ) : isError ? (
-        <Card className="flex items-center gap-3 p-5 text-sm text-destructive">
-          <Loader2 className="size-4" /> Could not load your packages. Please try again shortly.
+        <Card className="flex flex-col items-start gap-3 p-5">
+          <p className="flex items-center gap-2.5 text-sm font-medium text-destructive">
+            <AlertTriangle className="size-4 shrink-0" aria-hidden />
+            Could not load your packages.
+          </p>
+          <p className="text-sm text-muted-foreground">
+            This is usually temporary. Try again in a moment — if it keeps happening,{' '}
+            <a href={`mailto:${SUPPORT_EMAIL}`} className={LINK_CLASS}>
+              contact the depot
+            </a>
+            .
+          </p>
+          <Button variant="outline" size="sm" onClick={() => refetch()}>
+            <RotateCw /> Try again
+          </Button>
         </Card>
       ) : !hasAnyOrders ? (
-        <Card className="flex flex-col items-center gap-3 p-10 text-center text-muted-foreground">
-          <PackageX className="size-7" />
-          <p className="text-sm">No orders to show yet.</p>
+        <Card className="flex flex-col items-center gap-3 p-10 text-center">
+          <PackageX className="size-7 text-muted-foreground" aria-hidden />
+          <p className="text-sm text-muted-foreground">No orders to show yet.</p>
+          <p className="max-w-sm text-xs text-muted-foreground">
+            Orders appear here as soon as the depot registers them, and you&apos;ll get an email when
+            one is on its way.
+          </p>
+          <a href={`mailto:${SUPPORT_EMAIL}`} className={cn(LINK_CLASS, 'inline-flex items-center gap-1.5 text-xs')}>
+            <Mail className="size-3.5" aria-hidden /> Expecting an order?
+          </a>
         </Card>
       ) : filtered.length === 0 ? (
         <Card className="flex flex-col items-center gap-3 p-10 text-center text-muted-foreground">
-          <Search className="size-7" />
+          <Search className="size-7" aria-hidden />
           <p className="text-sm">
             {query.trim()
               ? `No orders match “${query.trim()}”.`
               : 'No orders with this status.'}
           </p>
+          {query.trim() && (
+            <p className="max-w-sm text-xs">Search matches PO numbers — not item names.</p>
+          )}
           {hasActiveFilters && (
-            <button
-              type="button"
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => {
                 setQuery('')
                 setStatus('all')
               }}
-              className="text-xs font-medium text-primary hover:underline"
             >
               Clear filters
-            </button>
+            </Button>
           )}
         </Card>
       ) : (
@@ -397,9 +520,11 @@ export function MyPackagesPage() {
               <Card className="flex flex-col gap-4 p-5">
                 <div className="flex items-baseline justify-between gap-3">
                   {group.po ? (
-                    <div className="flex flex-col gap-0.5">
-                      <SectionLabel>Purchase order</SectionLabel>
-                      <span className="font-mono text-base font-semibold tracking-tight">{group.po}</span>
+                    <div className="flex items-baseline gap-2">
+                      <SectionLabel>PO</SectionLabel>
+                      <span className="mono text-sm font-medium tracking-tight text-foreground/80">
+                        {group.po}
+                      </span>
                     </div>
                   ) : (
                     <SectionLabel>Order</SectionLabel>

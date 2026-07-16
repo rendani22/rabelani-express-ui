@@ -58,3 +58,9 @@ This repo uses a **dev-first** branching model — see `.copilot/skills/git-work
 When you change a public API or function signature, update its call sites in the same commit.
 
 **Never read `.env*` files** (other than `.env.example`/`.sample`/`.template`) and never write secrets into `.squad/` files — Scribe auto-commits them (`.copilot/skills/secret-handling/SKILL.md`).
+
+## Design context
+
+- **`PRODUCT.md`** (root) — the strategic layer: who Dispatch is for, what it's for, positioning, brand personality, anti-references, and the design principles UI work should answer to. Read it before making design decisions.
+- **`.interface-design/system.md`** — the working design-system log: the "Dispatch" direction, tokens, signature components, and a running record of what's been built.
+- Design tokens themselves live in `src/index.css` (Tailwind v4 `@theme inline`); treat those as the source of truth over any doc.

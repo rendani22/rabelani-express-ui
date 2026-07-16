@@ -1,0 +1,369 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-16T20:56:38Z",
+  "title": "Design System: Dispatch — Rabelani Express",
+  "extensions": {
+    "colorMeta": {
+      "cargo-orange": {
+        "role": "primary",
+        "displayName": "Cargo Orange",
+        "canonical": "oklch(0.665 0.185 47)",
+        "hexMirror": "#ea6600",
+        "note": "The single accent. Always paired with ink-on-orange text, never white — black-on-orange is how hi-vis signage works. Dark mode lifts to oklch(0.7 0.19 48).",
+        "tonalRamp": [
+          "oklch(0.2 0.06 47)",
+          "oklch(0.31 0.1 47)",
+          "oklch(0.42 0.14 47)",
+          "oklch(0.53 0.17 47)",
+          "oklch(0.665 0.185 47)",
+          "oklch(0.76 0.15 47)",
+          "oklch(0.86 0.1 47)",
+          "oklch(0.95 0.04 47)"
+        ]
+      },
+      "ink-on-orange": {
+        "role": "primary",
+        "displayName": "Ink on Orange",
+        "canonical": "oklch(0.2 0.03 60)",
+        "hexMirror": "#201308",
+        "note": "Text set on cargo orange. Hi-vis contrast; white would glare.",
+        "tonalRamp": [
+          "oklch(0.15 0.03 60)",
+          "oklch(0.2 0.03 60)",
+          "oklch(0.3 0.03 60)",
+          "oklch(0.42 0.03 60)",
+          "oklch(0.55 0.03 60)",
+          "oklch(0.68 0.02 60)",
+          "oklch(0.82 0.015 60)",
+          "oklch(0.95 0.01 60)"
+        ]
+      },
+      "warm-paper": {
+        "role": "neutral",
+        "displayName": "Warm Paper",
+        "canonical": "oklch(0.986 0.004 80)",
+        "hexMirror": "#fcfaf7",
+        "note": "Light-mode canvas. Label stock, not white — takes the glare off a long shift. The email palette's #f3f1ed is a DIFFERENT, darker step (it backs the mail 'page'); this token is the email's 'paper'.",
+        "tonalRamp": [
+          "oklch(0.16 0.004 80)",
+          "oklch(0.28 0.004 80)",
+          "oklch(0.42 0.004 80)",
+          "oklch(0.56 0.004 80)",
+          "oklch(0.7 0.004 80)",
+          "oklch(0.84 0.004 80)",
+          "oklch(0.93 0.004 80)",
+          "oklch(0.986 0.004 80)"
+        ]
+      },
+      "label-stock": {
+        "role": "neutral",
+        "displayName": "Label Stock",
+        "canonical": "oklch(0.997 0.002 80)",
+        "hexMirror": "#fffefd",
+        "note": "Raised surfaces in light mode. Lighter than the canvas: elevation reads as closer to the light.",
+        "tonalRamp": [
+          "oklch(0.17 0.002 80)",
+          "oklch(0.29 0.002 80)",
+          "oklch(0.43 0.002 80)",
+          "oklch(0.57 0.002 80)",
+          "oklch(0.71 0.002 80)",
+          "oklch(0.85 0.002 80)",
+          "oklch(0.94 0.002 80)",
+          "oklch(0.997 0.002 80)"
+        ]
+      },
+      "depot-ink": {
+        "role": "neutral",
+        "displayName": "Depot Ink",
+        "canonical": "oklch(0.22 0.012 60)",
+        "hexMirror": "#1f1915",
+        "note": "Body and heading text in light mode. A warm near-black, never a grey.",
+        "tonalRamp": [
+          "oklch(0.15 0.012 60)",
+          "oklch(0.22 0.012 60)",
+          "oklch(0.33 0.012 60)",
+          "oklch(0.45 0.012 60)",
+          "oklch(0.58 0.012 60)",
+          "oklch(0.71 0.01 60)",
+          "oklch(0.84 0.008 60)",
+          "oklch(0.95 0.005 60)"
+        ]
+      },
+      "depot-graphite": {
+        "role": "neutral",
+        "displayName": "Depot Graphite",
+        "canonical": "oklch(0.165 0.006 250)",
+        "note": "Dark-mode canvas. Cool, so the cargo orange stays warm against it — depot at night.",
+        "tonalRamp": [
+          "oklch(0.165 0.006 250)",
+          "oklch(0.24 0.006 250)",
+          "oklch(0.35 0.006 250)",
+          "oklch(0.47 0.006 250)",
+          "oklch(0.6 0.006 250)",
+          "oklch(0.73 0.005 250)",
+          "oklch(0.86 0.004 250)",
+          "oklch(0.95 0.004 250)"
+        ]
+      },
+      "depot-graphite-raised": {
+        "role": "neutral",
+        "displayName": "Graphite Raised",
+        "canonical": "oklch(0.196 0.006 250)",
+        "note": "Raised surfaces in dark mode, ~+3% lightness per elevation step.",
+        "tonalRamp": [
+          "oklch(0.196 0.006 250)",
+          "oklch(0.27 0.006 250)",
+          "oklch(0.38 0.006 250)",
+          "oklch(0.5 0.006 250)",
+          "oklch(0.62 0.006 250)",
+          "oklch(0.75 0.005 250)",
+          "oklch(0.87 0.004 250)",
+          "oklch(0.96 0.004 250)"
+        ]
+      },
+      "stencil-grey": {
+        "role": "neutral",
+        "displayName": "Stencil Grey",
+        "canonical": "oklch(0.52 0.012 60)",
+        "hexMirror": "#6e6762",
+        "note": "Section labels and secondary metadata. The demotion tool — reach for this before a bigger heading.",
+        "tonalRamp": [
+          "oklch(0.16 0.012 60)",
+          "oklch(0.27 0.012 60)",
+          "oklch(0.39 0.012 60)",
+          "oklch(0.52 0.012 60)",
+          "oklch(0.64 0.01 60)",
+          "oklch(0.76 0.008 60)",
+          "oklch(0.87 0.006 60)",
+          "oklch(0.96 0.004 60)"
+        ]
+      },
+      "hairline": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "canonical": "oklch(0.9 0.006 70)",
+        "hexMirror": "#e1ddda",
+        "note": "Borders and dividers — the entire depth mechanism. Dark mode swaps to oklch(1 0 0 / 9%) so edges read without turning milky.",
+        "tonalRamp": [
+          "oklch(0.18 0.006 70)",
+          "oklch(0.3 0.006 70)",
+          "oklch(0.44 0.006 70)",
+          "oklch(0.58 0.006 70)",
+          "oklch(0.72 0.006 70)",
+          "oklch(0.83 0.006 70)",
+          "oklch(0.9 0.006 70)",
+          "oklch(0.96 0.004 70)"
+        ]
+      },
+      "delivered-green": {
+        "role": "tertiary",
+        "displayName": "Delivered Green",
+        "canonical": "oklch(0.6 0.13 150)",
+        "hexMirror": "#3b9555",
+        "note": "RESERVED: delivered or collected, and nothing else. A good number is not green. Sole exception is a quantity ledger, where +/- reads as an account.",
+        "tonalRamp": [
+          "oklch(0.18 0.05 150)",
+          "oklch(0.29 0.08 150)",
+          "oklch(0.4 0.11 150)",
+          "oklch(0.5 0.12 150)",
+          "oklch(0.6 0.13 150)",
+          "oklch(0.72 0.11 150)",
+          "oklch(0.85 0.07 150)",
+          "oklch(0.95 0.03 150)"
+        ]
+      },
+      "caution-amber": {
+        "role": "tertiary",
+        "displayName": "Caution Amber",
+        "canonical": "oklch(0.8 0.15 82)",
+        "note": "RESERVED: waiting or caution. Hue kept deliberately distinct from cargo orange.",
+        "tonalRamp": [
+          "oklch(0.22 0.05 82)",
+          "oklch(0.34 0.08 82)",
+          "oklch(0.46 0.11 82)",
+          "oklch(0.58 0.13 82)",
+          "oklch(0.7 0.15 82)",
+          "oklch(0.8 0.15 82)",
+          "oklch(0.89 0.1 82)",
+          "oklch(0.96 0.04 82)"
+        ]
+      },
+      "returned-red": {
+        "role": "tertiary",
+        "displayName": "Returned Red",
+        "canonical": "oklch(0.577 0.22 27)",
+        "note": "RESERVED: returned or destructive.",
+        "tonalRamp": [
+          "oklch(0.18 0.07 27)",
+          "oklch(0.28 0.12 27)",
+          "oklch(0.38 0.17 27)",
+          "oklch(0.48 0.2 27)",
+          "oklch(0.577 0.22 27)",
+          "oklch(0.7 0.17 27)",
+          "oklch(0.84 0.1 27)",
+          "oklch(0.95 0.04 27)"
+        ]
+      },
+      "route-blue": {
+        "role": "secondary",
+        "displayName": "Route Blue",
+        "canonical": "oklch(0.55 0.14 245)",
+        "note": "Maps, chart series, and the 'notified' state only. The one colour permitted alongside orange, because it never marks an action.",
+        "tonalRamp": [
+          "oklch(0.18 0.05 245)",
+          "oklch(0.28 0.08 245)",
+          "oklch(0.38 0.11 245)",
+          "oklch(0.47 0.13 245)",
+          "oklch(0.55 0.14 245)",
+          "oklch(0.68 0.12 245)",
+          "oklch(0.83 0.07 245)",
+          "oklch(0.95 0.03 245)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "The largest numbers. Tabular, always. Rare." },
+      "metric": { "displayName": "Metric", "purpose": "The MetricStat hero number — the dispatch-strip step. Tabular, always." },
+      "headline": { "displayName": "Headline", "purpose": "Page titles." },
+      "title": { "displayName": "Title", "purpose": "Panel and card headings." },
+      "body": { "displayName": "Body", "purpose": "The working default. Prose caps at 65–75ch, though genuine prose is rare here." },
+      "label": { "displayName": "Section Label", "purpose": "The stencil-on-a-crate mark that heads panels and metric groups. Always Stencil Grey." },
+      "code": { "displayName": "Machine Value", "purpose": "Tracking numbers, references, POs, timestamps, weights, quantities, money. Tabular with slashed zero." }
+    },
+    "shadows": [],
+    "motion": [
+      { "name": "state-transition", "value": "150ms", "purpose": "Default duration for button and interactive state changes. Fast enough to feel mechanical rather than animated." },
+      { "name": "press", "value": "scale(0.97)", "purpose": "Active-state press feedback on buttons — a small mechanical acknowledgement, like a real key." },
+      { "name": "focus-ring", "value": "0 0 0 3px oklch(0.665 0.185 47 / 50%)", "purpose": "Focus-visible ring, shared by buttons and inputs so the panel behaves consistently under a keyboard." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1280px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one action on the screen that matters. Cargo orange with ink-on-orange text; there should rarely be two.",
+      "html": "<button class=\"ds-btn-primary\">Create package</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 36px; padding: 8px 16px; border: none; border-radius: 4.4px; background: var(--primary, oklch(0.665 0.185 47)); color: var(--primary-foreground, oklch(0.2 0.03 60)); font-family: var(--font-sans, 'Archivo Variable', system-ui, sans-serif); font-size: 14px; font-weight: 500; white-space: nowrap; cursor: pointer; transition: all 150ms; outline: none; } .ds-btn-primary:hover { background: color-mix(in oklch, var(--primary, oklch(0.665 0.185 47)) 90%, transparent); } .ds-btn-primary:focus-visible { box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring, oklch(0.665 0.185 47)) 50%, transparent); } .ds-btn-primary:active { transform: scale(0.97); }"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "Secondary action. Neutral surface, no orange — borrowing the accent would steal the primary's meaning.",
+      "html": "<button class=\"ds-btn-outline\">Cancel</button>",
+      "css": ".ds-btn-outline { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 36px; padding: 8px 16px; border: 1px solid var(--border, oklch(0.9 0.006 70)); border-radius: 4.4px; background: var(--background, oklch(0.986 0.004 80)); color: var(--foreground, oklch(0.22 0.012 60)); font-family: var(--font-sans, 'Archivo Variable', system-ui, sans-serif); font-size: 14px; font-weight: 500; cursor: pointer; transition: all 150ms; outline: none; } .ds-btn-outline:hover { background: var(--accent, oklch(0.955 0.006 75)); color: var(--accent-foreground, oklch(0.28 0.01 60)); } .ds-btn-outline:focus-visible { border-color: var(--ring, oklch(0.665 0.185 47)); box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring, oklch(0.665 0.185 47)) 50%, transparent); } .ds-btn-outline:active { transform: scale(0.97); }"
+    },
+    {
+      "name": "Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Transparent over a hairline border. Focus shifts the border to cargo orange with a 3px ring — the same focus language as buttons.",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"Search tracking number…\" />",
+      "css": ".ds-input { height: 36px; width: 100%; min-width: 0; padding: 4px 12px; border: 1px solid var(--input, oklch(0.915 0.006 70)); border-radius: 4.4px; background: transparent; color: var(--foreground, oklch(0.22 0.012 60)); font-family: var(--font-sans, 'Archivo Variable', system-ui, sans-serif); font-size: 14px; transition: color 150ms, box-shadow 150ms; outline: none; } .ds-input::placeholder { color: var(--muted-foreground, oklch(0.52 0.012 60)); } .ds-input:focus-visible { border-color: var(--ring, oklch(0.665 0.185 47)); box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring, oklch(0.665 0.185 47)) 50%, transparent); } .ds-input[aria-invalid=\"true\"] { border-color: var(--destructive, oklch(0.577 0.22 27)); box-shadow: 0 0 0 3px color-mix(in oklch, var(--destructive, oklch(0.577 0.22 27)) 20%, transparent); } .ds-input:disabled { opacity: 0.5; cursor: not-allowed; }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "A quiet container. Border plus tint step, never a shadow. Not the default answer to grouping — and never nested.",
+      "html": "<div class=\"ds-card\"><span class=\"ds-card-label\">Active deliveries</span><p class=\"ds-card-body\">Border and tint carry the depth. No shadow, by doctrine.</p></div>",
+      "css": ".ds-card { display: flex; flex-direction: column; gap: 8px; padding: 24px; border: 1px solid var(--border, oklch(0.9 0.006 70)); border-radius: 10.4px; background: var(--card, oklch(0.997 0.002 80)); color: var(--card-foreground, oklch(0.22 0.012 60)); font-family: var(--font-sans, 'Archivo Variable', system-ui, sans-serif); } .ds-card-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted-foreground, oklch(0.52 0.012 60)); } .ds-card-body { margin: 0; font-size: 14px; line-height: 1.5; }"
+    },
+    {
+      "name": "Status Stamp",
+      "kind": "chip",
+      "refersTo": "status-stamp",
+      "description": "SIGNATURE. A package status as a rubber ink-stamp on a waybill: rectangular (never a pill), uppercase, tracked, bordered and tinted, with a leading tick dot. The word and the tick do the work; the tint only confirms it.",
+      "html": "<span class=\"ds-stamp ds-stamp-done\"><span class=\"ds-stamp-dot\"></span>Delivered</span> <span class=\"ds-stamp ds-stamp-transit\"><span class=\"ds-stamp-dot\"></span>In transit</span> <span class=\"ds-stamp ds-stamp-wait\"><span class=\"ds-stamp-dot\"></span>Waiting</span> <span class=\"ds-stamp ds-stamp-neutral\"><span class=\"ds-stamp-dot\"></span>Draft</span>",
+      "css": ".ds-stamp { display: inline-flex; align-items: center; gap: 6px; padding: 2px 6px; border: 1px solid; border-radius: 3px; font-family: var(--font-sans, 'Archivo Variable', system-ui, sans-serif); font-size: 10.5px; font-weight: 700; line-height: 1; text-transform: uppercase; letter-spacing: 0.09em; white-space: nowrap; } .ds-stamp-dot { width: 4px; height: 4px; border-radius: 9999px; background: currentColor; opacity: 0.7; } .ds-stamp-done { border-color: color-mix(in oklch, var(--success, oklch(0.6 0.13 150)) 40%, transparent); background: color-mix(in oklch, var(--success, oklch(0.6 0.13 150)) 12%, transparent); color: var(--success, oklch(0.6 0.13 150)); } .ds-stamp-transit { border-color: color-mix(in oklch, var(--primary, oklch(0.665 0.185 47)) 40%, transparent); background: color-mix(in oklch, var(--primary, oklch(0.665 0.185 47)) 12%, transparent); color: var(--primary, oklch(0.665 0.185 47)); } .ds-stamp-wait { border-color: color-mix(in oklch, var(--warning, oklch(0.8 0.15 82)) 45%, transparent); background: color-mix(in oklch, var(--warning, oklch(0.8 0.15 82)) 15%, transparent); color: var(--warning-foreground, oklch(0.3 0.06 82)); } .ds-stamp-neutral { border-color: var(--border, oklch(0.9 0.006 70)); background: var(--muted, oklch(0.958 0.005 75)); color: var(--muted-foreground, oklch(0.52 0.012 60)); }"
+    },
+    {
+      "name": "Tracking Number",
+      "kind": "custom",
+      "refersTo": "tracking-number",
+      "description": "SIGNATURE. The waybill ID as a first-class monospace token — the recurring texture of the whole product, and the thing a user's eye hunts for on every screen. The copyable variant reveals its icon on hover.",
+      "html": "<button class=\"ds-tracking\"><span class=\"ds-tracking-value\">RE-2026-004871</span><svg class=\"ds-tracking-icon\" width=\"12\" height=\"12\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect width=\"14\" height=\"14\" x=\"8\" y=\"8\" rx=\"2\" ry=\"2\"/><path d=\"M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2\"/></svg></button>",
+      "css": ".ds-tracking { display: inline-flex; align-items: center; gap: 6px; margin: 0 -4px; padding: 2px 4px; border: none; border-radius: 2.4px; background: transparent; color: var(--foreground, oklch(0.22 0.012 60)); cursor: pointer; transition: background-color 150ms; } .ds-tracking:hover { background: var(--accent, oklch(0.955 0.006 75)); } .ds-tracking-value { font-family: var(--font-mono, 'JetBrains Mono Variable', ui-monospace, monospace); font-size: 13px; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; font-feature-settings: 'zero' 1; } .ds-tracking-icon { color: var(--muted-foreground, oklch(0.52 0.012 60)); opacity: 0; transition: opacity 150ms; } .ds-tracking:hover .ds-tracking-icon { opacity: 1; }"
+    },
+    {
+      "name": "Metric Stat",
+      "kind": "custom",
+      "refersTo": "metric-stat",
+      "description": "SIGNATURE. A dispatch-strip metric: tabular hero number, demoted tracked label, optional signed delta. Three type levers, not size alone. The delta's green/red is a ledger, not a package status.",
+      "html": "<div class=\"ds-metric\"><span class=\"ds-metric-label\">In transit</span><div class=\"ds-metric-row\"><span class=\"ds-metric-value\">1,284</span><span class=\"ds-metric-unit\">parcels</span></div><span class=\"ds-metric-delta\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M7 7h10v10\"/><path d=\"M7 17 17 7\"/></svg>12.4%</span></div>",
+      "css": ".ds-metric { display: flex; flex-direction: column; gap: 6px; font-family: var(--font-sans, 'Archivo Variable', system-ui, sans-serif); } .ds-metric-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted-foreground, oklch(0.52 0.012 60)); } .ds-metric-row { display: flex; align-items: baseline; gap: 8px; } .ds-metric-value { font-size: 32px; font-weight: 600; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: var(--foreground, oklch(0.22 0.012 60)); } .ds-metric-unit { font-size: 14px; font-weight: 500; color: var(--muted-foreground, oklch(0.52 0.012 60)); } .ds-metric-delta { display: inline-flex; align-items: center; gap: 2px; font-size: 12px; font-weight: 500; font-variant-numeric: tabular-nums; color: var(--success, oklch(0.6 0.13 150)); }"
+    },
+    {
+      "name": "Section Label",
+      "kind": "custom",
+      "refersTo": "section-label",
+      "description": "SIGNATURE. A stencil-on-a-crate label — the workhorse of hierarchy. Reach for this before reaching for a bigger heading.",
+      "html": "<span class=\"ds-section-label\">Chain of custody</span>",
+      "css": ".ds-section-label { font-family: var(--font-sans, 'Archivo Variable', system-ui, sans-serif); font-size: 11px; font-weight: 600; line-height: 1; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted-foreground, oklch(0.52 0.012 60)); }"
+    },
+    {
+      "name": "Sidebar Navigation Item",
+      "kind": "nav",
+      "refersTo": "nav-item",
+      "description": "Grouped nav on a canvas-coloured sidebar, separated by a border rather than a fill. The active item is marked with a cargo-orange bar — the one place the accent appears without being a button.",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-nav-item ds-nav-item-active\" href=\"#\">Orders</a><a class=\"ds-nav-item\" href=\"#\">Drivers</a><a class=\"ds-nav-item\" href=\"#\">Inventory</a></nav>",
+      "css": ".ds-nav { display: flex; flex-direction: column; gap: 2px; padding: 8px; background: var(--sidebar, oklch(0.972 0.005 80)); border-right: 1px solid var(--sidebar-border, oklch(0.9 0.006 70)); font-family: var(--font-sans, 'Archivo Variable', system-ui, sans-serif); } .ds-nav-item { position: relative; padding: 8px 12px; border-radius: 4.4px; font-size: 14px; font-weight: 500; text-decoration: none; color: var(--sidebar-foreground, oklch(0.22 0.012 60)); transition: background-color 150ms; } .ds-nav-item:hover { background: var(--sidebar-accent, oklch(0.95 0.006 75)); } .ds-nav-item-active::before { content: ''; position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 3px; height: 60%; border-radius: 9999px; background: var(--sidebar-primary, oklch(0.665 0.185 47)); } .ds-nav-item-active { background: var(--sidebar-accent, oklch(0.95 0.006 75)); font-weight: 600; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Control Surface",
+    "overview": "Dispatch is the panel a courier depot is run from. The governing image is not a website and not a dashboard — it is a piece of operational equipment: hi-vis exactly where a hand must act, quiet and legible everywhere else, and utterly calm under load. Every surface earns its place by helping someone move a parcel from purchase order to signed proof of delivery without dropping the thread. If an element does not help someone act, confirm, or prove, it does not belong on the panel.\n\nLight mode is warm label stock — the paper a waybill is printed on. Dark mode is cool depot-at-night graphite, which exists because the work does not stop when the light does, and because a single cargo orange reads like a hi-vis vest against it. Depth is carried by borders and small tonal shifts between surfaces, never by shadow: this is a tool, and tools are flat. Density is high because the users are experts who are in this all day, but density is paid for with hierarchy — size, weight, and colour working together so a one-second glance finds the one thing that matters.\n\nThe system explicitly rejects the registers it could easily have drifted into. Not a generic SaaS dashboard: no gradients, no identical rounded card grids, no hero-metric theatre. Not enterprise logistics software: no undifferentiated grey wall where everything has the same weight. Not a consumer parcel-tracking app: nothing playful, animated, or celebratory in a tool that someone operates for eight hours.",
+    "keyCharacteristics": [
+      "One accent (cargo orange), reserved for action and brand — roughly 10% of any screen.",
+      "Colour is semantic before it is decorative; green means delivered, and nothing else.",
+      "Flat by doctrine: borders and surface tint, never shadow.",
+      "Machine values (references, codes, timestamps, weights, money) are always monospace and tabular.",
+      "Hierarchy from size plus weight plus colour — never size alone.",
+      "Legible at a glance on a phone, under depot glare, held one-handed."
+    ],
+    "rules": [
+      { "name": "The One Voice Rule", "body": "Cargo orange is the only accent, and it appears on no more than ~10% of any screen. Its rarity is what makes it mean \"act here\". A screen where two things are orange is a screen where nothing is.", "section": "colors" },
+      { "name": "The Reserved Colour Rule", "body": "Signal colours are vocabulary, not decoration, and each has exactly one meaning: Delivered Green = delivered or collected, and nothing else, ever. Caution Amber = waiting or caution, kept deliberately distinct in hue from cargo orange. Returned Red = returned or destructive. If you want green because a number is good, you want the wrong colour — the one documented exception is a ledger of quantities (inventory movements, delivered value), where +/- green/red reads as an account rather than a package status.", "section": "colors" },
+      { "name": "The Orange-Is-Not-Ink Rule", "body": "Cargo orange measures 3.3:1 on a light surface — it is a surface colour and a marker, never body text. text-primary below 18px (or below 14px bold) fails WCAG AA on the light theme, tinted backgrounds included; the orange looks fine to a designer on a bright monitor and disappears under depot glare. Set the text in ink and let the orange carry the tint, the border, the underline, or the fill behind ink-on-orange. Dark mode passes comfortably (6.4:1), so this is a light-theme rule — and light is where the depot works by day. Measure, don't eyeball.", "section": "colors" },
+      { "name": "The Never-Colour-Alone Rule", "body": "No state is communicated by hue alone. Depot glare, a one-second glance, and colour blindness all break it. Every status carries a word, a mark, or a shape as well — which is why a package status is a stamp with text and a tick, not a coloured dot.", "section": "colors" },
+      { "name": "The Three Levers Rule", "body": "Hierarchy comes from size, weight, and colour together. Making a thing bigger is the laziest of the three and the first to break a dense screen; a demoted label at the same size in Stencil Grey does more work than a point size ever will.", "section": "typography" },
+      { "name": "The Machine Value Rule", "body": "If a value came from a machine and a human might read it aloud, type it, or compare it in a column, it is monospace and tabular. Tracking numbers, references, POs, timestamps, weights, quantities, money. No exceptions — a tracking number set in the body face is a bug.", "section": "typography" },
+      { "name": "The Flat Tool Rule", "body": "No decorative shadows, no glassmorphism, no blur. Shadows imply objects floating in space; this is a panel, and a panel's parts are set into the surface. If a surface needs to separate, give it a border or a tint step. If it needs to lift, ask whether it should be a dialog instead.", "section": "elevation" },
+      { "name": "The Audit Test", "body": "If a screenshot looks like it could carry a drop shadow without anything changing, the borders are doing too little work. Fix the border and the tint step, not the shadow.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do bind to semantic tokens (bg-primary, text-muted-foreground, border-border). Raw hex or a Tailwind grey is always a bug — it breaks dark mode silently.",
+      "Do set every machine-produced value in .mono with tabular figures: tracking numbers, references, POs, timestamps, weights, quantities, money.",
+      "Do build depth from borders and a tint step of ~3% lightness per elevation level.",
+      "Do reach for the dispatch signatures (StatusStamp, TrackingNumber, RouteTimeline, MetricStat, SectionLabel) before inventing a new pattern, and for shadcn primitives before raw HTML.",
+      "Do demote with Stencil Grey and the 11px tracked label before promoting with size.",
+      "Do give every status a word or a mark alongside its colour.",
+      "Do keep cargo orange to ~10% of the screen, and to actions and brand only.",
+      "Do use the searchable Combobox for any data-backed dropdown.",
+      "Do design for the worst case: a phone under depot glare, one-handed, glanced at for a second.",
+      "Do give every animation a prefers-reduced-motion alternative."
+    ],
+    "donts": [
+      "Don't ship anything that reads as a generic SaaS dashboard — no gradients, no gradient text, no identical rounded card grids, no hero-metric theatre, no decorative illustration.",
+      "Don't ship anything that reads as enterprise logistics software — a grey wall where every element has the same weight is the failure mode this design exists to avoid.",
+      "Don't ship anything that reads as a consumer parcel-tracking app — nothing playful, celebratory, or animated for its own sake in a tool someone operates all day.",
+      "Don't use green for anything but delivered or collected. A good number is not green. The only exception is a quantity ledger, where +/- reads as an account.",
+      "Don't put cargo orange on a secondary action, a status, or a decoration. If two things are orange, neither is primary.",
+      "Don't set small text in text-primary on a light surface — it measures 3.3:1 and fails AA. See the Orange-Is-Not-Ink Rule.",
+      "Don't add a drop shadow, a glass blur, or a backdrop-filter. This is a tool; tools are flat.",
+      "Don't use a coloured border-left as an accent stripe on cards, rows, or callouts. Use a full border, a tint, or a stamp.",
+      "Don't nest a card inside a card.",
+      "Don't communicate state with a bare coloured dot.",
+      "Don't build hierarchy from size alone.",
+      "Don't use a pill radius on a status — the stamp is rectangular, and that is the point.",
+      "Don't let a workflow push someone back to a spreadsheet, a phone call, or paper. That is a design failure, not a user habit."
+    ]
+  }
+}
