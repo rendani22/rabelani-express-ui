@@ -48,7 +48,7 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <div className="flex h-full flex-col bg-sidebar">
       <div className="flex h-16 items-center px-5">
-        <Logo showTagline={false} markClassName="size-8" />
+        <Logo variant="inline" />
       </div>
 
       <nav className="flex flex-1 flex-col gap-6 overflow-y-auto px-3 py-4">

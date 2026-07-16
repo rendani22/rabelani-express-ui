@@ -1,70 +1,103 @@
 import { cn } from '@/lib/utils'
 
 /**
- * Rabelani Express mark — the RouteTimeline signature as a logo: a parcel's
- * chain of custody (node ● → line → arrowhead) in motion, on a hi-vis cargo-orange
- * stamp tile. Black-on-orange like depot signage; theme-aware via the `--primary`
- * / `--primary-foreground` tokens (orange brightens in dark, glyph stays dark, so
- * it reads in both modes and never introduces a second accent).
+ * Rabelani Express mark — the concentric pinpoint, per the `Rabelani Express
+ * Logo` design doc (turn 3, "On the Dispatch system").
+ *
+ * Quiet ink rings with a single hi-vis centre: a fix on the map, here is where
+ * the parcel is. Only the centre is cargo orange — it is the whole accent budget
+ * of the mark, which is the One Voice Rule holding rather than being worked
+ * around. Colours come from `--brand-ring-*` and `--primary`, so the mark tracks
+ * the theme; nothing here is a fixed brand colour.
+ *
+ * Colours are set with Tailwind stroke/fill utilities, NOT `stroke="var(--…)"` —
+ * custom properties do not resolve inside SVG presentation attributes and fall
+ * back to black.
  */
-export function LogoMark({ className }: { className?: string }) {
+export function LogoMark({
+  className,
+  dense = false,
+}: {
+  className?: string
+  /**
+   * Small-size rendering (~20px and under). The doc redraws the mark rather than
+   * scaling it: both rings go to full ink and thicken, because the quiet outer
+   * ring vanishes at sidebar/favicon size. Geometry tightens with it.
+   */
+  dense?: boolean
+}) {
   return (
     <svg
-      viewBox="0 0 40 40"
+      viewBox="0 0 48 48"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       aria-hidden="true"
-      className={cn('size-11 rounded-[10px] ring-1 ring-black/10 dark:ring-white/10', className)}
+      className={cn(dense ? 'size-5' : 'size-10', className)}
     >
-      {/* Colours via Tailwind fill/stroke utilities — NOT `fill="var(--…)"`,
-          which does not resolve inside SVG presentation attributes (falls back to
-          black). These compile to real CSS `fill: var(--color-primary)`. */}
-      <rect width="40" height="40" rx="10" className="fill-primary" />
-      {/* origin node → route line → forward arrowhead (express) */}
-      <circle cx="12" cy="20" r="3" className="fill-primary-foreground" />
-      <path
-        d="M15.5 20 H23"
+      <circle
+        cx="24"
+        cy="24"
+        r="20"
         fill="none"
-        className="stroke-primary-foreground"
-        strokeWidth="4"
-        strokeLinecap="round"
+        strokeWidth={dense ? 3 : 2.6}
+        className={dense ? 'stroke-brand-ring-strong' : 'stroke-brand-ring-quiet'}
       />
-      <path
-        d="M22.5 13.5 L29 20 L22.5 26.5"
+      <circle
+        cx="24"
+        cy="24"
+        r={dense ? 11 : 12.5}
         fill="none"
-        className="stroke-primary-foreground"
-        strokeWidth="4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
+        strokeWidth={dense ? 3 : 2.6}
+        className="stroke-brand-ring-strong"
       />
+      <circle cx="24" cy="24" r={dense ? 5 : 5.5} className="fill-primary" />
     </svg>
   )
 }
 
-/** Full lockup: mark + wordmark + tagline. */
+/**
+ * The wordmark: "Rabelani" in Archivo against "EXPRESS" in tracked JetBrains
+ * Mono. The two words separate by face, weight, and tone — never by a second
+ * colour. There is no tagline in this direction; the mono half carries the
+ * "Express" on its own.
+ *
+ * `stacked` is the primary lockup (auth screens, empty shells). `inline` is the
+ * doc's in-use variant for the sidebar header, where vertical room is the
+ * constraint and the mark drops to its dense rendering.
+ */
 export function Logo({
   className,
   markClassName,
-  showTagline = true,
+  variant = 'stacked',
 }: {
   className?: string
   markClassName?: string
-  showTagline?: boolean
+  variant?: 'stacked' | 'inline'
 }) {
+  if (variant === 'inline') {
+    return (
+      <span className={cn('flex items-center gap-[9px]', className)}>
+        <LogoMark dense className={markClassName} />
+        <span className="text-sm font-semibold tracking-[-0.02em] text-foreground">
+          Rabelani{' '}
+          <span className="mono text-[10px] font-medium tracking-[0.12em] text-muted-foreground">
+            EXPRESS
+          </span>
+        </span>
+      </span>
+    )
+  }
+
   return (
-    <span className={cn('flex items-center gap-3', className)}>
+    <span className={cn('flex items-center gap-[18px]', className)}>
       <LogoMark className={markClassName} />
       <span className="flex flex-col leading-none">
-        {/* one accent: the mark carries the orange; the wordmark separates the two
-            words by weight + tone, not a second colour. */}
-        <span className="text-[1.375rem] font-extrabold tracking-[-0.025em] text-foreground">
-          Rabelani<span className="font-medium text-muted-foreground">Express</span>
+        <span className="text-[19px] font-semibold tracking-[-0.02em] text-foreground">
+          Rabelani
         </span>
-        {showTagline && (
-          <span className="mt-0.5 text-[0.6875rem] font-medium uppercase tracking-[0.05em] text-muted-foreground">
-            Logistics Solutions
-          </span>
-        )}
+        <span className="mono mt-[7px] text-[9px] font-medium tracking-[0.24em] text-muted-foreground">
+          EXPRESS
+        </span>
       </span>
     </span>
   )

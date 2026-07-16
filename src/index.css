@@ -56,6 +56,13 @@
   --input: oklch(0.915 0.006 70);
   --ring: oklch(0.665 0.185 47);
 
+  /* Brand mark — the concentric pinpoint's two ink rings. Not reused outside the
+     logo, but tokenised so the mark tracks the theme instead of hardcoding a
+     value that would silently break in dark. The centre is `--primary`: the mark
+     carries the One Voice Rule rather than working around it. */
+  --brand-ring-quiet: oklch(0.72 0.015 60);
+  --brand-ring-strong: oklch(0.22 0.012 60);
+
   --chart-1: oklch(0.665 0.185 47);
   --chart-2: oklch(0.55 0.14 245);
   --chart-3: oklch(0.6 0.13 150);
@@ -109,6 +116,11 @@
   --input: oklch(1 0 0 / 12%);
   --ring: oklch(0.7 0.19 48);
 
+  /* Both rings collapse to one cool grey on graphite: the light theme's ink ring
+     (0.22) would disappear here, and the paper-white foreground would glare. */
+  --brand-ring-quiet: oklch(0.78 0.008 250);
+  --brand-ring-strong: oklch(0.78 0.008 250);
+
   --chart-1: oklch(0.7 0.19 48);
   --chart-2: oklch(0.62 0.14 245);
   --chart-3: oklch(0.68 0.14 150);
@@ -157,6 +169,8 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-brand-ring-quiet: var(--brand-ring-quiet);
+  --color-brand-ring-strong: var(--brand-ring-strong);
 
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
