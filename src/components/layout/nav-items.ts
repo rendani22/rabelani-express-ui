@@ -50,7 +50,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Directory',
     items: [
-      { label: 'Customers', to: '/customers', icon: Contact, keywords: ['receivers', 'clients', 'companies', 'buyers', 'runners', 'portal', 'invite'], permission: 'customers.read' },
+      { label: 'Customers', to: '/customers', icon: Contact, keywords: ['receivers', 'clients', 'companies', 'buyers', 'end users', 'runners', 'portal', 'invite'], permission: 'customers.read' },
       { label: 'Users', to: '/user-management', icon: UserCog, keywords: ['staff', 'team', 'admins'], permission: 'users.read' },
       { label: 'Locations', to: '/delivery-locations', icon: MapPin, keywords: ['depots', 'collection points'], permission: 'locations.read' },
       { label: 'Templates', to: '/email-templates', icon: Mail, keywords: ['email', 'messages'], permission: 'email_templates.read' },

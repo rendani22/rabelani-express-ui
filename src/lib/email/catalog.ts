@@ -66,7 +66,7 @@ export const VARIABLE_CATALOG: Record<EmailTemplateKey, CatalogEntry[]> = {
     { name: 'action_link', label: 'Set-password link', description: 'The button link to set a password and sign in.', kind: 'scalar', group: 'This email' },
     { name: 'portal_url', label: 'Portal URL', description: 'Link to the customer portal.', kind: 'scalar', group: 'This email' },
     { name: 'is_buyer', label: 'Is a Buyer?', description: 'True when the customer is a Buyer.', kind: 'flag', group: 'This email' },
-    { name: 'is_runner', label: 'Is a Runner?', description: 'True when the customer is a Runner.', kind: 'flag', group: 'This email' },
+    { name: 'is_runner', label: 'Is an End user?', description: 'True when the customer is an End user.', kind: 'flag', group: 'This email' },
     ...COMMON_VARS,
   ],
 }

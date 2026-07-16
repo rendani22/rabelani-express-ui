@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { CalendarClock, Download, FileCheck2, Loader2, PackageX, Search, X } from 'lucide-react'
+import { CalendarClock, Download, FileCheck2, Loader2, PackageX, Search, User, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { useMyPackages } from '@/hooks/use-my-packages'
 import { useCurrentPrincipal } from '@/hooks/use-current-principal'
@@ -179,7 +179,16 @@ function PackageRow({ pkg, showDivider }: { pkg: CustomerPackage; showDivider: b
   return (
     <div className={showDivider ? 'flex flex-col border-t pt-4' : 'flex flex-col'}>
       <div className="mb-2 flex items-center justify-between gap-3">
-        <span className="text-xs text-muted-foreground">{formatDateTime(pkg.created_at)}</span>
+        <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+          {formatDateTime(pkg.created_at)}
+          {/* Only a buyer ever sees a parcel that isn't theirs — name whose it is
+              so a mixed list is readable. Your own parcels stay unlabelled. */}
+          {!pkg.is_receiver && pkg.receiver_name && (
+            <span className="flex items-center gap-1 text-foreground/70">
+              <User className="size-3 shrink-0" /> <span className="truncate">{pkg.receiver_name}</span>
+            </span>
+          )}
+        </span>
         {(() => {
           const s = customerStatusMeta(pkg.status)
           return <StatusStamp status={pkg.status} label={s.label} tone={s.tone} />
@@ -290,7 +299,7 @@ export function MyPackagesPage() {
 
   const role = principal?.kind === 'customer' ? principal.customer.role : undefined
   const scopeLabel =
-    role === 'buyer' ? 'All orders for your company'
+    role === 'buyer' ? 'Your orders, and those of the end users assigned to you'
     : role === 'runner' ? 'Orders assigned to you'
     : 'Your orders'
 

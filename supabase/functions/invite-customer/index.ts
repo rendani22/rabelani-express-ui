@@ -17,6 +17,8 @@ interface InviteCustomerRequest {
   phone?: string
   company_id: string
   role: 'buyer' | 'runner'
+  /** End users only: the buyer who may see their packages. */
+  buyer_id?: string | null
 }
 
 function buildCorsHeaders(origin: string | null) {
@@ -61,7 +63,7 @@ serve(async (req) => {
 
     const body: InviteCustomerRequest = await req.json()
     const email = body.email?.toLowerCase().trim()
-    const { name, surname, phone, company_id, role } = body
+    const { name, surname, phone, company_id, role, buyer_id } = body
 
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json({ error: 'Invalid email' }, 400)
     if (!name?.trim()) return json({ error: 'name is required' }, 400)
@@ -109,7 +111,13 @@ serve(async (req) => {
       .ilike('email', email)
       .maybeSingle()
 
-    const profileFields = { auth_user_id: authUserId, role, company_id, name, surname: surname ?? '', ...(phone?.trim() ? { phone: phone.trim() } : {}) }
+    // Only an end user has a buyer. Inviting someone as a Buyer clears any
+    // buyer_id they carried from a previous role.
+    const profileFields = {
+      auth_user_id: authUserId, role, company_id, name, surname: surname ?? '',
+      buyer_id: role === 'runner' ? (buyer_id ?? null) : null,
+      ...(phone?.trim() ? { phone: phone.trim() } : {})
+    }
     let receiverId = existing?.id ?? null
     if (receiverId) {
       const { error } = await admin.from('receiver_profiles').update(profileFields).eq('id', receiverId)

@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Building2, ChevronRight, Contact, Loader2, Mail, MoreVertical, Package as PackageIcon, Pencil, Phone, Plus, Search, Power, Trash2, Users } from 'lucide-react'
+import { Building2, ChevronRight, Contact, Loader2, Mail, MoreVertical, Package as PackageIcon, Pencil, Phone, Plus, Search, Power, Trash2, UserCheck, UserX, Users } from 'lucide-react'
 import type { ReceiverProfile } from '@/lib/api/receivers'
 import { deactivateReceiver, listReceivers, reactivateReceiver } from '@/lib/api/receivers'
-import { createCompany, deleteCompany, listCompanies, type Company, type CustomerRole } from '@/lib/api/customers'
+import { createCompany, deleteCompany, listCompanies, CUSTOMER_ROLE_LABEL, type Company, type CustomerRole } from '@/lib/api/customers'
 import { fetchPackagesByReceiver } from '@/lib/api/orders'
 import { reportError } from '@/lib/logger'
 import { PageBody, PageHeader } from '@/components/layout/page-header'
@@ -77,12 +77,12 @@ function HistoryPanel({ customer, open, onOpenChange }: { customer: ReceiverProf
 
 const UNASSIGNED = '__unassigned__'
 
-/** Buyer/Runner role as a small stamp tag (echoes StatusStamp), implies portal access. */
+/** Buyer/End user role as a small stamp tag (echoes StatusStamp), implies portal access. */
 function RoleTag({ role }: { role: CustomerRole }) {
   return (
     <span className="inline-flex items-center gap-1 rounded-[3px] border border-border bg-muted px-1.5 py-0.5 text-[10px] font-semibold uppercase leading-none tracking-[0.08em] text-muted-foreground">
       <span className="size-1 rounded-full bg-current opacity-60" aria-hidden />
-      {role}
+      {CUSTOMER_ROLE_LABEL[role]}
     </span>
   )
 }
@@ -121,8 +121,10 @@ function NewCompanyDialog({ companies }: { companies: Company[] }) {
 }
 
 /** A single customer card. */
-function CustomerCard({ r, onEdit, onContacts, onToggle, onHistory }: {
+function CustomerCard({ r, buyerName, onEdit, onContacts, onToggle, onHistory }: {
   r: ReceiverProfile
+  /** For end users: the name of the buyer who sees them, or null if nobody does. */
+  buyerName: string | null
   onEdit: () => void
   onContacts: () => void
   onToggle: () => void
@@ -158,6 +160,23 @@ function CustomerCard({ r, onEdit, onContacts, onToggle, onHistory }: {
       <div className="flex flex-col gap-1.5 px-4 pb-3.5 text-[13px]">
         <span className="flex items-center gap-2 text-muted-foreground"><Mail className="size-3.5 shrink-0" /> <span className="truncate">{r.email}</span></span>
         {r.phone && <span className="flex items-center gap-2 text-muted-foreground"><Phone className="size-3.5 shrink-0" /> <span className="mono">{r.phone}</span></span>}
+        {r.role === 'runner' && (
+          buyerName ? (
+            <span className="flex items-center gap-2 text-muted-foreground">
+              <UserCheck className="size-3.5 shrink-0" /> <span className="truncate">{buyerName}</span>
+            </span>
+          ) : (
+            // An end user with no buyer is a valid state, but nobody can see
+            // their packages — say so rather than letting it pass unnoticed.
+            <button
+              type="button"
+              onClick={onEdit}
+              className="flex items-center gap-2 text-left text-warning transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:underline"
+            >
+              <UserX className="size-3.5 shrink-0" /> <span className="truncate">No buyer assigned</span>
+            </button>
+          )
+        )}
       </div>
       <div className="tear-line" />
       <button
@@ -195,6 +214,19 @@ export function CustomersPage() {
     for (const c of companies.data ?? []) m.set(c.id, c.name)
     return m
   }, [companies.data])
+
+  // An end user's packages are only visible to a buyer who is still an active
+  // buyer — so a demoted or deactivated buyer leaves them effectively unassigned.
+  // Mirror the `customer_packages` view's test rather than just checking buyer_id.
+  const buyerName = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const r of data ?? []) {
+      if (r.role === 'buyer' && r.is_active) m.set(r.id, `${r.name} ${r.surname}`.trim())
+    }
+    return m
+  }, [data])
+
+  const buyerFor = (r: ReceiverProfile) => (r.buyer_id ? buyerName.get(r.buyer_id) ?? null : null)
 
   // Search filter first, then group by company.
   const filtered = useMemo(() => {
@@ -258,7 +290,7 @@ export function CustomersPage() {
       <PageHeader
         eyebrow="Directory"
         title="Customers"
-        description="Companies, their Buyers and Runners, contacts, and package history."
+        description="Companies, their Buyers and End users, contacts, and package history."
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <NewCompanyDialog companies={companies.data ?? []} />
@@ -292,8 +324,9 @@ export function CustomersPage() {
         <div className="flex flex-col gap-8">
           {visibleGroups.map((g) => {
             const buyers = g.customers.filter((c) => c.role === 'buyer').length
-            const runners = g.customers.filter((c) => c.role === 'runner').length
-            const breakdown = [buyers && `${buyers} buyer${buyers > 1 ? 's' : ''}`, runners && `${runners} runner${runners > 1 ? 's' : ''}`].filter(Boolean).join(' · ')
+            const endUsers = g.customers.filter((c) => c.role === 'runner').length
+            const noBuyer = g.customers.filter((c) => c.role === 'runner' && !buyerFor(c)).length
+            const breakdown = [buyers && `${buyers} buyer${buyers > 1 ? 's' : ''}`, endUsers && `${endUsers} end user${endUsers > 1 ? 's' : ''}`].filter(Boolean).join(' · ')
             return (
               <section key={g.id} className="flex flex-col gap-3.5">
                 <div className="flex items-center gap-2.5">
@@ -302,6 +335,11 @@ export function CustomersPage() {
                   </span>
                   <h2 className="text-sm font-semibold tracking-tight">{g.name}</h2>
                   <span className="rounded-full bg-muted px-1.5 py-0.5 text-[11px] tabular-nums text-muted-foreground">{g.customers.length}</span>
+                  {noBuyer > 0 && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-warning/15 px-2 py-0.5 text-[11px] font-medium text-warning">
+                      <UserX className="size-3" /> {noBuyer} without a buyer
+                    </span>
+                  )}
                   {breakdown && <span className="ml-auto text-[11px] text-muted-foreground">{breakdown}</span>}
                 </div>
                 {g.customers.length > 0 ? (
@@ -310,6 +348,7 @@ export function CustomersPage() {
                       <CustomerCard
                         key={r.id}
                         r={r}
+                        buyerName={buyerFor(r)}
                         onEdit={() => openCustomer(r, 'details')}
                         onContacts={() => openCustomer(r, 'contacts')}
                         onToggle={() => toggle.mutate(r)}

@@ -18,6 +18,8 @@ export interface ReceiverProfile {
   /** Portal company + role — set when the customer is invited to the portal. */
   company_id?: string | null
   role?: 'buyer' | 'runner' | null
+  /** End users only: the buyer who may see this person's packages. NULL = none. */
+  buyer_id?: string | null
 }
 
 /** DTO for creating a new receiver profile. */
@@ -41,6 +43,8 @@ export interface UpdateReceiverProfileDto {
   company_id?: string | null
   /** Portal role. Only change for customers who already have access (no re-invite). */
   role?: 'buyer' | 'runner' | null
+  /** Pass `null` to detach the end user from their buyer. */
+  buyer_id?: string | null
 }
 
 /** Alternative contact person attached to a receiver (`receiver_contacts` table). */

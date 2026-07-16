@@ -26,6 +26,7 @@ const pkg = (over: Partial<CustomerPackage>): CustomerPackage => ({
   updated_at: null,
   reschedule_requested: false,
   is_receiver: false,
+  receiver_name: null,
   items: [{ description: 'Widget', quantity: 1 }],
   ...over,
 })
@@ -48,13 +49,29 @@ describe('MyPackagesPage — status filters (integration)', () => {
     renderWithProviders(<MyPackagesPage />)
 
     expect(screen.getByRole('heading', { name: /my packages/i })).toBeInTheDocument()
-    expect(screen.getByText('All orders for your company')).toBeInTheDocument()
+    expect(screen.getByText('Your orders, and those of the end users assigned to you')).toBeInTheDocument()
 
     // "All" = 3, "On the way" (in_transit) = 2, "Delivered" = 1; no Returned chip.
     expect(screen.getByRole('button', { name: /^All\s*3$/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /on the way\s*2/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /delivered\s*1/i })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /returned/i })).not.toBeInTheDocument()
+  })
+
+  it("names the end user on a buyer's parcels but not on the buyer's own", () => {
+    useMyPackages.mockReturnValue({
+      data: [
+        pkg({ id: 'x', po_number: 'PO-300', receiver_name: 'Thabo Nkosi', is_receiver: false }),
+        pkg({ id: 'y', po_number: 'PO-400', receiver_name: 'Ada Buyer', is_receiver: true }),
+      ],
+      isLoading: false,
+      isError: false,
+    })
+    renderWithProviders(<MyPackagesPage />)
+
+    expect(screen.getByText('Thabo Nkosi')).toBeInTheDocument()
+    // Your own parcel is unlabelled — the name would just be noise.
+    expect(screen.queryByText('Ada Buyer')).not.toBeInTheDocument()
   })
 
   it('filters the list when a status chip is selected', async () => {

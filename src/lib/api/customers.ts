@@ -2,6 +2,12 @@ import { supabase } from '@/lib/supabase'
 
 export type CustomerRole = 'buyer' | 'runner'
 
+/** Display names for the portal roles. The 'runner' value is stored; "End user" is what we show. */
+export const CUSTOMER_ROLE_LABEL: Record<CustomerRole, string> = {
+  buyer: 'Buyer',
+  runner: 'End user',
+}
+
 export interface Company {
   id: string
   name: string
@@ -84,6 +90,8 @@ export interface InviteCustomerDto {
   phone?: string
   company_id: string
   role: CustomerRole
+  /** End users only: the buyer who may see their packages. Omit for none. */
+  buyer_id?: string | null
 }
 
 /** Invite a customer to the portal via the invite-customer edge function. */

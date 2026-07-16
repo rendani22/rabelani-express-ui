@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Loader2, Plus, Trash2, UserPlus } from 'lucide-react'
@@ -8,6 +8,7 @@ import {
   createReceiverContact,
   deleteReceiverContact,
   listReceiverContacts,
+  listReceivers,
   updateReceiver,
   type UpdateReceiverProfileDto,
 } from '@/lib/api/receivers'
@@ -32,6 +33,7 @@ import { ReceiverAvatar } from '@/components/dispatch/receiver-avatar'
 
 const emptyForm = { name: '', surname: '', email: '', phone: '' }
 const NO_COMPANY = '__none__'
+const NO_BUYER = '__no_buyer__'
 
 /** Basic email shape: something@something.tld */
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -58,9 +60,11 @@ export function CustomerDialog({
   const [companyId, setCompanyId] = useState<string>(NO_COMPANY)
   const [invite, setInvite] = useState(false)
   const [role, setRole] = useState<CustomerRole>('buyer')
+  const [buyerId, setBuyerId] = useState<string>(NO_BUYER)
   const [tab, setTab] = useState<CustomerDialogTab>('details')
 
   const companies = useQuery({ queryKey: ['companies'], queryFn: listCompanies, enabled: open })
+  const receivers = useQuery({ queryKey: ['receivers'], queryFn: listReceivers, enabled: open })
 
   useEffect(() => {
     if (open) {
@@ -72,9 +76,27 @@ export function CustomerDialog({
       setCompanyId(customer?.company_id ?? NO_COMPANY)
       setInvite(!!customer?.role)
       setRole(customer?.role ?? 'buyer')
+      setBuyerId(customer?.buyer_id ?? NO_BUYER)
       setTab(customer ? initialTab : 'details')
     }
   }, [open, customer, initialTab])
+
+  // Only an active buyer in the selected company can be assigned, and nobody can
+  // be their own buyer. This is the only place the rule is enforced — there is
+  // no DB constraint behind it.
+  const buyerOptions = useMemo(
+    () =>
+      (receivers.data ?? []).filter(
+        (r) => r.role === 'buyer' && r.is_active && r.company_id === companyId && r.id !== customer?.id,
+      ),
+    [receivers.data, companyId, customer?.id],
+  )
+
+  // Derived, not an effect: switching company invalidates a buyer picked for the
+  // old one, and a stale-state reset would race the receivers query and wipe a
+  // saved assignment on open.
+  const buyerValid = buyerId !== NO_BUYER && buyerOptions.some((b) => b.id === buyerId)
+  const selectedBuyer = buyerValid ? buyerId : NO_BUYER
 
   // First-time grant only — editing a customer who already has access never re-invites.
   const willInvite = invite && !customer?.role
@@ -85,12 +107,14 @@ export function CustomerDialog({
       const email = form.email.trim().toLowerCase()
       const phone = form.phone.trim()
       const company_id = companyId === NO_COMPANY ? null : companyId
+      // Only an end user with portal access has a buyer.
+      const buyer_id = invite && role === 'runner' && buyerValid ? buyerId : null
       if (willInvite) {
-        await inviteCustomer({ email, name, surname, phone: phone || undefined, company_id: company_id as string, role })
+        await inviteCustomer({ email, name, surname, phone: phone || undefined, company_id: company_id as string, role, buyer_id })
       } else if (customer) {
         // Pass null (not undefined) when the field is cleared so the phone is
         // actually removed — undefined would be dropped from the update payload.
-        const dto: UpdateReceiverProfileDto = { name, surname, email, phone: phone || null, company_id }
+        const dto: UpdateReceiverProfileDto = { name, surname, email, phone: phone || null, company_id, buyer_id }
         // Existing portal customer: mirror the switch. Keep/update the role while
         // access is on, or revoke it (role → null) when the admin turns it off.
         if (customer.role) dto.role = invite ? role : null
@@ -116,7 +140,10 @@ export function CustomerDialog({
   const phoneError = form.phone.trim() !== '' && !phoneValid
 
   const baseValid = form.name.trim() && form.surname.trim() && emailValid && phoneValid
-  const canSubmit = !!baseValid && (!invite || companyId !== NO_COMPANY) && !save.isPending
+  // Hold off while the buyers are still loading: buyer_id is resolved against
+  // that list, so saving early would clear an assignment the admin never touched.
+  const buyersPending = invite && role === 'runner' && receivers.isLoading
+  const canSubmit = !!baseValid && (!invite || companyId !== NO_COMPANY) && !buyersPending && !save.isPending
   const isEdit = !!customer
 
   const detailsForm = (
@@ -183,17 +210,45 @@ export function CustomerDialog({
         </label>
 
         {invite && (
-          <div className="flex flex-col gap-1.5">
-            <Label>Role *</Label>
-            <Select value={role} onValueChange={(v) => setRole(v as CustomerRole)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="buyer">Buyer — sees all packages for the company</SelectItem>
-                <SelectItem value="runner">Runner — sees only packages assigned to them</SelectItem>
-              </SelectContent>
-            </Select>
-            {companyId === NO_COMPANY && (
-              <p className="text-xs text-muted-foreground">Select a company above to grant portal access.</p>
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <Label>Role *</Label>
+              <Select value={role} onValueChange={(v) => setRole(v as CustomerRole)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="buyer">Buyer — sees packages of their assigned end users</SelectItem>
+                  <SelectItem value="runner">End user — sees only packages assigned to them</SelectItem>
+                </SelectContent>
+              </Select>
+              {companyId === NO_COMPANY && (
+                <p className="text-xs text-muted-foreground">Select a company above to grant portal access.</p>
+              )}
+            </div>
+
+            {role === 'runner' && companyId !== NO_COMPANY && (
+              <div className="flex flex-col gap-1.5">
+                <Label>Buyer</Label>
+                <Select value={selectedBuyer} onValueChange={setBuyerId} disabled={receivers.isLoading || buyerOptions.length === 0}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={receivers.isLoading ? 'Loading…' : 'No buyer'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NO_BUYER}>No buyer</SelectItem>
+                    {buyerOptions.map((b) => (
+                      <SelectItem key={b.id} value={b.id}>{b.name} {b.surname}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  {receivers.isLoading
+                    ? 'Loading buyers…'
+                    : buyerOptions.length === 0
+                      ? 'This company has no active buyer yet. Without one, only this end user sees their packages.'
+                      : !buyerValid
+                        ? 'No buyer will see this end user’s packages.'
+                        : 'This buyer will see all of this end user’s packages, past and future.'}
+                </p>
+              </div>
             )}
           </div>
         )}

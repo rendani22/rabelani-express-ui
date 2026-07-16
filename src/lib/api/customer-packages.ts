@@ -21,14 +21,17 @@ export interface CustomerPackage {
   /** True once a reschedule has been requested (persists; never clears). */
   reschedule_requested: boolean
   /** True when the signed-in account is this parcel's actual receiver — only
-   *  they may reschedule it (a buyer viewing a colleague's parcel is false). */
+   *  they may reschedule it (a buyer viewing an end user's parcel is false). */
   is_receiver: boolean
+  /** Who the parcel is for. A buyer needs this to tell their end users apart. */
+  receiver_name: string | null
   items: CustomerPackageItem[]
 }
 
 /**
- * The logged-in customer's packages. RLS on the `customer_packages` view scopes
- * these: Buyers see their whole company; Runners see only their own.
+ * The logged-in customer's packages. The `customer_packages` view scopes these:
+ * an End user sees only their own; a Buyer sees their own plus those of the end
+ * users assigned to them.
  */
 export async function fetchMyPackages(): Promise<CustomerPackage[]> {
   const { data, error } = await supabase

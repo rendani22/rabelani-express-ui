@@ -106,8 +106,8 @@ export const SEED_CONTENT: Record<EmailTemplateKey, TemplateDoc> = {
     blocks: [
       { id: id(), kind: 'heading', level: 1, text: 'Welcome to Rabelani Express' },
       { id: id(), kind: 'paragraph', text: 'Hello {{name}}, an account has been created for you at **{{company_name}}**. Set a password to sign in.' },
-      { id: id(), kind: 'paragraph', text: 'As a **Buyer**, you can view **every package ordered under {{company_name}}** — reference, contents, status, and any notes we’ve added for you.', showWhen: 'is_buyer' },
-      { id: id(), kind: 'paragraph', text: 'As a **Runner**, you can view **the packages assigned to you** — reference, contents, status, and any notes we’ve added for you.', showWhen: 'is_runner' },
+      { id: id(), kind: 'paragraph', text: 'As a **Buyer**, you can view **your own packages and those of the end users assigned to you** at {{company_name}} — reference, contents, status, and any notes we’ve added for you.', showWhen: 'is_buyer' },
+      { id: id(), kind: 'paragraph', text: 'As an **End user**, you can view **the packages assigned to you** — reference, contents, status, and any notes we’ve added for you.', showWhen: 'is_runner' },
       { id: id(), kind: 'button', label: 'Set your password', hrefVar: 'action_link', bg: DEFAULT_BANNER_BG },
       { id: id(), kind: 'paragraph', text: 'This link expires after a while — if it stops working, ask your administrator to re-send the invite.' },
     ],
