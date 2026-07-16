@@ -11,6 +11,8 @@ import {
   setUserPermission,
   type OverrideEffect,
   type PermissionKey,
+  type RolePermission,
+  type UserPermission,
 } from '@/lib/api/permissions'
 import type { StaffRole } from '@/lib/api/staff'
 
@@ -61,17 +63,36 @@ export function useRolePermissions() {
   })
 }
 
+const userPermissionsKey = (userId?: string) =>
+  ['permissions', 'users', userId ?? 'all'] as const
+
 export function useUserPermissions(userId?: string) {
   return useQuery({
-    queryKey: ['permissions', 'users', userId ?? 'all'],
+    queryKey: userPermissionsKey(userId),
     queryFn: () => listUserPermissions(userId),
   })
 }
 
 /**
- * Both mutations invalidate `['principal']` as well as the policy tables: if an
- * admin changes their own permissions, or their own role's, the change has to be
- * reflected in their own UI immediately rather than after the 5-minute staleTime.
+ * Refetch everything a policy edit can invalidate — except the catalog, which is
+ * seeded by migration and never changes at runtime.
+ *
+ * `['principal']` matters as much as the policy tables: if an admin changes their
+ * own permissions, or their own role's, their own UI has to reflect it now rather
+ * than after the staleTime.
+ */
+function invalidatePolicy(qc: ReturnType<typeof useQueryClient>) {
+  qc.invalidateQueries({ queryKey: ['permissions', 'roles'] })
+  qc.invalidateQueries({ queryKey: ['permissions', 'users'] })
+  qc.invalidateQueries({ queryKey: ['principal'] })
+}
+
+/**
+ * Both policy mutations apply optimistically. The grid is a checkbox matrix an
+ * admin works down in a run, and a round-trip per tick — with the tick only
+ * landing once the refetch does — reads as a broken control rather than a slow
+ * one. The write is still authoritative: on error we roll back to the snapshot
+ * and say so, and `onSettled` reconciles against the server either way.
  */
 export function useSetRolePermission() {
   const qc = useQueryClient()
@@ -85,11 +106,25 @@ export function useSetRolePermission() {
       key: PermissionKey
       enabled: boolean
     }) => setRolePermission(role, key, enabled),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['permissions'] })
-      qc.invalidateQueries({ queryKey: ['principal'] })
+    onMutate: async ({ role, key, enabled }) => {
+      const queryKey = ['permissions', 'roles']
+      await qc.cancelQueries({ queryKey })
+      const previous = qc.getQueryData<RolePermission[]>(queryKey)
+
+      qc.setQueryData<RolePermission[]>(queryKey, (old = []) => {
+        const without = old.filter(
+          (rp) => !(rp.role === role && rp.permission_key === key)
+        )
+        return enabled ? [...without, { role, permission_key: key }] : without
+      })
+
+      return { previous }
     },
-    onError: (err) => toast.error(reportError(err, 'Could not update the role.')),
+    onError: (err, _vars, ctx) => {
+      if (ctx?.previous) qc.setQueryData(['permissions', 'roles'], ctx.previous)
+      toast.error(reportError(err, 'Could not update the role.'))
+    },
+    onSettled: () => invalidatePolicy(qc),
   })
 }
 
@@ -105,10 +140,35 @@ export function useSetUserPermission() {
       key: PermissionKey
       effect: OverrideEffect | 'inherit'
     }) => setUserPermission(userId, key, effect),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['permissions'] })
-      qc.invalidateQueries({ queryKey: ['principal'] })
+    onMutate: async ({ userId, key, effect }) => {
+      const queryKey = userPermissionsKey(userId)
+      await qc.cancelQueries({ queryKey })
+      const previous = qc.getQueryData<UserPermission[]>(queryKey)
+
+      qc.setQueryData<UserPermission[]>(queryKey, (old = []) => {
+        const without = old.filter((o) => o.permission_key !== key)
+        if (effect === 'inherit') return without
+        // granted_by/created_at are the server's to assign; this row only has to
+        // survive until onSettled refetches the real one.
+        const existing = old.find((o) => o.permission_key === key)
+        return [
+          ...without,
+          {
+            user_id: userId,
+            permission_key: key,
+            effect,
+            granted_by: existing?.granted_by ?? null,
+            created_at: existing?.created_at ?? '',
+          },
+        ]
+      })
+
+      return { previous, queryKey }
     },
-    onError: (err) => toast.error(reportError(err, 'Could not update the override.')),
+    onError: (err, _vars, ctx) => {
+      if (ctx?.previous) qc.setQueryData(ctx.queryKey, ctx.previous)
+      toast.error(reportError(err, 'Could not update the override.'))
+    },
+    onSettled: () => invalidatePolicy(qc),
   })
 }
