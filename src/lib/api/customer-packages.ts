@@ -28,18 +28,75 @@ export interface CustomerPackage {
   items: CustomerPackageItem[]
 }
 
+/** A PO grouping (po set) or a standalone package (po null → keyed by id). */
+export interface CustomerPackageGroup {
+  key: string
+  po: string | null
+  packages: CustomerPackage[]
+}
+
+/** How many PO groups one scroll page loads. */
+export const CUSTOMER_PAGE_SIZE = 10
+
+export interface CustomerPackagesPageQuery {
+  offset: number
+  /** Substring match on PO number. Blank means no search. */
+  query?: string
+  /** Exact status match. Null/undefined means every status. */
+  status?: PackageStatus | null
+}
+
 /**
- * The logged-in customer's packages. The `customer_packages` view scopes these:
- * an End user sees only their own; a Buyer sees their own plus those of the end
- * users assigned to them.
+ * One page of the logged-in customer's PO groups, newest group first. The
+ * `customer_packages` view scopes these: an End user sees only their own; a
+ * Buyer sees their own plus those of the end users assigned to them.
+ *
+ * Pagination, search, status filtering and PO grouping all happen in the
+ * `customer_package_groups` RPC. The page unit is the group, not the package,
+ * so a PO never splits across two pages.
  */
-export async function fetchMyPackages(): Promise<CustomerPackage[]> {
-  const { data, error } = await supabase
-    .from('customer_packages')
-    .select('*')
-    .order('created_at', { ascending: false })
+export async function fetchMyPackageGroups({
+  offset,
+  query,
+  status,
+}: CustomerPackagesPageQuery): Promise<CustomerPackageGroup[]> {
+  const { data, error } = await supabase.rpc('customer_package_groups', {
+    p_limit: CUSTOMER_PAGE_SIZE,
+    p_offset: offset,
+    p_query: query?.trim() || null,
+    p_status: status ?? null,
+  })
   if (error) throw error
-  return (data ?? []) as CustomerPackage[]
+  return (data ?? []) as CustomerPackageGroup[]
+}
+
+/**
+ * Package counts per status within the current search scope, for the filter
+ * chips. Not status-filtered: a chip must still show how many orders sit under
+ * every other status.
+ */
+export async function fetchMyPackageStatusCounts(
+  query?: string,
+): Promise<Map<PackageStatus, number>> {
+  const { data, error } = await supabase.rpc('customer_package_status_counts', {
+    p_query: query?.trim() || null,
+  })
+  if (error) throw error
+  const rows = (data ?? []) as { status: PackageStatus; count: number }[]
+  return new Map(rows.map((r) => [r.status, Number(r.count)]))
+}
+
+/**
+ * Whether this customer has any orders at all, ignoring search and filters.
+ * Distinguishes "you have no orders yet" from "nothing matches that search",
+ * which the status counts cannot do once a search is active.
+ */
+export async function fetchMyPackagesTotal(): Promise<number> {
+  const { count, error } = await supabase
+    .from('customer_packages')
+    .select('id', { count: 'exact', head: true })
+  if (error) throw error
+  return count ?? 0
 }
 
 /**

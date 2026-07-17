@@ -11,6 +11,7 @@ import {
 import { getPackage } from '@/lib/api/packages'
 import { ORDER_STATUS_FILTERS, useOrders } from '@/hooks/use-orders'
 import { useCompanies } from '@/hooks/use-dashboard'
+import { useDebounced } from '@/hooks/use-debounced'
 import { displayStatusMeta } from '@/lib/status'
 import { useSettings } from '@/lib/settings-store'
 import { PageBody, PageHeader } from '@/components/layout/page-header'
@@ -34,15 +35,6 @@ import { PackageDetailsPanel } from './package-details-panel'
 import { CreatePackageDialog } from './create-package-dialog'
 
 const PAGE_SIZES = [10, 25, 50, 100]
-
-function useDebounced<T>(value: T, delay = 350): T {
-  const [v, setV] = useState(value)
-  useEffect(() => {
-    const t = setTimeout(() => setV(value), delay)
-    return () => clearTimeout(t)
-  }, [value, delay])
-  return v
-}
 
 export function OrdersPage() {
   useAutoTour('orders')

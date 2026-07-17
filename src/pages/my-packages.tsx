@@ -1,8 +1,9 @@
-import { useEffect, useId, useMemo, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   AlertTriangle,
   CalendarClock,
+  ChevronDown,
   ChevronRight,
   Download,
   FileCheck2,
@@ -15,7 +16,12 @@ import {
   X,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { useMyPackages } from '@/hooks/use-my-packages'
+import {
+  useMyPackageGroups,
+  useMyPackageStatusCounts,
+  useMyPackagesTotal,
+} from '@/hooks/use-my-packages'
+import { useDebounced } from '@/hooks/use-debounced'
 import { useCurrentPrincipal } from '@/hooks/use-current-principal'
 import { StatusStamp, SectionLabel, RouteTimeline } from '@/components/dispatch'
 import { Card } from '@/components/ui/card'
@@ -50,35 +56,6 @@ const SUPPORT_EMAIL = 'support@rabelani.co.za'
  */
 const LINK_CLASS =
   'rounded-sm font-medium text-foreground underline decoration-primary decoration-2 underline-offset-4 outline-none transition-colors hover:decoration-primary/60 focus-visible:ring-[3px] focus-visible:ring-ring/50'
-
-/** A PO grouping (po set) or a standalone package (po null → key by id). */
-interface PackageGroup {
-  key: string
-  po: string | null
-  packages: CustomerPackage[]
-}
-
-/** Group packages by PO number; packages without a PO stand alone. */
-function groupByPo(packages: CustomerPackage[]): PackageGroup[] {
-  const byPo = new Map<string, CustomerPackage[]>()
-  const standalone: PackageGroup[] = []
-
-  for (const pkg of packages) {
-    const po = pkg.po_number?.trim()
-    if (po) {
-      const list = byPo.get(po) ?? []
-      list.push(pkg)
-      byPo.set(po, list)
-    } else {
-      standalone.push({ key: pkg.id, po: null, packages: [pkg] })
-    }
-  }
-
-  const poGroups: PackageGroup[] = [...byPo.entries()].map(([po, pkgs]) => ({ key: `po:${po}`, po, packages: pkgs }))
-  // Newest first, by the most recent package in each group.
-  const recency = (g: PackageGroup) => Math.max(...g.packages.map((p) => Date.parse(p.created_at)))
-  return [...poGroups, ...standalone].sort((a, b) => recency(b) - recency(a))
-}
 
 function PackageItems({ items }: { items: CustomerPackage['items'] }) {
   if (items.length === 0) return null
@@ -355,46 +332,92 @@ function FilterChip({
   )
 }
 
+/**
+ * End of the list. Loads the next page when it scrolls into view, and stays a
+ * real button so the list is reachable without a mouse wheel — an auto-only
+ * sentinel is unreachable by keyboard and invisible to a screen reader.
+ */
+function LoadMoreGroups({
+  isFetching,
+  onLoad,
+}: {
+  isFetching: boolean
+  onLoad: () => void
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const el = ref.current
+    // Without an observer the button below is still the way forward, so there is
+    // nothing to fall back to — just skip the automatic part.
+    if (!el || typeof IntersectionObserver === 'undefined') return
+    // Fire ahead of the fold so the next page is usually there by the time the
+    // customer reaches it.
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) onLoad()
+      },
+      { rootMargin: '400px' },
+    )
+    io.observe(el)
+    return () => io.disconnect()
+  }, [onLoad])
+
+  return (
+    <div ref={ref} className="flex justify-center pt-1">
+      <Button variant="outline" size="sm" onClick={onLoad} disabled={isFetching}>
+        {isFetching ? <Loader2 className="animate-spin" /> : <ChevronDown />}
+        {isFetching ? 'Loading…' : 'Load more'}
+      </Button>
+    </div>
+  )
+}
+
 export function MyPackagesPage() {
   const { data: principal } = useCurrentPrincipal()
-  const { data: packages, isLoading, isError, refetch } = useMyPackages()
 
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState<StatusFilter>('all')
+  // The search now costs a round trip, so wait for a pause in typing.
+  const debouncedQuery = useDebounced(query)
 
-  const basePackages = useMemo(() => packages ?? [], [packages])
+  const { data: total } = useMyPackagesTotal()
+  const { data: counts } = useMyPackageStatusCounts(debouncedQuery)
+  const {
+    data,
+    isLoading,
+    isError,
+    refetch,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useMyPackageGroups({
+    query: debouncedQuery,
+    status: status === 'all' ? null : status,
+  })
 
-  // PO search narrows the scope; status counts and chips are computed within it.
-  const searched = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    if (!q) return basePackages
-    return basePackages.filter((p) => p.po_number?.toLowerCase().includes(q))
-  }, [basePackages, query])
-
-  const counts = useMemo(() => {
-    const m = new Map<PackageStatus, number>()
-    for (const p of searched) m.set(p.status, (m.get(p.status) ?? 0) + 1)
-    return m
-  }, [searched])
+  const filtered = useMemo(() => data?.pages.flat() ?? [], [data])
 
   // Only show chips for statuses that are actually present, in lifecycle order.
   const presentStatuses = useMemo(
-    () => CUSTOMER_STATUS_ORDER.filter((s) => (counts.get(s) ?? 0) > 0),
+    () => CUSTOMER_STATUS_ORDER.filter((s) => (counts?.get(s) ?? 0) > 0),
+    [counts],
+  )
+  const searchedTotal = useMemo(
+    () => [...(counts?.values() ?? [])].reduce((a, b) => a + b, 0),
     [counts],
   )
 
   // If the active status disappears from scope (e.g. after a search), reset it.
   useEffect(() => {
-    if (status !== 'all' && !counts.has(status)) setStatus('all')
+    if (status !== 'all' && counts && !counts.has(status)) setStatus('all')
   }, [status, counts])
 
-  const statusFiltered = useMemo(
-    () => (status === 'all' ? searched : searched.filter((p) => p.status === status)),
-    [searched, status],
-  )
+  const loadNext = useCallback(() => {
+    if (hasNextPage && !isFetchingNextPage) fetchNextPage()
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage])
 
-  const filtered = useMemo(() => groupByPo(statusFiltered), [statusFiltered])
-  const hasAnyOrders = basePackages.length > 0
+  const hasAnyOrders = (total ?? 0) > 0
   const hasActiveFilters = query.trim() !== '' || status !== 'all'
 
   const role = principal?.kind === 'customer' ? principal.customer.role : undefined
@@ -438,7 +461,7 @@ export function MyPackagesPage() {
             <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Filter by status">
               <FilterChip
                 label="All"
-                count={searched.length}
+                count={searchedTotal}
                 active={status === 'all'}
                 onClick={() => setStatus('all')}
               />
@@ -446,7 +469,7 @@ export function MyPackagesPage() {
                 <FilterChip
                   key={s}
                   label={customerStatusMeta(s).label}
-                  count={counts.get(s) ?? 0}
+                  count={counts?.get(s) ?? 0}
                   active={status === s}
                   onClick={() => setStatus(s)}
                 />
@@ -514,37 +537,41 @@ export function MyPackagesPage() {
           )}
         </Card>
       ) : (
-        <ul className="flex flex-col gap-3">
-          {filtered.map((group) => (
-            <li key={group.key}>
-              <Card className="flex flex-col gap-4 p-5">
-                <div className="flex items-baseline justify-between gap-3">
-                  {group.po ? (
-                    <div className="flex items-baseline gap-2">
-                      <SectionLabel>PO</SectionLabel>
-                      <span className="mono text-sm font-medium tracking-tight text-foreground/80">
-                        {group.po}
+        <div className="flex flex-col gap-3">
+          <ul className="flex flex-col gap-3">
+            {filtered.map((group) => (
+              <li key={group.key}>
+                <Card className="flex flex-col gap-4 p-5">
+                  <div className="flex items-baseline justify-between gap-3">
+                    {group.po ? (
+                      <div className="flex items-baseline gap-2">
+                        <SectionLabel>PO</SectionLabel>
+                        <span className="mono text-sm font-medium tracking-tight text-foreground/80">
+                          {group.po}
+                        </span>
+                      </div>
+                    ) : (
+                      <SectionLabel>Order</SectionLabel>
+                    )}
+                    {group.packages.length > 1 && (
+                      <span className="text-xs text-muted-foreground">
+                        {group.packages.length} packages
                       </span>
-                    </div>
-                  ) : (
-                    <SectionLabel>Order</SectionLabel>
-                  )}
-                  {group.packages.length > 1 && (
-                    <span className="text-xs text-muted-foreground">
-                      {group.packages.length} packages
-                    </span>
-                  )}
-                </div>
+                    )}
+                  </div>
 
-                <div className="flex flex-col gap-4">
-                  {group.packages.map((pkg, i) => (
-                    <PackageRow key={pkg.id} pkg={pkg} showDivider={i > 0} />
-                  ))}
-                </div>
-              </Card>
-            </li>
-          ))}
-        </ul>
+                  <div className="flex flex-col gap-4">
+                    {group.packages.map((pkg, i) => (
+                      <PackageRow key={pkg.id} pkg={pkg} showDivider={i > 0} />
+                    ))}
+                  </div>
+                </Card>
+              </li>
+            ))}
+          </ul>
+
+          {hasNextPage && <LoadMoreGroups isFetching={isFetchingNextPage} onLoad={loadNext} />}
+        </div>
       )}
     </div>
   )

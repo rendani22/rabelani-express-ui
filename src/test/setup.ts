@@ -17,6 +17,24 @@ Object.defineProperty(window, 'matchMedia', {
   }),
 })
 
+// jsdom doesn't implement IntersectionObserver; the customer portal's infinite
+// scroll observes a sentinel. Never intersects here, so tests drive the list's
+// "Load more" button instead — which is the same path a keyboard user takes.
+if (!('IntersectionObserver' in window)) {
+  vi.stubGlobal(
+    'IntersectionObserver',
+    class {
+      observe = vi.fn()
+      unobserve = vi.fn()
+      disconnect = vi.fn()
+      takeRecords = vi.fn(() => [])
+      root = null
+      rootMargin = ''
+      thresholds = []
+    },
+  )
+}
+
 // jsdom stubs that Radix (dropdowns/dialogs) relies on but jsdom lacks.
 if (!Element.prototype.scrollIntoView) Element.prototype.scrollIntoView = vi.fn()
 if (!Element.prototype.hasPointerCapture) Element.prototype.hasPointerCapture = vi.fn(() => false)
