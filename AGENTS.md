@@ -165,9 +165,18 @@ npm run dev       # Vite dev server at localhost:5173 (host + *.trycloudflare.co
 npm run build     # tsc -b (typecheck) then vite build → dist/
 npm run preview   # Serve the production build
 npm run lint      # oxlint
+
+npm test               # Vitest, single run
+npm run test:watch     # Vitest, watch mode
+npm run test:coverage  # Coverage — 100% thresholds on a scoped logic layer
+
+npx vitest run src/lib/format.test.ts   # a single file
+npx vitest run -t 'formats date and time'  # a single test by name
 ```
 
-No unit-test script and no Storybook in the React app. No `:int` build variant — environments differ only by `VITE_*` env vars, not build configurations.
+Vitest + jsdom + Testing Library; setup in `src/test/setup.ts`. Coverage is deliberately scoped via `coverage.include` in `vitest.config.ts` to the framework-agnostic logic layer, at 100% thresholds — see the **Testing** section of `CLAUDE.md` for what's in scope and why pages/`lib/api` are not.
+
+No Storybook in the React app. No `:int` build variant — environments differ only by `VITE_*` env vars, not build configurations.
 
 ## Important Files
 
