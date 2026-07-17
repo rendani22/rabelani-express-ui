@@ -2,10 +2,12 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AlertCircle, ArrowDownRight, ArrowUpRight, RefreshCw } from 'lucide-react'
 import type {
+  CoupaIngestion,
   ExecutiveDashboardData,
   FunnelStage,
   HealthLevel,
   HealthMetric,
+  PodCompliance,
   RevenueKpi,
   RevenueSummary,
 } from '@/lib/api/executive-dashboard'
@@ -16,6 +18,7 @@ import { SectionLabel } from '@/components/dispatch'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { CHART_COLORS, formatZAR } from '@/lib/chart'
+import { timeAgo } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 const num = (n: number) => new Intl.NumberFormat('en-ZA').format(n)
@@ -358,27 +361,7 @@ function ExecutiveContent({ data }: { data: ExecutiveDashboardData }) {
         </DashboardCard>
 
         <DashboardCard title="POD Compliance" className="lg:col-span-4">
-          <div className="flex flex-col gap-4">
-            <div className="flex items-baseline gap-2">
-              <span className={cn('tabular text-4xl font-semibold', LEVEL[data.podCompliance.level].text)}>
-                {data.podCompliance.pdfRate.toFixed(0)}%
-              </span>
-              <span className="text-sm text-muted-foreground">with PDF</span>
-            </div>
-            <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
-              {[
-                ['Total', data.podCompliance.total],
-                ['With PDF', data.podCompliance.withPdf],
-                ['Locked', data.podCompliance.locked],
-                ['This week', data.podCompliance.thisWeek],
-              ].map(([l, v]) => (
-                <div key={l} className="flex items-center justify-between">
-                  <span className="text-muted-foreground">{l}</span>
-                  <span className="tabular font-medium">{num(Number(v))}</span>
-                </div>
-              ))}
-            </div>
-          </div>
+          <PodComplianceCard c={data.podCompliance} />
         </DashboardCard>
 
         <DashboardCard title="Delivery Geography" className="lg:col-span-12">
@@ -391,8 +374,158 @@ function ExecutiveContent({ data }: { data: ExecutiveDashboardData }) {
             <p className="py-8 text-center text-sm text-muted-foreground">No geography data.</p>
           )}
         </DashboardCard>
+
+        {/*
+          Hidden rather than shown empty when unavailable: the report is
+          network-wide, so it is absent whenever the dashboard is scoped to a
+          company (a failed ingestion has no customer to scope by). "No data"
+          would read as "nothing failed", which is the one thing it cannot say.
+        */}
+        {data.coupaIngestion.available && <CoupaIngestionCard c={data.coupaIngestion} />}
       </div>
     </div>
+  )
+}
+
+/* ── pod compliance ── */
+/**
+ * POD capture over the RPC's window.
+ *
+ * Measured against orders *completed* in the window, not against PODs that
+ * exist — an order finished with no POD is the whole exposure, and the old
+ * pods-only denominator could not see it. The gaps are named as counts rather
+ * than left for the reader to subtract: each one is an order that cannot be
+ * defended in a dispute, which is a different job for someone than a rate is.
+ */
+function PodComplianceCard({ c }: { c: PodCompliance }) {
+  const missingPod = c.total - c.withPod
+  const missingPhoto = c.deliveries - c.deliveriesWithPhoto
+
+  // Distinguish "no data reached us" from "nothing was completed". Both used to
+  // render as a silent 0%, which reads as total non-compliance — the one thing
+  // an absent payload cannot actually tell you.
+  if (!c.available) {
+    return <p className="py-8 text-center text-sm text-muted-foreground">POD data unavailable.</p>
+  }
+  if (c.total === 0) {
+    return <p className="py-8 text-center text-sm text-muted-foreground">No orders completed in this window.</p>
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex items-baseline gap-2">
+        <span className={cn('tabular text-4xl font-semibold', LEVEL[c.level].text)}>{c.podRate.toFixed(0)}%</span>
+        <span className="text-sm text-muted-foreground">of orders have a POD</span>
+      </div>
+
+      <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+        {(
+          [
+            ['Completed', c.total],
+            ['With POD', c.withPod],
+            ['With PDF', c.withPdf],
+            ['Locked', c.locked],
+          ] as const
+        ).map(([l, v]) => (
+          <div key={l} className="flex items-center justify-between">
+            <span className="text-muted-foreground">{l}</span>
+            <span className="tabular font-medium">{num(v)}</span>
+          </div>
+        ))}
+      </div>
+
+      {/*
+        Deliveries only. A photo is expected where a driver dropped the order
+        off; a receiver collecting at the point has no photo to take, so they
+        are excluded rather than counted as non-compliant.
+      */}
+      <div className="flex flex-col gap-1 border-t pt-3">
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-muted-foreground">Deliveries with a picture</span>
+          <span className={cn('tabular font-medium', LEVEL[c.photoLevel].text)}>
+            {c.deliveries === 0 ? '—' : `${num(c.deliveriesWithPhoto)} / ${num(c.deliveries)}`}
+          </span>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          {c.deliveries === 0 ? (
+            'No driver deliveries in this window — every order was collected.'
+          ) : missingPhoto === 0 ? (
+            'Every delivery carries a picture.'
+          ) : (
+            <>
+              <span className={cn('font-medium', LEVEL[c.photoLevel].text)}>{num(missingPhoto)}</span>
+              {missingPhoto === 1 ? ' delivery has' : ' deliveries have'} no picture — evidenced by signature alone.
+            </>
+          )}
+        </p>
+      </div>
+
+      {missingPod > 0 && (
+        <p className="text-xs text-muted-foreground">
+          <span className={cn('font-medium', LEVEL[c.level].text)}>{num(missingPod)}</span>
+          {missingPod === 1 ? ' completed order has' : ' completed orders have'} no POD at all — nothing to produce if
+          disputed.
+        </p>
+      )}
+    </div>
+  )
+}
+
+/* ── coupa ingestion ── */
+/**
+ * Coupa email → Global PO ingestion, over the RPC's window.
+ *
+ * The failed count is the point of the card. Each one is a purchase order
+ * Exxaro issued that this system did not record — it is sitting in support's
+ * inbox waiting to be keyed in by hand — so the reasons are shown alongside,
+ * because each reason is a different thing for someone to go and fix.
+ */
+function CoupaIngestionCard({ c }: { c: CoupaIngestion }) {
+  const clean = c.failed === 0
+  return (
+    <DashboardCard title="Coupa PO Ingestion" eyebrow={`Last ${c.windowDays} days`} className="lg:col-span-12">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+        <div className="flex flex-col gap-4 lg:col-span-4">
+          <div className="flex items-start gap-8">
+            <div className="flex flex-col gap-1">
+              <SectionLabel>Processed</SectionLabel>
+              <span className="tabular text-4xl font-semibold">{num(c.processed)}</span>
+            </div>
+            <div className="flex flex-col gap-1">
+              <SectionLabel>Failed</SectionLabel>
+              <span
+                className={cn('tabular text-4xl font-semibold', clean ? 'text-muted-foreground' : 'text-destructive')}
+              >
+                {num(c.failed)}
+              </span>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {c.processed + c.failed === 0 ? (
+              'No Coupa emails have arrived in this window.'
+            ) : clean ? (
+              'Every Coupa email became a Global PO.'
+            ) : (
+              <>
+                <span className={cn('font-medium', LEVEL[c.level].text)}>{c.failureRate.toFixed(1)}%</span> of emails
+                did not become a PO — each needs keying in by hand.
+                {c.lastFailureAt && ` Last failure ${timeAgo(c.lastFailureAt.toISOString())}.`}
+              </>
+            )}
+          </p>
+        </div>
+        <div className="lg:col-span-8">
+          {clean ? (
+            <p className="py-8 text-center text-sm text-muted-foreground">Nothing failed in this window.</p>
+          ) : (
+            <HorizontalBars
+              data={c.reasons.map((r) => ({ label: r.label, value: r.count }))}
+              color="var(--destructive)"
+            />
+          )}
+        </div>
+      </div>
+    </DashboardCard>
   )
 }
 

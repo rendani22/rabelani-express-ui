@@ -77,10 +77,12 @@ export function ItemDialog({
       setForm((f) => ({ ...f, [k]: e.target.value }))
 
   const nameValid = form.name.trim().length >= 2
+  const skuValid = form.sku.trim().length > 0
   const qtyNum = Number(form.quantity)
   const thresholdNum = Number(form.low_stock_threshold)
   const valid =
     nameValid &&
+    skuValid &&
     Number.isFinite(qtyNum) &&
     qtyNum >= 0 &&
     Number.isFinite(thresholdNum) &&
@@ -91,7 +93,7 @@ export function ItemDialog({
     mutationFn: () => {
       const base = {
         name: form.name.trim(),
-        sku: form.sku.trim() || null,
+        sku: form.sku.trim(),
         category: form.category.trim() || null,
         unit: form.unit.trim(),
         quantity: qtyNum,
@@ -131,8 +133,13 @@ export function ItemDialog({
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <Label>SKU</Label>
-            <Input value={form.sku} onChange={set('sku')} placeholder="BW-500" className="mono" />
+            <Label>SKU *</Label>
+            <Input value={form.sku} onChange={set('sku')} placeholder="37869" className="mono" />
+            {!skuValid && (
+              <span className="text-xs text-muted-foreground">
+                The Coupa item code. Purchase-order emails are matched on this.
+              </span>
+            )}
           </div>
           <div className="flex flex-col gap-1.5">
             <Label>Category</Label>

@@ -5,14 +5,20 @@ import podLogo from '@/assets/rabelani-mm-logo.png'
 import type { Package, PodRecord } from '@/lib/models/package'
 import { PACKAGE_STATUS } from '@/lib/status'
 import { statusMeta } from '@/lib/status'
-import { formatDateTime, parseNotes } from '@/lib/format'
+import { deliveryPhotoUrls, formatDateTime, parseNotes } from '@/lib/format'
 import { logger } from '@/lib/logger'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { PermissionButton } from '@/components/dispatch/permission-button'
 
+/**
+ * `pods.completion_status` is what the server persisted and what the POD
+ * compliance dashboard counts, so the document reads it first — the two must
+ * not label the same POD differently. The notes-regex fallback remains for
+ * legacy PODs written before the column was populated.
+ */
 function completionStatus(pkg: Package, pod: PodRecord): string {
-  if (/delivery photo/i.test(pkg.notes ?? '')) return 'Delivered'
   if (pod.completion_status) return pod.completion_status
+  if (/delivery photo/i.test(pkg.notes ?? '')) return 'Delivered'
   return pkg.status === PACKAGE_STATUS.RETURNED ? 'Canceled' : statusMeta(pkg.status).label
 }
 
@@ -83,8 +89,12 @@ function Party({
  * original downloadable POD. Wrap in a print scope to save as PDF.
  */
 export function PodDocument({ pkg, pod }: { pkg: Package; pod: PodRecord }) {
-  const { photoUrls, text: notesText } = parseNotes(pkg.notes)
+  // parseNotes still supplies the display text (photo lines stripped out); the
+  // photos themselves now come from the POD column, falling back to the notes.
+  const { text: notesText } = parseNotes(pkg.notes)
+  const photoUrls = deliveryPhotoUrls(pod.delivery_photo_url, pkg.notes)
   const total = (pkg.items ?? []).reduce((s, i) => s + (i.quantity ?? 0), 0)
+  const isDelivery = completionStatus(pkg, pod) === 'Delivered'
 
   return (
     <article className="pod-print bg-white p-8 text-gray-900 sm:p-10">
@@ -126,31 +136,40 @@ export function PodDocument({ pkg, pod }: { pkg: Package; pod: PodRecord }) {
             <dt className="text-gray-500">Receiver Email</dt>
             <dd>{pkg.receiver_email}</dd>
           </div>
-          {(notesText || photoUrls.length > 0) && (
+          {notesText && (
             <div className="col-span-2 pt-2">
               <dt className="mb-1 text-gray-500">Notes</dt>
-              {notesText && <dd className="whitespace-pre-wrap text-sm text-gray-800">{notesText}</dd>}
-              {photoUrls.length > 0 && (
-                <dd className="mt-2">
-                  <div className="mb-1 text-xs text-gray-500">
-                    Delivery Photo{photoUrls.length > 1 ? 's' : ''}
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {photoUrls.map((url) => (
-                      <img
-                        key={url}
-                        src={url}
-                        alt="Delivery"
-                        className="max-h-[200px] max-w-[200px] rounded border border-gray-300 object-cover"
-                      />
-                    ))}
-                  </div>
-                </dd>
-              )}
+              <dd className="whitespace-pre-wrap text-sm text-gray-800">{notesText}</dd>
             </div>
           )}
         </dl>
       </section>
+
+      {/*
+        Photos are evidence, not an appendix to the notes — a delivery is
+        proven by the picture of where it was left as much as by the signature,
+        so they get a section of their own rather than trailing the free text.
+        Collections have no photo to show: the receiver signed for the order in
+        person, so the section is omitted entirely rather than shown empty.
+      */}
+      {photoUrls.length > 0 && (
+        <section className="mb-6">
+          <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
+            {isDelivery ? 'Delivery Photo' : 'Photo'}
+            {photoUrls.length > 1 ? 's' : ''}
+          </h2>
+          <div className="flex flex-wrap gap-2">
+            {photoUrls.map((url) => (
+              <img
+                key={url}
+                src={url}
+                alt={isDelivery ? 'Proof of delivery' : 'Proof of collection'}
+                className="max-h-[200px] max-w-[200px] rounded border border-gray-300 object-cover"
+              />
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* items */}
       {pkg.items && pkg.items.length > 0 && (

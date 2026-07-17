@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   avatarInitials,
+  deliveryPhotoUrls,
   formatDateShort,
   formatDateTime,
   nameFromEmail,
@@ -105,6 +106,40 @@ describe('parseNotes', () => {
   it('collapses repeated blank lines in the remaining text', () => {
     const { text } = parseNotes('a\n\n\nb')
     expect(text).toBe('a\nb')
+  })
+})
+
+describe('deliveryPhotoUrls', () => {
+  const COLUMN = 'https://cdn.example.com/a.jpg'
+  const EXTRA = 'https://cdn.example.com/b.png'
+
+  it('returns an empty list when there is neither a column value nor a photo in the notes', () => {
+    expect(deliveryPhotoUrls(null, null)).toEqual([])
+    expect(deliveryPhotoUrls(undefined, undefined)).toEqual([])
+    expect(deliveryPhotoUrls(null, 'delivery photo taken at the gate')).toEqual([])
+  })
+
+  it('uses the column value when the notes carry no photo', () => {
+    expect(deliveryPhotoUrls(COLUMN, 'left with security')).toEqual([COLUMN])
+  })
+
+  // Legacy PODs written before the column existed.
+  it('falls back to the notes when the column is empty', () => {
+    expect(deliveryPhotoUrls(null, `delivery photo: ${COLUMN}`)).toEqual([COLUMN])
+  })
+
+  // The backfill sourced the column from these same notes, so this is the norm.
+  it('deduplicates when the column value also appears in the notes', () => {
+    expect(deliveryPhotoUrls(COLUMN, `delivery photo: ${COLUMN}`)).toEqual([COLUMN])
+  })
+
+  // The column holds one URL; preferring it outright would drop the rest.
+  it('keeps additional notes photos alongside the column value, column first', () => {
+    expect(deliveryPhotoUrls(COLUMN, `delivery photo: ${COLUMN}\ndelivery photo: ${EXTRA}`)).toEqual([COLUMN, EXTRA])
+  })
+
+  it('preserves notes order when the column is empty', () => {
+    expect(deliveryPhotoUrls(null, `delivery photo: ${COLUMN}\ndelivery photo: ${EXTRA}`)).toEqual([COLUMN, EXTRA])
   })
 })
 

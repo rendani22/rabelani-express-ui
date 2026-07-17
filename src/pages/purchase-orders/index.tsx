@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils'
 import { PoCard } from './po-card'
 import { CreatePoDialog } from './create-po-dialog'
 import { EditPoDialog } from './edit-po-dialog'
+import { CoupaFailuresPanel } from './coupa-failures-panel'
 
 type StatusKey = NonNullable<PurchaseOrderFilters['status']>
 
@@ -98,6 +99,12 @@ export function PurchaseOrdersPage() {
           </>
         }
       />
+
+      {/*
+        Above the stats deliberately: while a row sits here, every figure below
+        is missing an order Exxaro actually issued.
+      */}
+      <CoupaFailuresPanel />
 
       {/* stats */}
       <div data-tour="po-stats" className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">

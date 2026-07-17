@@ -14,6 +14,7 @@
     "supabase:link-dev": "supabase link --project-ref qmnqffpwvsvngjmyisrf",
     "supabase:link-prod": "supabase link --project-ref udsigrijzqgmtmkilluv",
     "supabase:push": "supabase db push",
+    "deploy-functions": "supabase functions deploy",
     "deploy:create-package": "supabase functions deploy create-package",
     "deploy:update-package": "supabase functions deploy update-package",
     "deploy:invite-customer": "supabase functions deploy invite-customer",

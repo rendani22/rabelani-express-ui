@@ -7,6 +7,7 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
 import { resolveTemplate, renderEmail, buildCommonVars } from '../_shared/email-templates.ts'
 import { captureException } from '../_shared/sentry.ts'
+import { extractDeliveryPhotoUrl } from '../_shared/delivery-photo.ts'
 
 interface PodPartyPayload {
   name: string
@@ -760,6 +761,12 @@ serve(async (req) => {
       const completionStatus: 'Delivered' | 'Collected' =
         hasDeliveryPhoto ? 'Delivered' : (pod.completion_status ?? 'Collected')
 
+      // Lift the photo URL out of the notes blob into its own column so POD
+      // compliance can be measured without regexing free text. Narrower than
+      // the check above on purpose: notes reading "delivery photo taken" set
+      // 'Delivered' but yield no URL, and that gap is the thing worth counting.
+      const deliveryPhotoUrl = extractDeliveryPhotoUrl(effectiveNotes)
+
       const podRow: Record<string, unknown> = {
         package_id,
         // NOT NULL columns mirrored from the package / caller.
@@ -785,7 +792,8 @@ serve(async (req) => {
         witness_signature:        pod.witness.signature_data_url,
         completed_at:             pod.collected_at,
         completed_by:             callingUser.id,
-        completion_status:        completionStatus
+        completion_status:        completionStatus,
+        delivery_photo_url:       deliveryPhotoUrl
       }
 
       // Insert only if no POD row exists yet (the unique index on

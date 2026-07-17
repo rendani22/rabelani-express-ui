@@ -9,7 +9,8 @@ import { logger } from '@/lib/logger'
 export interface InventoryItem {
   id: string
   name: string
-  sku: string | null
+  /** The Coupa item code. Inbound PO emails resolve their lines through this. */
+  sku: string
   description: string | null
   category: string | null
   unit: string
@@ -24,7 +25,7 @@ export interface InventoryItem {
 /** Payload for creating a new inventory item. */
 export interface CreateInventoryItemDto {
   name: string
-  sku?: string | null
+  sku: string
   description?: string | null
   category?: string | null
   unit?: string
@@ -36,7 +37,7 @@ export interface CreateInventoryItemDto {
 /** Payload for updating an existing inventory item. */
 export interface UpdateInventoryItemDto {
   name?: string
-  sku?: string | null
+  sku?: string
   description?: string | null
   category?: string | null
   unit?: string

@@ -215,7 +215,11 @@ serve(async (req) => {
         p_created_by: callingUser.id,
         p_status: initialStatus,
         p_delivery_location_id: delivery_location_id || null,
-        p_po_number: po_number?.trim() || null,
+        // Canonical form: packages are tied to a purchase order by string
+        // equality on this column alone, so a hand-typed `gg80700992` must not
+        // become a second Global PO alongside `GG80700992`. Mirrors
+        // normalizePoNumber in src/lib/models/package.ts.
+        p_po_number: po_number?.trim().toUpperCase() || null,
         p_items: items ?? [],
         p_po_allocations: poAllocations
       })

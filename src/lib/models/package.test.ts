@@ -14,6 +14,8 @@ import {
   isPackageActionSuccess,
   isPackageEditable,
   isUpdatePackageSuccess,
+  likeLiteral,
+  normalizePoNumber,
 } from './package'
 
 const pkg = { id: 'p1', reference: 'RBX-1' } as Package
@@ -103,5 +105,39 @@ describe('isPackageEditable', () => {
     expect(isPackageEditable({ status: PACKAGE_STATUS.PENDING })).toBe(true)
     expect(isPackageEditable({ status: PACKAGE_STATUS.NOTIFIED })).toBe(true)
     expect(isPackageEditable({ status: PACKAGE_STATUS.IN_TRANSIT })).toBe(false)
+  })
+})
+
+describe('normalizePoNumber', () => {
+  it.each([
+    ['GG80700992', 'GG80700992'],
+    // The case that splits one Global PO into two: a hand-typed number and an
+    // ingested one must land on the same key.
+    ['gg80700992', 'GG80700992'],
+    ['  GG80700992  ', 'GG80700992'],
+    ['\tgG80700992\n', 'GG80700992'],
+  ])('normalizes %j to %j', (raw, expected) => {
+    expect(normalizePoNumber(raw)).toBe(expected)
+  })
+
+  it('treats a missing number as empty rather than throwing', () => {
+    expect(normalizePoNumber(null)).toBe('')
+    expect(normalizePoNumber(undefined)).toBe('')
+    expect(normalizePoNumber('   ')).toBe('')
+  })
+})
+
+describe('likeLiteral', () => {
+  it('leaves an ordinary PO number untouched', () => {
+    expect(likeLiteral('GG80700992')).toBe('GG80700992')
+  })
+
+  it.each([
+    ['GG_1', 'GG\\_1'],
+    ['GG%1', 'GG\\%1'],
+    ['GG\\1', 'GG\\\\1'],
+    ['%_%', '\\%\\_\\%'],
+  ])('escapes the ilike wildcards in %j', (raw, expected) => {
+    expect(likeLiteral(raw)).toBe(expected)
   })
 })

@@ -188,19 +188,37 @@ export interface DeliveryGeography {
   available: boolean
 }
 
-/** Proof-of-delivery capture — a cash-protection metric (disputes need a POD). */
+/**
+ * Proof-of-delivery capture — a cash-protection metric (disputes need a POD).
+ *
+ * Everything is measured against orders *completed* in the window (`total`),
+ * not against POD rows that happen to exist. An order finished with no POD is
+ * the worst case the card exists to catch, so it has to sit in the denominator.
+ */
 export interface PodCompliance {
+  /** Orders completed in the window — the denominator for every rate here. */
   total: number
+  withPod: number
   withPdf: number
   locked: number
+  /** Completed orders whose POD is a delivery (driver drop-off, not a pickup). */
+  deliveries: number
+  /** Deliveries carrying a photo — the rest cannot be evidenced beyond a signature. */
+  deliveriesWithPhoto: number
   today: number
   thisWeek: number
-  /** % of PODs with a captured PDF. */
+  /** % of completed orders with a POD. The headline. */
+  podRate: number
+  /** % of completed orders whose POD has a captured PDF. */
   pdfRate: number
-  /** % of PODs finalized (locked). */
+  /** % of completed orders finalized (locked). */
   lockedRate: number
-  /** Rating from pdfRate (>=90 good, >=75 watch, else risk). */
+  /** % of deliveries with a photo. Denominator is `deliveries`, not `total`. */
+  photoRate: number
+  /** Rating from podRate (>=90 good, >=75 watch, else risk). */
   level: HealthLevel
+  /** Rating from photoRate, on the same bands. `neutral` when there are no deliveries. */
+  photoLevel: HealthLevel
   available: boolean
 }
 
@@ -235,9 +253,14 @@ export interface ExecutiveDashboardData {
   geography: DeliveryGeography
   podCompliance: PodCompliance
   returns: ReturnsReport
+  /** Coupa email → Global PO ingestion. Never company-scoped; see `CoupaIngestion`. */
+  coupaIngestion: CoupaIngestion
   /** Refresh time, for the "as of" label. */
   lastUpdated: Date
 }
+
+/** The ingestion report's window. Stated once; the RPC echoes it back for the label. */
+const COUPA_WINDOW_DAYS = 30
 
 // ============================================================================
 // Internal raw-payload shapes (server-side RPC responses)
@@ -277,8 +300,17 @@ interface DashboardOpsPayload {
   }
   /** Package volume by delivery location, plus the "unassigned" bucket. */
   locationDistribution: Array<{ id: string; name: string; count: number; unassigned?: boolean }>
-  /** Proof-of-delivery capture stats. */
-  podStats: { total: number; withPdf: number; locked: number; today: number; thisWeek: number }
+  /** Proof-of-delivery capture stats. `total` is orders completed in the window. */
+  podStats: {
+    total: number
+    withPod: number
+    withPdf: number
+    locked: number
+    deliveries: number
+    deliveriesWithPhoto: number
+    today: number
+    thisWeek: number
+  }
   /** Returns analysis (present only once the returns migration is deployed). */
   returns?: {
     returnedTotal: number
@@ -392,14 +424,82 @@ const EMPTY_GEOGRAPHY: DeliveryGeography = {
 
 const EMPTY_POD: PodCompliance = {
   total: 0,
+  withPod: 0,
   withPdf: 0,
   locked: 0,
+  deliveries: 0,
+  deliveriesWithPhoto: 0,
   today: 0,
   thisWeek: 0,
+  podRate: 0,
   pdfRate: 0,
   lockedRate: 0,
+  photoRate: 0,
+  level: 'neutral',
+  photoLevel: 'neutral',
+  available: false,
+}
+
+/** One reason Coupa emails were rejected, with how often. */
+export interface CoupaFailureBreakdown {
+  /** The raw code the edge function wrote (`unknown_customer`, ...). */
+  reason: string
+  /** Human label; falls back to a humanised code for reasons added later. */
+  label: string
+  count: number
+}
+
+/**
+ * Coupa email → Global PO ingestion health.
+ *
+ * Network-wide, never company-scoped: a failed ingestion has no purchase order
+ * and so no customer — often that IS the failure — so a company-scoped figure
+ * could only show successes and would report 0% failures however much was being
+ * dropped. See `20260717130000_coupa_ingestion_report.sql`.
+ */
+export interface CoupaIngestion {
+  /** Attempts that became a Global PO. */
+  processed: number
+  /** Attempts that did not. Each one is an order a human must key in by hand. */
+  failed: number
+  /** Percentage of attempts that failed. 0 when nothing was attempted. */
+  failureRate: number
+  /** Worst-first; empty when nothing failed. */
+  reasons: CoupaFailureBreakdown[]
+  lastFailureAt: Date | null
+  /** The window the counts cover, as the RPC applied it. */
+  windowDays: number
+  level: HealthLevel
+  /** False when the RPC is absent (migration not yet deployed) or errored. */
+  available: boolean
+}
+
+const EMPTY_COUPA_INGESTION: CoupaIngestion = {
+  processed: 0,
+  failed: 0,
+  failureRate: 0,
+  reasons: [],
+  lastFailureAt: null,
+  windowDays: 30,
   level: 'neutral',
   available: false,
+}
+
+/**
+ * Labels for the closed set of reason codes in
+ * `supabase/functions/_shared/coupa-audit.ts`.
+ *
+ * Duplicated across the edge/app boundary on purpose — an edge function cannot
+ * import from `src/`, and the codes travel through the database as data. The
+ * fallback below means a code added there and not here degrades to a humanised
+ * string rather than an empty bar.
+ */
+const COUPA_REASON_LABELS: Record<string, string> = {
+  unreadable_email: 'Email could not be read',
+  unknown_item_codes: 'Item code not in inventory',
+  unknown_customer: 'Customer not identified',
+  already_recorded: 'Already recorded',
+  unexpected_error: 'Unexpected error',
 }
 
 const EMPTY_RETURNS: ReturnsReport = {
@@ -433,6 +533,49 @@ const EMPTY_RETURNS: ReturnsReport = {
  * Admin-only: the Executive tab that consumes this is gated on `isAdmin`, and
  * the underlying RPC/tables are additionally protected by Supabase RLS.
  */
+/** Raw `get_coupa_ingestion_report` payload. */
+interface CoupaIngestionPayload {
+  windowDays: number
+  processed: number
+  failed: number
+  reasons: Array<{ reason: string; count: number }>
+  lastFailureAt: string | null
+}
+
+/**
+ * Maps the ingestion report, rating it by failure rate.
+ *
+ * Any failure at all is at least a "watch": each one is a real purchase order
+ * that Exxaro issued and this system did not record, sitting in someone's inbox
+ * waiting to be typed in. The thresholds only decide how loudly to say so.
+ */
+function buildCoupaIngestion(payload: CoupaIngestionPayload | null): CoupaIngestion {
+  if (!payload) return EMPTY_COUPA_INGESTION
+
+  const processed = payload.processed ?? 0
+  const failed = payload.failed ?? 0
+  const total = processed + failed
+  const failureRate = total > 0 ? round1((failed / total) * 100) : 0
+
+  const level: HealthLevel =
+    total === 0 ? 'neutral' : failed === 0 ? 'good' : failureRate >= 20 ? 'risk' : 'watch'
+
+  return {
+    processed,
+    failed,
+    failureRate,
+    reasons: (payload.reasons ?? []).map((r) => ({
+      reason: r.reason,
+      label: COUPA_REASON_LABELS[r.reason] ?? titleCase(r.reason.replace(/_/g, ' ')),
+      count: r.count,
+    })),
+    lastFailureAt: payload.lastFailureAt ? new Date(payload.lastFailureAt) : null,
+    windowDays: payload.windowDays ?? 30,
+    level,
+    available: true,
+  }
+}
+
 export async function fetchExecutiveDashboard(
   dateRange?: { start: Date; end?: Date },
   companyId?: string | null,
@@ -449,10 +592,17 @@ export async function fetchExecutiveDashboard(
   // Revenue is the primary payload; operational metrics and the PO order book
   // enrich the story but must never block or blank the revenue view, so they
   // degrade gracefully.
-  const [revenueRes, opsRes, poRes] = await Promise.all([
+  const [revenueRes, opsRes, poRes, coupaRes] = await Promise.all([
     supabase.rpc('get_executive_metrics', execArgs),
     supabase.rpc('get_dashboard_metrics', opsArgs),
     supabase.from('purchase_orders').select('status, po_value, po_date, created_at'),
+    // Network-wide only. A failed ingestion has no customer to scope by, so
+    // asking for it while company-scoped would return successes alone — a
+    // failure rate that reads 0% because the failures are unattributable, not
+    // because they didn't happen. Skipped rather than shown wrong.
+    companyId
+      ? Promise.resolve(null)
+      : supabase.rpc('get_coupa_ingestion_report', { p_days: COUPA_WINDOW_DAYS }),
   ])
 
   const { data, error } = revenueRes
@@ -467,6 +617,10 @@ export async function fetchExecutiveDashboard(
 
   // Forward order book from purchase orders. Optional.
   const poRows = !poRes.error && Array.isArray(poRes.data) ? (poRes.data as PurchaseOrderRow[]) : []
+
+  // Coupa ingestion health. Optional, and absent entirely while company-scoped
+  // or before its migration is deployed — the card hides rather than lies.
+  const coupa = coupaRes && !coupaRes.error && coupaRes.data ? (coupaRes.data as CoupaIngestionPayload) : null
 
   // Revenue presentation mapping.
   const summary: RevenueSummary = { ...EMPTY_SUMMARY, ...revenue.summary }
@@ -496,6 +650,7 @@ export async function fetchExecutiveDashboard(
   const geography = buildGeography(ops)
   const podCompliance = buildPodCompliance(ops)
   const returns = buildReturns(ops)
+  const coupaIngestion = buildCoupaIngestion(coupa)
 
   // Concentration + the derived scorecard and narrative need both payloads.
   const concentration = buildConcentration(revenue)
@@ -517,6 +672,7 @@ export async function fetchExecutiveDashboard(
     geography,
     podCompliance,
     returns,
+    coupaIngestion,
     lastUpdated: new Date(),
   }
 }
@@ -651,20 +807,36 @@ function buildGeography(ops: DashboardOpsPayload | null): DeliveryGeography {
 }
 
 /**
- * Builds proof-of-delivery compliance. A missing POD means a delivery can't be
- * proven in a dispute, so a low capture rate is a cash-collection risk.
+ * Builds proof-of-delivery compliance. A missing POD means a completed order
+ * can't be proven in a dispute, so a low capture rate is a cash-collection risk.
+ *
+ * Rates divide by orders completed in the window — except `photoRate`, which
+ * divides by deliveries: a photo is only expected where a driver dropped the
+ * order off, so counting collections against it would invent non-compliance.
  */
 function buildPodCompliance(ops: DashboardOpsPayload | null): PodCompliance {
   const pod = ops?.podStats
   if (!ops || !pod) return EMPTY_POD
 
-  const pdfRate = pod.total > 0 ? round1((pod.withPdf / pod.total) * 100) : 0
-  const lockedRate = pod.total > 0 ? round1((pod.locked / pod.total) * 100) : 0
+  const rate = (n: number, d: number) => (d > 0 ? round1((n / d) * 100) : 0)
+  const band = (r: number): HealthLevel => (r >= 90 ? 'good' : r >= 75 ? 'watch' : 'risk')
 
-  let level: HealthLevel = 'neutral'
-  if (pod.total > 0) level = pdfRate >= 90 ? 'good' : pdfRate >= 75 ? 'watch' : 'risk'
+  const podRate = rate(pod.withPod, pod.total)
+  const photoRate = rate(pod.deliveriesWithPhoto, pod.deliveries)
 
-  return { ...pod, pdfRate, lockedRate, level, available: true }
+  // `neutral` (not 'risk') on an empty window: nothing completed means nothing
+  // was missed, and a red 0% would read as a compliance failure that never
+  // happened. Same for photoRate when no deliveries occurred.
+  return {
+    ...pod,
+    podRate,
+    pdfRate: rate(pod.withPdf, pod.total),
+    lockedRate: rate(pod.locked, pod.total),
+    photoRate,
+    level: pod.total > 0 ? band(podRate) : 'neutral',
+    photoLevel: pod.deliveries > 0 ? band(photoRate) : 'neutral',
+    available: true,
+  }
 }
 
 /**

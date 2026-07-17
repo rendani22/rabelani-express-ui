@@ -261,6 +261,12 @@ export interface PodRecord {
   readonly completed_by: string | null
   readonly staff_name?: string | null
   readonly completion_status?: 'Delivered' | 'Collected' | null
+  /**
+   * URL of the delivery photo captured at completion, or null when none was
+   * taken. Null on PODs written before the column existed — read it through
+   * `deliveryPhotoUrls()`, which falls back to the legacy notes blob.
+   */
+  readonly delivery_photo_url?: string | null
 }
 
 /** Package lock status information */
@@ -514,4 +520,33 @@ export function isPackageEditable(pkg: Pick<Package, 'status'>): boolean {
     pkg.status === PACKAGE_STATUS.NOTIFIED ||
     pkg.status === PACKAGE_STATUS.DRAFT
   )
+}
+
+/**
+ * Canonical form of a PO number, for every path that writes or compares one.
+ *
+ * `packages.po_number` is a bare text column rather than a foreign key, so a
+ * package is tied to its purchase order by string equality alone, and
+ * `loadPurchaseOrders` fabricates a synthetic PO for any package number absent
+ * from `purchase_orders`. Without a shared canonical form, a hand-typed
+ * `gg80700992 ` and an ingested `GG80700992` render as two separate rows on the
+ * Global PO page, each with its own completion percentage.
+ *
+ * Mirrored (deliberately, across the Deno boundary) in
+ * `supabase/functions/_shared/coupa-po.ts` — edge functions cannot import from
+ * `src/`.
+ */
+export function normalizePoNumber(raw: string | null | undefined): string {
+  return (raw ?? '').trim().toUpperCase()
+}
+
+/**
+ * Escapes a value for use as an exact (if case-insensitive) `ilike` operand.
+ *
+ * `ilike` is the only case-insensitive equality PostgREST offers, but it reads
+ * `%` and `_` as wildcards — so an unescaped PO number containing either would
+ * silently match rows it should not.
+ */
+export function likeLiteral(value: string): string {
+  return value.replace(/[\\%_]/g, (c) => `\\${c}`)
 }

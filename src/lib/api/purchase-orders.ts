@@ -17,7 +17,7 @@
 
 import { supabase } from '@/lib/supabase'
 import { PACKAGE_STATUS, type PackageStatus } from '@/lib/status'
-import type { Package } from '@/lib/models/package'
+import { likeLiteral, normalizePoNumber, type Package } from '@/lib/models/package'
 import type { InventoryItem } from '@/lib/api/inventory'
 import { getCurrentStaffProfile } from '@/lib/api/staff'
 
@@ -395,7 +395,9 @@ export async function loadPurchaseOrders(): Promise<PurchaseOrder[]> {
   }
 
   const orders = (rawOrders ?? []) as PurchaseOrderRow[]
-  const poNumbers = orders.map((order) => order.po_number)
+  // Compared against package po_numbers below, which are hand-typed and so vary
+  // in case and padding — match on the canonical form, not the raw string.
+  const poNumbers = orders.map((order) => normalizePoNumber(order.po_number))
 
   // PO-item ids (for allocations) and receiver ids (for customer hydration)
   const allItemIds = orders.flatMap((order) => (order.items ?? []).map((i) => i.id))
@@ -454,7 +456,7 @@ export async function loadPurchaseOrders(): Promise<PurchaseOrder[]> {
   }
   const packagesByPoNumber = new Map<string, Package[]>()
   for (const pkg of (packagesResult.data ?? []) as Package[]) {
-    const poNumber = pkg.po_number
+    const poNumber = normalizePoNumber(pkg.po_number)
     if (!poNumber) continue
     if (!packagesByPoNumber.has(poNumber)) {
       packagesByPoNumber.set(poNumber, [])
@@ -535,7 +537,7 @@ export async function loadPurchaseOrders(): Promise<PurchaseOrder[]> {
   }
 
   const result: PurchaseOrder[] = orders.map((order) => {
-    const packages = packagesByPoNumber.get(order.po_number) ?? []
+    const packages = packagesByPoNumber.get(normalizePoNumber(order.po_number)) ?? []
     const refsByInventory = new Map<
       string,
       {
@@ -882,7 +884,7 @@ async function ensureDriverCannotUpdate(): Promise<PurchaseOrderCrudResult | nul
 export async function createPurchaseOrder(
   input: CreatePurchaseOrderInput,
 ): Promise<PurchaseOrderCrudResult> {
-  const poNumber = input.poNumber.trim()
+  const poNumber = normalizePoNumber(input.poNumber)
   const items = input.items
     .map((item) => ({
       inventoryItemId: item.inventoryItemId.trim(),
@@ -971,7 +973,7 @@ export async function updatePurchaseOrder(
   input: UpdatePurchaseOrderInput,
 ): Promise<PurchaseOrderCrudResult> {
   const purchaseOrderId = input.purchaseOrderId.trim()
-  const poNumber = input.poNumber.trim()
+  const poNumber = normalizePoNumber(input.poNumber)
   const items = input.items
     .map((item) => ({
       purchaseOrderItemId: item.purchaseOrderItemId.trim(),
@@ -1080,14 +1082,16 @@ export async function getPurchaseOrderForEdit(
   }
 
   const poRow = purchaseOrderResult.data as PurchaseOrderForEditRow
-  const poNumber = poRow.po_number.trim()
+  const poNumber = normalizePoNumber(poRow.po_number)
 
   const consumedByInventoryItemId = new Map<string, number>()
   if (poNumber) {
     const { data: packageRows, error: packageRowsError } = await supabase
       .from('packages')
       .select('items:package_items(quantity, inventory_item_id)')
-      .eq('po_number', poNumber)
+      // Case-insensitive: po_number is normalized on write, but rows written
+      // before that are not, and packages carry whatever was typed.
+      .ilike('po_number', likeLiteral(poNumber))
       .is('deleted_at', null)
 
     if (packageRowsError) {
@@ -1147,13 +1151,15 @@ export async function getPurchaseOrderForEdit(
  * when no matching PO row exists. Throws on a Supabase error.
  */
 export async function getPurchaseOrderIdByNumber(poNumber: string): Promise<string | null> {
-  const normalized = poNumber.trim()
+  const normalized = normalizePoNumber(poNumber)
   if (!normalized) return null
 
   const { data, error } = await supabase
     .from('purchase_orders')
     .select('id')
-    .eq('po_number', normalized)
+    // Case-insensitive: po_number is normalized on write, but rows written
+    // before that are not.
+    .ilike('po_number', likeLiteral(normalized))
     .maybeSingle()
 
   if (error) {

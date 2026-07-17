@@ -16,7 +16,13 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['src/test/setup.ts'],
-    include: ['src/**/*.{test,spec}.{ts,tsx}'],
+    include: [
+      'src/**/*.{test,spec}.{ts,tsx}',
+      // The Coupa parser lives beside the edge function that consumes it, but
+      // it is pure TS (no Deno APIs) and is exactly the kind of logic this
+      // suite exists to cover.
+      'supabase/functions/_shared/*.{test,spec}.ts',
+    ],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'text-summary', 'html'],
@@ -35,6 +41,10 @@ export default defineConfig({
         'src/lib/settings-store.ts',
         'src/lib/models/package.ts',
         'src/hooks/use-auto-tour.ts',
+        'supabase/functions/_shared/coupa-po.ts',
+        'supabase/functions/_shared/coupa-failure-email.ts',
+        'supabase/functions/_shared/coupa-audit.ts',
+        'supabase/functions/_shared/delivery-photo.ts',
       ],
       thresholds: {
         statements: 100,

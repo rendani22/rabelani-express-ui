@@ -79,6 +79,24 @@ export function parseNotes(notes?: string | null): { photoUrls: string[]; text: 
   return { photoUrls, text }
 }
 
+/**
+ * Every delivery photo for a POD, newest source first.
+ *
+ * `pods.delivery_photo_url` is the source of truth for PODs written since the
+ * column existed, but it holds a single URL while the legacy notes blob can
+ * carry several — so the two are merged rather than one winning outright:
+ * preferring the column alone would silently drop the 2nd..nth photo from a
+ * multi-photo delivery, and preferring notes alone would miss the column once
+ * the driver flow stops inlining URLs into the text.
+ *
+ * Deduplicated, since the backfill sourced the column *from* those same notes:
+ * the overwhelmingly common case is the column URL already appearing in notes.
+ */
+export function deliveryPhotoUrls(deliveryPhotoUrl?: string | null, notes?: string | null): string[] {
+  const { photoUrls } = parseNotes(notes)
+  return [...new Set(deliveryPhotoUrl ? [deliveryPhotoUrl, ...photoUrls] : photoUrls)]
+}
+
 /** Deterministic initials + hue for an avatar. */
 export function avatarInitials(name: string): { initials: string; hue: number } {
   const safe = (name || 'Receiver').replace(/[^a-zA-Z ]/g, ' ').trim() || 'Receiver'

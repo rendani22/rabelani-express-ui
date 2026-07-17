@@ -28,6 +28,7 @@ export const PERMISSION_KEYS = [
   'purchase_orders.read',
   'purchase_orders.create',
   'purchase_orders.update',
+  'purchase_orders.ingest.retry',
   'customers.read',
   'customers.create',
   'customers.update',

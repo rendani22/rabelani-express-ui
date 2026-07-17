@@ -13,7 +13,7 @@ const POD_COLUMNS =
   'id, package_id, pod_reference, is_locked, locked_at, ' +
   'receiver_name, receiver_employee_number, receiver_phone, receiver_signature, ' +
   'witness_name, witness_employee_number, witness_phone, witness_signature, ' +
-  'completed_at, completed_by, staff_name, completion_status'
+  'completed_at, completed_by, staff_name, completion_status, delivery_photo_url'
 
 function buildCorsHeaders(origin: string | null) {
   return {
