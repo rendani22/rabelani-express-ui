@@ -877,6 +877,8 @@ serve(async (req) => {
             ...buildCommonVars((k) => Deno.env.get(k) ?? undefined),
             reference: updatedPackage.reference,
             po_number: poNumber || '',
+            // Customer-facing email → customer_notes only, never internal notes.
+            notes: updatedPackage.customer_notes || '',
             items: packageItems.map(i => ({ quantity: i.quantity, description: i.description })),
             has_items: packageItems.length > 0,
             location_name: locationName,
@@ -1112,6 +1114,8 @@ serve(async (req) => {
               ...buildCommonVars((k) => Deno.env.get(k) ?? undefined),
               reference: updatedPackage.reference,
               po_number: poNumber || '',
+              // Customer-facing email → customer_notes only, never internal notes.
+              notes: updatedPackage.customer_notes || '',
               items: packageItems.map(i => ({ quantity: i.quantity, description: i.description })),
               has_items: packageItems.length > 0
             })

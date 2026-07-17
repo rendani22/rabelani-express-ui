@@ -61,6 +61,7 @@ export const SEED_CONTENT: Record<EmailTemplateKey, TemplateDoc> = {
     blocks: [
       strip('Ready for collection'),
       { id: id(), kind: 'paragraph', text: 'Your package is ready for collection at **{{location_name}}**. Bring the reference above, a valid staff card, and a witness to sign with.' },
+      { id: id(), kind: 'note', label: 'Notes', text: '{{notes}}', showWhen: 'notes' },
       itemsTable('Contents', 'has_items', 'items'),
       { id: id(), kind: 'heading', level: 3, text: 'Collection point' },
       { id: id(), kind: 'paragraph', text: '**{{location_name}}**' },
@@ -82,6 +83,7 @@ export const SEED_CONTENT: Record<EmailTemplateKey, TemplateDoc> = {
       // The only template that carries green — the order is actually delivered.
       strip('Delivered', DELIVERED_ACCENT),
       { id: id(), kind: 'paragraph', text: 'Collection is complete. The signed proof of delivery is attached to this email as a PDF. Thank you for your order.' },
+      { id: id(), kind: 'note', label: 'Notes', text: '{{notes}}', showWhen: 'notes' },
       itemsTable('Contents', 'has_items', 'items'),
     ],
     footerSupportVar: 'support_email',

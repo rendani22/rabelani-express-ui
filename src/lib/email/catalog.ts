@@ -48,8 +48,8 @@ const LOCATION_MAPS: CatalogEntry = { name: 'location_maps_link', label: 'Delive
 
 export const VARIABLE_CATALOG: Record<EmailTemplateKey, CatalogEntry[]> = {
   package_registered: [REFERENCE, PO_NUMBER, NOTES, HAS_ITEMS, ITEMS, LOCATION_NAME, LOCATION_ADDRESS, LOCATION_MAPS, ...COMMON_VARS],
-  package_ready_for_collection: [REFERENCE, PO_NUMBER, HAS_ITEMS, ITEMS, LOCATION_NAME, LOCATION_ADDRESS, LOCATION_MAPS, ...COMMON_VARS],
-  package_completed: [REFERENCE, PO_NUMBER, HAS_ITEMS, ITEMS, ...COMMON_VARS],
+  package_ready_for_collection: [REFERENCE, PO_NUMBER, NOTES, HAS_ITEMS, ITEMS, LOCATION_NAME, LOCATION_ADDRESS, LOCATION_MAPS, ...COMMON_VARS],
+  package_completed: [REFERENCE, PO_NUMBER, NOTES, HAS_ITEMS, ITEMS, ...COMMON_VARS],
   package_contents_updated: [
     REFERENCE,
     PO_NUMBER,
@@ -106,6 +106,7 @@ export const SAMPLE_DATA: Record<EmailTemplateKey, Record<string, unknown>> = {
     ...COMMON_SAMPLE,
     reference: 'PKG-20260712-71E9',
     po_number: 'GG80666810',
+    notes: 'Please handle the glassware with care.',
     items: SAMPLE_ITEMS,
     has_items: true,
     location_name: 'Polokwane Depot',
@@ -116,6 +117,7 @@ export const SAMPLE_DATA: Record<EmailTemplateKey, Record<string, unknown>> = {
     ...COMMON_SAMPLE,
     reference: 'PKG-20260712-71E9',
     po_number: 'GG80666810',
+    notes: 'Please handle the glassware with care.',
     items: SAMPLE_ITEMS,
     has_items: true,
   },

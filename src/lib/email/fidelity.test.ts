@@ -4,7 +4,7 @@
 // templates had, and customers stopped receiving it. These tests are the guard:
 // all three must be the exact output of compileBlocks(SEED_CONTENT[key]).
 
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { compileBlocks } from './compile'
@@ -15,10 +15,12 @@ import type { EmailTemplateKey } from './blocks'
 
 const ROOT = resolve(__dirname, '../../..')
 const FALLBACKS = readFileSync(resolve(ROOT, 'supabase/functions/_shared/email-templates.ts'), 'utf8')
-const MIGRATION = readFileSync(
-  resolve(ROOT, 'supabase/migrations/20260714170000_email_depot_slip_redesign.sql'),
-  'utf8',
-)
+
+// Migrations replay in filename order, so a key's LAST write is what the DB
+// actually ends up serving — that, not any one file, is what must match the
+// seed. Pinning a single migration would go stale the next time a template is
+// re-seeded, and the stale file can no longer be edited once it has been applied.
+const MIGRATIONS = resolve(ROOT, 'supabase/migrations')
 
 const KEYS = Object.keys(SEED_CONTENT) as EmailTemplateKey[]
 /** customer_invited has no DB row — it is served by the in-code fallback only. */
@@ -34,10 +36,19 @@ describe('email fidelity — one design, three copies', () => {
 
   // Split into statements first — matching `body_html … where key` across the
   // whole file would let one statement's HTML pair with a later statement's key.
-  const statements = MIGRATION.split('update public.email_templates').slice(1)
+  const statements = readdirSync(MIGRATIONS)
+    .filter((f) => f.endsWith('.sql'))
+    .sort()
+    .flatMap((f) =>
+      readFileSync(resolve(MIGRATIONS, f), 'utf8').split('update public.email_templates').slice(1),
+    )
+
+  /** The winning write for a key: the last one that actually seeds a template. */
+  const latestSeedOf = (key: EmailTemplateKey) =>
+    statements.filter((s) => s.includes(`where key = '${key}';`) && s.includes('set body_html = $tpl$')).at(-1)
 
   it.each(SEEDED_IN_DB)('the migration body_html for %s is the compiled seed', (key) => {
-    const stmt = statements.find((s) => s.includes(`where key = '${key}';`))
+    const stmt = latestSeedOf(key)
     expect(stmt, `no migration update for ${key}`).toBeTruthy()
 
     const html = /set body_html = \$tpl\$\n([\s\S]*?)\n\$tpl\$,/.exec(stmt!)
@@ -46,7 +57,7 @@ describe('email fidelity — one design, three copies', () => {
   })
 
   it.each(SEEDED_IN_DB)('the migration content doc for %s is the seed doc', (key) => {
-    const stmt = statements.find((s) => s.includes(`where key = '${key}';`))!
+    const stmt = latestSeedOf(key)!
     const json = /content   = \$json\$\n([\s\S]*?)\n\$json\$::jsonb/.exec(stmt)
     expect(json, `no content doc in the ${key} update`).toBeTruthy()
     expect(JSON.parse(json![1])).toEqual(SEED_CONTENT[key])
@@ -69,6 +80,22 @@ describe('email rendering', () => {
       expect(compileBlocks(SEED_CONTENT[key]), `${key} must not use the delivered green`).not.toContain(GREEN)
     }
   })
+
+  // The customer's notes have to survive to the two emails that bracket the
+  // handover — a note left at registration is worthless if it is gone by the
+  // time they come to collect.
+  it.each(['package_registered', 'package_ready_for_collection', 'package_completed', 'package_contents_updated'] as const)(
+    '%s renders the customer notes callout, gated so it collapses when blank',
+    (key) => {
+      const html = compileBlocks(SEED_CONTENT[key])
+      expect(html).toContain('{{#notes}}')
+      expect(html).toContain('{{notes}}')
+      expect(html).toContain('{{/notes}}')
+
+      const blank = renderTemplate(html, { ...SAMPLE_DATA[key], notes: '' })
+      expect(blank).not.toContain('Notes')
+    },
+  )
 
   it('drops the review QR from the invite, which has nothing to review yet', () => {
     expect(compileBlocks(SEED_CONTENT.customer_invited)).not.toContain('review_qr_code_url')
