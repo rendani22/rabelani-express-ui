@@ -699,6 +699,66 @@ export async function loadPurchaseOrders(): Promise<PurchaseOrder[]> {
 }
 
 // ============================================================================
+// Server-side pagination
+// ============================================================================
+
+export const PURCHASE_ORDER_PAGE_SIZE = 25
+
+export interface PurchaseOrderPageQuery {
+  readonly offset: number
+  readonly search?: string
+  readonly status?: PurchaseOrderStatus | 'all'
+  /** Company id to scope to; undefined/'all' = every company. */
+  readonly company?: string
+}
+
+/**
+ * One page of purchase orders, already filtered, derived and ordered by the
+ * `purchase_order_page` RPC.
+ *
+ * The RPC returns each PO in the exact `PurchaseOrder` shape, so there is no
+ * mapping here — but that also means the SQL and this interface have to move
+ * together. See `supabase/migrations/*_purchase_order_pagination.sql`.
+ *
+ * The page unit is the PO, and first-class POs are ordered ahead of
+ * order-sourced ones, matching what `loadPurchaseOrders` returned.
+ */
+export async function fetchPurchaseOrderPage({
+  offset,
+  search,
+  status,
+  company,
+}: PurchaseOrderPageQuery): Promise<PurchaseOrder[]> {
+  const { data, error } = await supabase.rpc('purchase_order_page', {
+    p_limit: PURCHASE_ORDER_PAGE_SIZE,
+    p_offset: offset,
+    p_query: search?.trim() || null,
+    p_status: !status || status === 'all' ? null : status,
+    p_company: !company || company === 'all' ? null : company,
+  })
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  return (data ?? []) as PurchaseOrder[]
+}
+
+/**
+ * Header stat tiles. Deliberately unfiltered — the tiles are labelled "All
+ * time" and describe the whole PO set, not the current page or filter.
+ */
+export async function fetchPurchaseOrderStats(): Promise<PurchaseOrderStats> {
+  const { data, error } = await supabase.rpc('purchase_order_stats')
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  return data as PurchaseOrderStats
+}
+
+// ============================================================================
 // Pure derivations — ported from the `filteredPurchaseOrders` / `stats` computeds
 // ============================================================================
 

@@ -107,6 +107,7 @@ function FailureRow({ failure }: { failure: CoupaFailure }) {
 export function CoupaFailuresPanel() {
   const { can } = usePermissions()
   const { data, isLoading } = useCoupaFailures('pending')
+  const [open, setOpen] = useState(false)
 
   // Hidden, not empty-stated: someone without the permission cannot act on
   // these and the bodies are raw order documents. RLS already returns nothing
@@ -116,20 +117,35 @@ export function CoupaFailuresPanel() {
 
   return (
     <div className="rounded-lg border border-destructive/30 bg-card">
-      <div className="flex items-center gap-2 border-b border-destructive/20 px-4 py-3">
-        <AlertTriangle className="size-4 text-destructive" />
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className={cn(
+          'flex w-full items-center gap-2 px-4 py-3 text-left transition-colors hover:bg-destructive/5',
+          open && 'border-b border-destructive/20',
+        )}
+      >
+        <AlertTriangle className="size-4 shrink-0 text-destructive" />
         <span className="text-sm font-medium">
           {data.length} Coupa {data.length === 1 ? 'order' : 'orders'} not recorded
         </span>
         <span className="text-xs text-muted-foreground">
           Exxaro issued these — they are not in the list below until they are fixed and retried.
         </span>
-      </div>
-      <div>
-        {data.map((f) => (
-          <FailureRow key={f.id} failure={f} />
-        ))}
-      </div>
+        {open ? (
+          <ChevronDown className="ml-auto size-4 shrink-0 text-muted-foreground" />
+        ) : (
+          <ChevronRight className="ml-auto size-4 shrink-0 text-muted-foreground" />
+        )}
+      </button>
+      {open && (
+        <div>
+          {data.map((f) => (
+            <FailureRow key={f.id} failure={f} />
+          ))}
+        </div>
+      )}
     </div>
   )
 }
