@@ -351,8 +351,12 @@ function LoadMoreGroups({
     // Without an observer the button below is still the way forward, so there is
     // nothing to fall back to — just skip the automatic part.
     if (!el || typeof IntersectionObserver === 'undefined') return
-    // Fire ahead of the fold so the next page is usually there by the time the
-    // customer reaches it.
+    // Root stays the viewport. It cannot be the sm+ scroll region: below `sm`
+    // that element does not scroll, so its rect would cover the whole list and
+    // the sentinel would report as visible immediately, loading every page at
+    // once. The margin therefore only buys a head start while the page itself
+    // scrolls; inside the scroll region the container clips the sentinel and the
+    // next page loads as it is reached.
     const io = new IntersectionObserver(
       (entries) => {
         if (entries[0]?.isIntersecting) onLoad()
@@ -427,7 +431,10 @@ export function MyPackagesPage() {
     : 'Your orders'
 
   return (
-    <div className="flex flex-col gap-6">
+    // The heading and filters are fixed chrome; only the list below scrolls, so
+    // the search and status chips stay reachable however far down the list you
+    // are. Below `sm` the shell scrolls normally and this is a plain column.
+    <div className="flex flex-col gap-6 sm:h-full sm:min-h-0">
       <div className="flex flex-col gap-1">
         <h1 className="text-2xl font-semibold tracking-tight">My packages</h1>
         <p className="text-sm text-muted-foreground">{scopeLabel}</p>
@@ -479,6 +486,10 @@ export function MyPackagesPage() {
         </div>
       )}
 
+      {/* The scroll region. `-mx-1 px-1` keeps card focus rings from clipping:
+          overflow-y:auto forces overflow-x to auto, so a ring drawn outside a
+          full-width card would otherwise trigger a horizontal scrollbar. */}
+      <div className="flex flex-col sm:-mx-1 sm:min-h-0 sm:flex-1 sm:overflow-y-auto sm:px-1 sm:pb-8">
       {isLoading ? (
         <div className="flex flex-col gap-3">
           {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-28 rounded-lg" />)}
@@ -573,6 +584,7 @@ export function MyPackagesPage() {
           {hasNextPage && <LoadMoreGroups isFetching={isFetchingNextPage} onLoad={loadNext} />}
         </div>
       )}
+      </div>
     </div>
   )
 }
