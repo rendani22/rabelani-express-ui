@@ -309,6 +309,12 @@ function DriverTable({ rows }: { rows: DriverPerformance[] }) {
             <th className="pb-2 font-medium">Driver</th>
             <th className="pb-2 text-right font-medium">Pickups</th>
             <th className="pb-2 text-right font-medium">Delivered</th>
+            <th
+              className="pb-2 text-right font-medium"
+              title="Orders still in transit at the 20:00 end-of-day cutoff, sent back to the dispatch queue. Last 30 days, with all-time in brackets."
+            >
+              Reverted
+            </th>
             <th className="pb-2 text-right font-medium">Avg</th>
             <th className="pb-2 text-right font-medium">Rate</th>
           </tr>
@@ -319,6 +325,17 @@ function DriverTable({ rows }: { rows: DriverPerformance[] }) {
               <td className="py-2 font-medium">{d.name}</td>
               <td className="tabular py-2 text-right">{num(d.pickups)}</td>
               <td className="tabular py-2 text-right">{num(d.delivered)}</td>
+              <td className="tabular py-2 text-right">
+                <span
+                  className={cn(
+                    'font-medium',
+                    d.revertedLast30Days > 0 && 'text-warning-foreground dark:text-warning',
+                  )}
+                >
+                  {num(d.revertedLast30Days)}
+                </span>
+                <span className="ml-1.5 text-xs text-muted-foreground">({num(d.revertedAllTime)})</span>
+              </td>
               <td className="tabular py-2 text-right text-muted-foreground">{fmtHours(d.avgDeliveryHours)}</td>
               <td className="tabular py-2 text-right font-medium text-success">
                 {Math.round(d.completionRate)}%

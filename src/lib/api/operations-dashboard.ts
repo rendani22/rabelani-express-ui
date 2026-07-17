@@ -127,6 +127,15 @@ export interface DriverPerformance {
   /** Average hours from picked_up_at → received_at (or collected_at when no received) */
   avgDeliveryHours: number | null
   completionRate: number
+  /**
+   * Orders this driver still held at 20:00 SAST, sent back to `notified` by the
+   * nightly revert. Sourced from `package_revert_events`, not from the packages
+   * table — the revert clears `picked_up_by`, so a reverted order also drops out
+   * of `pickups` above. Rolling 30 days; not affected by the date filter.
+   */
+  revertedLast30Days: number
+  /** Same, over all recorded history. Only counts reverts since 2026-07-17 — earlier ones were never recorded. */
+  revertedAllTime: number
 }
 
 /** Aggregated package lifecycle / cycle-time metrics across the period. */
@@ -655,6 +664,23 @@ export async function fetchDriverPerformance(
     const { data: pkgs, error } = await pkgQuery
     if (error || !pkgs) return []
 
+    // 3. Revert events. Deliberately not date-filtered — the windows (rolling
+    //    30 days, all-time) are intrinsic to the metric, matching the RPC.
+    const { data: revertRows } = await supabase
+      .from('package_revert_events')
+      .select('driver_user_id, reverted_at')
+      .not('driver_user_id', 'is', null)
+
+    const cutoff30d = Date.now() - 30 * 24 * 3600_000
+    const revertsByDriver = new Map<string, { last30: number; allTime: number }>()
+    ;(revertRows ?? []).forEach(r => {
+      const row = r as { driver_user_id: string; reverted_at: string }
+      const bucket = revertsByDriver.get(row.driver_user_id) ?? { last30: 0, allTime: 0 }
+      bucket.allTime++
+      if (new Date(row.reverted_at).getTime() >= cutoff30d) bucket.last30++
+      revertsByDriver.set(row.driver_user_id, bucket)
+    })
+
     type Row = {
       id: string
       status: PackageStatus
@@ -689,6 +715,15 @@ export async function fetchDriverPerformance(
 
     const totalDelivered = Array.from(byDriver.values()).reduce((s, b) => s + b.delivered, 0)
 
+    // A driver whose every order was reverted has no packages carrying their
+    // picked_up_by, so they are absent from byDriver — add them back, or the
+    // worst performer is the one who disappears.
+    revertsByDriver.forEach((_, userId) => {
+      if (!byDriver.has(userId)) {
+        byDriver.set(userId, { pickups: 0, delivered: 0, inTransit: 0, hours: [] })
+      }
+    })
+
     return Array.from(byDriver.entries())
       .map(([userId, b]) => ({
         driverUserId: userId,
@@ -701,6 +736,8 @@ export async function fetchDriverPerformance(
             ? Math.round((b.hours.reduce((s, h) => s + h, 0) / b.hours.length) * 10) / 10
             : null,
         completionRate: totalDelivered > 0 ? Math.round((b.delivered / totalDelivered) * 100) : 0,
+        revertedLast30Days: revertsByDriver.get(userId)?.last30 ?? 0,
+        revertedAllTime: revertsByDriver.get(userId)?.allTime ?? 0,
       }))
       .sort((a, b) => b.delivered - a.delivered || b.pickups - a.pickups)
       .slice(0, 8)
