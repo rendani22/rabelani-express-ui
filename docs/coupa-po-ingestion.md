@@ -48,7 +48,9 @@ ingested PO still gets a human on the Global PO page before it means anything.
   sku** — deliberately, see "Before deploying" below.
 - **`supabase/functions/_shared/coupa-po.ts`** — the parser and `htmlToText`.
   Pure, no Deno APIs, 100% covered by `coupa-po.test.ts` from the main vitest
-  run. Parses the authoritative "Lines" block, not the "Items" summary.
+  run. Parses the authoritative "Lines" block, not the "Items" summary. An
+  entry is read whether Coupa states it on one row (`49 PKT 37869 - … for …`)
+  or splits the quantity and unit onto their own — it sends both.
 - **`supabase/functions/ingest-coupa-po/`** — the webhook. Transport-agnostic:
   any provider that maps its payload onto `IngestRequest` works.
 - **`supabase/functions/_shared/coupa-audit.ts`** — the audit row builders and

@@ -53,6 +53,127 @@ Supplier 100092635 - Rabelani MM Trading Enterprise CC • Need By 07/17/2026 �
 
 Total    4,873.26    ZAR`
 
+/**
+ * The GG80701939 notification, verbatim. Same template, laid out differently:
+ * every field sits on the row after its label, and each Lines entry is split
+ * across two rows with the quantity and unit alone on the first. Keeping both
+ * samples is the point -- Coupa sends both, so both must parse.
+ */
+const SAMPLE_SPLIT_LINES = `Exxaro Resources Purchase Order #GG80701939
+
+Hi Supplier,
+
+This is to inform you Purchase Order GG80701939 from Exxaro Resources has been issued, and this same notification has been sent to your fellow team members with access to the Coupa Supplier Portal.
+
+Submitted By
+
+Richard Tshepang Tladi
+
+On Behalf Of
+
+Richard Tshepang Tladi
+
+Supplier
+
+100092635 - Rabelani MM Trading Enterprise CC
+
+Total
+
+2,728.81
+
+ZAR
+
+Items
+
+16257 - MILK:FULL CREAM ,LONG LIFE ,CARTON
+
+60 PACKET x 25.22
+
+1,513.20
+
+ZAR
+
+215002 - CREAMER, NON DAIRY:ELLIS BROWN, CREMORA
+
+5 PACKET x 84.69
+
+423.45
+
+ZAR
+
+140295 - COFFEE, ROASTED:MILD INSTANT ,KRONUNG
+
+2 Each x 178.83
+
+357.66
+
+ZAR
+
+140565 - COFFEE, ROASTED:NIGHT/DAY DECAFFEINATED
+
+2 Each x 217.25
+
+434.50
+
+ZAR
+
+More Detail
+
+PO ID
+GG80701939
+
+Department
+None
+
+Status
+Issued - Sent via Email
+
+Order Date
+07/17/2026
+
+Acknowledged At
+None
+
+Revision Date
+07/17/2026
+
+Payment Term
+Z001
+
+Req #
+874221
+
+Shipping
+None
+
+Lines
+
+60 PKT
+16257 - MILK:FULL CREAM ,LONG LIFE ,CARTON for 1,513.20 ZAR
+
+ Supplier 100092635 - Rabelani MM Trading Enterprise CC •  Need By 07/24/2026 •  Commodity B254B - BEVERAGES • Contract Catering and canteen service
+
+5 PKT
+215002 - CREAMER, NON DAIRY:ELLIS BROWN, CREMORA for 423.45 ZAR
+
+ Supplier 100092635 - Rabelani MM Trading Enterprise CC •  Need By 07/24/2026 •  Commodity B254F - FOOD • Contract Catering and canteen service
+
+2 EA
+140295 - COFFEE, ROASTED:MILD INSTANT ,KRONUNG for 357.66 ZAR
+
+ Supplier 100092635 - Rabelani MM Trading Enterprise CC •  Need By 07/24/2026 •  Commodity B254F - FOOD • Contract Catering and canteen service
+
+2 EA
+140565 - COFFEE, ROASTED:NIGHT/DAY DECAFFEINATED for 434.50 ZAR
+
+ Supplier 100092635 - Rabelani MM Trading Enterprise CC •  Need By 07/24/2026 •  Commodity B254F - FOOD • Contract Catering and canteen service
+
+Total
+
+2,728.81
+
+ZAR`
+
 /** Narrows to the success branch, failing with the parser's own error if not. */
 function parsed(body: string) {
   const result = parseCoupaPoEmail(body)
@@ -172,6 +293,70 @@ describe('parseCoupaPoEmail', () => {
   it('does not swallow the next column when a person field shares a line', () => {
     const po = parsed(SAMPLE.replace('Submitted By    Ramadimetja Maria Mochaki', 'Submitted By    Thabo Nkosi        Department    None'))
     expect(po.submittedBy).toBe('Thabo Nkosi')
+  })
+
+  it('reads the header fields when every value sits below its label', () => {
+    const po = parsed(SAMPLE_SPLIT_LINES)
+    expect(po.poNumber).toBe('GG80701939')
+    expect(po.total).toBe(2728.81)
+    expect(po.currency).toBe('ZAR')
+    expect(po.poDate).toBe('2026-07-17')
+    expect(po.onBehalfOf).toBe('Richard Tshepang Tladi')
+    expect(po.submittedBy).toBe('Richard Tshepang Tladi')
+  })
+
+  it('reads a Lines entry split across two rows, quantity and unit on the first', () => {
+    // The regression this exists for: GG80701939 parsed to zero lines, because
+    // every entry states "60 PKT" on its own row and the item on the next.
+    expect(parsed(SAMPLE_SPLIT_LINES).lines).toEqual([
+      { code: '16257', name: 'MILK:FULL CREAM ,LONG LIFE ,CARTON', quantity: 60, uom: 'PKT' },
+      { code: '215002', name: 'CREAMER, NON DAIRY:ELLIS BROWN, CREMORA', quantity: 5, uom: 'PKT' },
+      { code: '140295', name: 'COFFEE, ROASTED:MILD INSTANT ,KRONUNG', quantity: 2, uom: 'EA' },
+      { code: '140565', name: 'COFFEE, ROASTED:NIGHT/DAY DECAFFEINATED', quantity: 2, uom: 'EA' },
+    ])
+  })
+
+  it('still ignores the Items summary when the entries are split', () => {
+    // The summary states the same four items as "60 PACKET x 25.22" rows. If
+    // those were being joined and matched too, we would see eight lines.
+    expect(parsed(SAMPLE_SPLIT_LINES).lines).toHaveLength(4)
+  })
+
+  it('names the offending entry when a split line has a zero quantity', () => {
+    const result = parseCoupaPoEmail(SAMPLE_SPLIT_LINES.replace('60 PKT\n16257', '0 PKT\n16257'))
+    expect(result).toMatchObject({ success: false })
+    if (!result.success) {
+      expect(result.error).toContain('non-positive quantity')
+      // The error names the whole entry, not just the row the quantity was on.
+      expect(result.error).toContain('MILK:FULL CREAM')
+    }
+  })
+
+  it('joins the two halves of an entry across a blank row', () => {
+    // Whether the halves end up adjacent depends on how the body was flattened,
+    // which is the forwarder's business, not a distinction Coupa is drawing.
+    const po = parsed(SAMPLE_SPLIT_LINES.replace('60 PKT\n16257', '60 PKT\n\n16257'))
+    expect(po.lines[0]).toMatchObject({ code: '16257', quantity: 60, uom: 'PKT' })
+    expect(po.lines).toHaveLength(4)
+  })
+
+  it('ignores a trailing quantity row with nothing following it', () => {
+    // Truncation must not throw or swallow the entries that did parse.
+    const po = parsed(`${SAMPLE_SPLIT_LINES}\n\n7 PKT`)
+    expect(po.lines).toHaveLength(4)
+  })
+
+  it('ignores a quantity row followed by something that is not an order line', () => {
+    const po = parsed(`${SAMPLE_SPLIT_LINES}\n\n7 PKT\nSupplier 100092635 - Rabelani MM Trading Enterprise CC`)
+    expect(po.lines).toHaveLength(4)
+  })
+
+  it('does not join a quantity row across an unrelated line', () => {
+    // "60 PKT" here is followed by a real row, so the entry below it must still
+    // be read on its own rather than consumed as the join's continuation.
+    const po = parsed(SAMPLE_SPLIT_LINES.replace('60 PKT\n16257', '60 PKT\nStatus Issued\n60 PKT\n16257'))
+    expect(po.lines).toHaveLength(4)
+    expect(po.lines[0]).toMatchObject({ code: '16257', quantity: 60 })
   })
 
   it('reads person fields from an HTML body, where each cell is on its own line', () => {
@@ -305,6 +490,34 @@ describe('htmlToText', () => {
     expect(po.lines.map((l) => [l.code, l.quantity])).toEqual([
       ['37869', 49],
       ['37865', 14],
+    ])
+  })
+
+  it('feeds an HTML rendering with split line cells through to a complete parse', () => {
+    // GG80701939's shape: each Lines entry is two cells, so htmlToText puts the
+    // quantity and the item on separate rows.
+    const html = `
+      <h1>Exxaro Resources Purchase Order #GG80701939</h1>
+      <table>
+        <tr><td>Total</td><td>2,728.81 ZAR</td></tr>
+        <tr><td>PO ID</td><td>GG80701939</td><td>Department</td><td>None</td></tr>
+        <tr><td>Order Date</td><td>07/17/2026</td><td>Acknowledged At</td><td>None</td></tr>
+      </table>
+      <h2>Lines</h2>
+      <table>
+        <tr><td>60 PKT</td><td>16257 - MILK:FULL CREAM ,LONG LIFE ,CARTON for 1,513.20 ZAR</td></tr>
+        <tr><td>Supplier 100092635 &bull; Need By 07/24/2026</td></tr>
+        <tr><td>2 EA</td><td>140295 - COFFEE, ROASTED:MILD INSTANT ,KRONUNG for 357.66 ZAR</td></tr>
+        <tr><td>Supplier 100092635 &bull; Need By 07/24/2026</td></tr>
+      </table>`
+
+    const po = parsed(htmlToText(html))
+    expect(po.poNumber).toBe('GG80701939')
+    expect(po.total).toBe(2728.81)
+    expect(po.poDate).toBe('2026-07-17')
+    expect(po.lines.map((l) => [l.code, l.quantity])).toEqual([
+      ['16257', 60],
+      ['140295', 2],
     ])
   })
 })

@@ -56,6 +56,17 @@ const EXPECTED_CURRENCY = 'ZAR'
 const LINE_RE =
   /^\s*([\d,]+(?:\.\d+)?)\s+(\S+)\s+(\S+)\s+-\s+(.+)\s+for\s+([\d,]+(?:\.\d{2})?)\s+([A-Z]{3})\s*$/
 
+/**
+ * `60 PKT` -- a Lines entry whose quantity and unit sit alone on their own row,
+ * the item following on the next. Coupa renders the block both ways.
+ *
+ * Exactly two tokens, the second alphabetic, so the Items summary's
+ * `60 PACKET x 25.22` cannot match. The real guard against a stray join is
+ * LINE_RE itself, which the joined string must satisfy whole -- and only the
+ * Lines block carries the trailing ` for <amount> <CUR>` it demands.
+ */
+const QTY_UOM_ONLY_RE = /^\s*([\d,]+(?:\.\d+)?)\s+([A-Za-z]+)\s*$/
+
 const PO_NUMBER_RE = /\bPO ID\s+(\S+)/
 const ORDER_DATE_RE = /\bOrder Date\s+(\d{2})\/(\d{2})\/(\d{4})/
 const TOTAL_RE = /\bTotal\s+([\d,]+\.\d{2})\s+([A-Z]{3})\b/
@@ -128,6 +139,44 @@ function toIsoDate(month: string, day: string, year: string): string | null {
   return `${year}-${month}-${day}`
 }
 
+/** One Lines entry, resolved from however many rows Coupa spread it over. */
+interface MatchedOrderLine {
+  readonly match: RegExpMatchArray
+  /** The entry as a single line, so an error can name the whole of it. */
+  readonly text: string
+  /** The last row the entry occupies; the scan resumes after it. */
+  readonly consumedTo: number
+}
+
+/**
+ * Reads the Lines entry starting at `rows[i]`, or null if none starts there.
+ *
+ * Coupa renders an entry either on one row (`49 PKT 37869 - VOUCHER... for
+ * 3,628.94 ZAR`) or split across two, with the quantity and unit alone on the
+ * first. Both are the same record, so the split form is stitched back together
+ * and matched against the one pattern rather than given a pattern of its own.
+ */
+function matchOrderLine(rows: readonly string[], i: number): MatchedOrderLine | null {
+  const direct = rows[i].match(LINE_RE)
+  if (direct) return { match: direct, text: rows[i].trim(), consumedTo: i }
+
+  const split = rows[i].match(QTY_UOM_ONLY_RE)
+  if (!split) return null
+
+  // Blank rows between the two halves are an artefact of how the body was
+  // flattened, not a separator Coupa means anything by.
+  let j = i + 1
+  while (j < rows.length && !rows[j].trim()) j++
+  if (j >= rows.length) return null
+
+  const text = `${split[1]} ${split[2]} ${rows[j].trim()}`
+  const joined = text.match(LINE_RE)
+  // A quantity-shaped row followed by anything else is not an entry. Nothing is
+  // consumed, so the next row is still scanned on its own terms.
+  if (!joined) return null
+  return { match: joined, text, consumedTo: j }
+}
+
 /**
  * Parses the plain-text body of a Coupa PO notification.
  *
@@ -166,17 +215,19 @@ export function parseCoupaPoEmail(body: string): ParseCoupaPoResult {
   const dateMatch = body.match(ORDER_DATE_RE)
   const poDate = dateMatch ? toIsoDate(dateMatch[1], dateMatch[2], dateMatch[3]) : null
 
+  const rows = body.split(/\r?\n/)
   const lines: CoupaPoLine[] = []
-  for (const raw of body.split(/\r?\n/)) {
-    const m = raw.match(LINE_RE)
-    if (!m) continue
+  for (let i = 0; i < rows.length; i++) {
+    const entry = matchOrderLine(rows, i)
+    if (!entry) continue
+    const m = entry.match
     // parseAmount cannot yield NaN here -- LINE_RE admits only digits, commas
     // and a decimal tail -- so a zero is the only unusable quantity. The RPC
     // would reject it anyway (ordered_quantity has a CHECK > 0); failing here
     // names the offending line instead of surfacing a constraint violation.
     const quantity = parseAmount(m[1])
     if (quantity <= 0) {
-      return { success: false, error: `Line "${raw.trim()}" has a non-positive quantity.` }
+      return { success: false, error: `Line "${entry.text}" has a non-positive quantity.` }
     }
     lines.push({
       quantity,
@@ -187,6 +238,8 @@ export function parseCoupaPoEmail(body: string): ParseCoupaPoResult {
       // only the order total is recorded, and purchase_order_items has nowhere
       // to put a per-line price.
     })
+    // Skip the entry's continuation row, if it had one.
+    i = entry.consumedTo
   }
 
   if (lines.length === 0) {
