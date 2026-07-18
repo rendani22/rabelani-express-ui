@@ -17,6 +17,8 @@ npm run dev        # dev server at http://localhost:5173
 | `npm run build` | Typecheck (`tsc -b`) then production build to `dist/` |
 | `npm run preview` | Serve the production build locally |
 | `npm run lint` | Lint with oxlint |
+| `npm test` | Run the test suite (vitest) |
+| `npm run test:coverage` | Tests with coverage (100% thresholds on the covered `lib/` set) |
 
 ## Configuration
 

@@ -84,6 +84,8 @@ All authenticated routes render inside `<ProtectedRoute>` → `<AppLayout>`. `/`
 - **Reads and most other entities use direct Supabase queries** (`supabase.from(...)`): package reads, and the `drivers`, `inventory`, `delivery-locations`, `receivers`, `staff`, `purchase-orders`, `email-templates` modules.
 - **RPCs**: lock status (`is_pod_locked`, `get_pod_lock_status`) and soft-delete/restore (`soft_delete_package`, `restore_package`).
 - Edge-function **source** lives under `supabase/functions/` (`create-package`, `update-package`, `_shared`); `driver-pickup` & `receive-at-collection` are deployed but not vendored here. Migrations under `supabase/migrations/`.
+- **Notifications** (in-app, the header bell) are created **only** by SECURITY DEFINER triggers/functions — the `notifications` table has no INSERT policy, so the client can't forge rows. `notify_staff_on_package_change` fans out on status change using a layered model (involvement — creator/assigned-driver/current-actor — plus role relevance across all parcels, with admins/managers on **exceptions only**), minus per-user mutes. `notify_package_exception` handles non-status events, and a `pg_cron` sweep (`detect_overdue_and_stuck_packages`) flags overdue/stuck parcels against admin-tunable thresholds (`notification_settings`). Events carry a canonical `notifications.event` key; opt-out mutes live in `notification_type_mutes` / `notification_package_mutes`. System batches set the transaction-local **`app.suppress_notifications`** flag to silence the per-row fan-out while status history is still recorded.
+- **Applying migrations** is a separate step from deploying app code: `npm run supabase:link-dev && npm run supabase:push`, or the **`.github/workflows/db-migrate.yml`** CI applies them on push to `dev` (needs `SUPABASE_ACCESS_TOKEN` + `SUPABASE_DB_PASSWORD` repo secrets). Manual dispatch requires the workflow on the default branch.
 
 ### Edge function call pattern (`lib/api/packages.ts`)
 
@@ -103,6 +105,8 @@ if (isApiError(response)) { /* … */ }
 ## Errors & Logging
 
 All error reporting funnels through `src/lib/logger.ts`, a wrapper over `@rendani22/logger` (the shared **livecode-OPS** client — installed from GitHub Packages; see the registry config in `.npmrc`). It buffers events and flushes in batches / on page-hide, adds auto-context (URL + user-agent), and de-dupes by error-object identity.
+
+> **No-token fallback (don't undo this):** `@rendani22/logger` is a private-registry package, so it's declared as an **`optionalDependency`** — `npm install` degrades instead of hard-failing without `GITHUB_TOKEN`. When `node_modules/@rendani22/logger` is absent, `vite.config.ts` and `vitest.config.ts` alias the import to a console-only shim (`src/lib/ops-logger-fallback.ts`) and `tsconfig.app.json` redirects the type import there (typecheck-only). So install/typecheck/build/test all work without the token, while production/CI still bundle the real client when the token is present. Do **not** move it back to `dependencies` or remove the fallback/aliases.
 
 - `logger.error/warn/info/debug(payload, ctx)` — ship an event.
 - `reportError(err, fallback, ctx)` — log the real error **and** return a user-facing string. Use in catch blocks and mutation `onError`:
@@ -161,13 +165,24 @@ Config via `VITE_OPS_INGEST_URL`, `VITE_OPS_INGEST_KEY`, `VITE_APP_VERSION` (def
 ## Commands
 
 ```bash
-npm run dev       # Vite dev server at localhost:5173 (host + *.trycloudflare.com allowed for remote review)
-npm run build     # tsc -b (typecheck) then vite build → dist/
-npm run preview   # Serve the production build
-npm run lint      # oxlint
+npm run dev            # Vite dev server at localhost:5173 (host + *.trycloudflare.com allowed for remote review)
+npm run build          # tsc -b (typecheck) then vite build → dist/
+npm run preview        # Serve the production build
+npm run lint           # oxlint
+npm test               # vitest run (whole suite)
+npm run test:watch     # vitest (watch mode)
+npm run test:coverage  # vitest run --coverage (enforces the coverage thresholds below)
+
+npx vitest run src/lib/format.test.ts   # a single test file
+npx vitest run -t "reschedule"          # tests whose name matches
+
+# Supabase (CLI)
+npm run supabase:link-dev   # link the dev project (ref qmnqffpwvsvngjmyisrf); :link-prod for prod
+npm run supabase:push       # supabase db push — apply migrations
+npm run deploy-functions    # supabase functions deploy (all); deploy:<name> deploys one
 ```
 
-No unit-test script and no Storybook in the React app. No `:int` build variant — environments differ only by `VITE_*` env vars, not build configurations.
+**Testing**: Vitest + jsdom + Testing Library (setup `src/test/setup.ts`); tests are colocated as `*.test.ts[x]`, plus the pure Coupa parser under `supabase/functions/_shared/`. Coverage is gated to **100%** on an explicit allowlist in `vitest.config.ts` (`coverage.include` — pure `lib/` helpers, the domain model, Zustand stores, pure hooks); touching a file on that list will fail `test:coverage` until every branch is covered. Pages, components, and the Supabase-backed `lib/api/` layer are intentionally out of scope. No Storybook. No `:int` build variant — environments differ only by `VITE_*` env vars, not build configurations.
 
 ## Important Files
 
@@ -179,10 +194,11 @@ No unit-test script and no Storybook in the React app. No `:int` build variant �
 | `src/lib/supabase.ts` / `src/lib/config.ts` | Supabase client + runtime config |
 | `src/lib/auth.tsx` | Auth context (`AuthProvider`, `useAuth`) |
 | `src/lib/logger.ts` | livecode-OPS logger + `reportError`/`toUserMessage` |
+| `src/lib/ops-logger-fallback.ts` | Console-only logger shim used when the private `@rendani22/logger` isn't installed |
 | `src/lib/models/package.ts` | Package types, `EDGE_FUNCTIONS`, type guards, status flow |
 | `src/lib/status.ts` / `src/lib/driver-status.ts` | Status constants + tone/label mapping |
 | `src/lib/api/packages.ts` | Package mutations (edge fns) + reads + `callEdgeFunction` |
-| `src/lib/api/*.ts` | drivers, inventory, delivery-locations, receivers, staff, purchase-orders, email-templates, operations/executive dashboards, pod-export |
+| `src/lib/api/*.ts` | drivers, inventory, delivery-locations, receivers, staff, purchase-orders, email-templates, operations/executive dashboards, pod-export, notifications |
 | `src/lib/ui-store.ts` / `src/lib/settings-store.ts` | Zustand stores |
 | `src/lib/pod-pdf.tsx` | POD PDF generation (jspdf + html2canvas-pro) |
 | `src/hooks/*.ts` | TanStack Query hooks per feature |
@@ -192,4 +208,6 @@ No unit-test script and no Storybook in the React app. No `:int` build variant �
 | `components.json` | shadcn/ui config |
 | `vite.config.ts` | Vite + React + Tailwind plugins, `@` alias, dev server |
 | `supabase/functions/` | Edge function sources (`create-package`, `update-package`, `_shared`) |
-| `supabase/migrations/` | Database migrations |
+| `supabase/migrations/` | Database migrations (incl. the notification triggers/tables + overdue/stuck sweep) |
+| `vitest.config.ts` | Vitest config + coverage allowlist and 100% thresholds |
+| `.github/workflows/db-migrate.yml` | Applies Supabase migrations to the dev project |
