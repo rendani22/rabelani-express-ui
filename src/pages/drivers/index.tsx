@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react'
-import { toast } from 'sonner'
 import { List, Mail, Map as MapIcon, Phone, Plus, RefreshCw, Search, Truck, UserX, X } from 'lucide-react'
 import type { DriverProfile } from '@/lib/api/drivers'
 import { getDriverStatus, toDriverMapMarkers } from '@/lib/api/drivers'
@@ -12,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { DriverMap } from '@/components/drivers/driver-map'
+import { AddDriverDialog } from './add-driver-dialog'
 import { StatusStamp, TrackingNumber } from '@/components/dispatch'
 import { ReceiverAvatar } from '@/components/dispatch/receiver-avatar'
 import { formatDateTime, timeAgo } from '@/lib/format'
@@ -148,6 +148,7 @@ export function DriversPage() {
   const [search, setSearch] = useState('')
   const [view, setView] = useState<'map' | 'list'>(() => useSettings.getState().defaultDriversView)
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [addOpen, setAddOpen] = useState(false)
 
   const { data, isLoading, isError, error, isFetching, refetch } = useDrivers()
   const { can } = usePermissions()
@@ -190,7 +191,7 @@ export function DriversPage() {
               <RefreshCw className={isFetching ? 'animate-spin' : ''} /> Refresh
             </Button>
             {can('users.manage') && (
-              <Button size="sm" onClick={() => toast.info('Add-driver lands in a later update.')}>
+              <Button size="sm" onClick={() => setAddOpen(true)}>
                 <Plus /> Add driver
               </Button>
             )}
@@ -280,6 +281,8 @@ export function DriversPage() {
           </div>
         </div>
       )}
+
+      <AddDriverDialog open={addOpen} onOpenChange={setAddOpen} />
     </PageBody>
   )
 }
