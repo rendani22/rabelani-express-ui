@@ -13,7 +13,8 @@
     "ignoreDeprecations": "6.0",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@rendani22/logger": ["./src/lib/ops-logger-fallback.ts"]
     },
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,

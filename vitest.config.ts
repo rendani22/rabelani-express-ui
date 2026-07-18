@@ -1,5 +1,13 @@
+import fs from 'node:fs'
 import { defineConfig } from 'vitest/config'
 import { fileURLToPath } from 'node:url'
+
+// Mirror vite.config.ts: use the private livecode-OPS logger when it's
+// installed, else fall back to the console shim so tests run without the
+// registry token. See src/lib/ops-logger-fallback.ts for the rationale.
+const loggerInstalled = fs.existsSync(
+  fileURLToPath(new URL('./node_modules/@rendani22/logger/package.json', import.meta.url)),
+)
 
 /**
  * Test config for the logic layer. Coverage is deliberately scoped (via
@@ -10,7 +18,12 @@ import { fileURLToPath } from 'node:url'
  */
 export default defineConfig({
   resolve: {
-    alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
+    alias: {
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
+      ...(loggerInstalled
+        ? {}
+        : { '@rendani22/logger': fileURLToPath(new URL('./src/lib/ops-logger-fallback.ts', import.meta.url)) }),
+    },
   },
   test: {
     environment: 'jsdom',
