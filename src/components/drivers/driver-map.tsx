@@ -51,7 +51,10 @@ export function DriverMap({
       center={DEFAULT_CENTER}
       zoom={7}
       scrollWheelZoom
-      className="size-full"
+      // `isolate` gives the map its own stacking context so Leaflet's high
+      // internal z-indexes (panes/controls up to 1000) stay contained and
+      // don't paint over app chrome like the sticky header.
+      className="size-full isolate"
       style={{ background: 'var(--muted)' }}
     >
       <TileLayer
