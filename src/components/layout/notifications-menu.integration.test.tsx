@@ -18,6 +18,7 @@ vi.mock('react-router-dom', async (orig) => ({
 const notif = (over: Partial<AppNotification>): AppNotification => ({
   id: Math.random().toString(36).slice(2),
   type: 'in_transit',
+  event: 'in_transit',
   emoji: '🚚',
   title: 'Package picked up (RBX-1)',
   description: 'A driver has picked up the package.',
@@ -43,6 +44,7 @@ function setup(over: Partial<ReturnType<typeof useNotifications>> = {}) {
     markAllRead,
     remove: { mutate: vi.fn() },
     removeAll,
+    mutePackage: { mutate: vi.fn() },
     ...over,
   })
 }

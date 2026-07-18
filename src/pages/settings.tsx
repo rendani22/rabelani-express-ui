@@ -1,10 +1,22 @@
 import { useNavigate } from 'react-router-dom'
 import { useTheme } from 'next-themes'
-import { Compass, LayoutGrid, List, LogOut, Map as MapIcon, Moon, Package, Play, RotateCcw, Sun, User } from 'lucide-react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
+import { Bell, Compass, LayoutGrid, List, LogOut, Map as MapIcon, Moon, Package, Play, RotateCcw, Sun, User } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
+import { usePermissions } from '@/hooks/use-permissions'
 import { REFRESH_INTERVAL_OPTIONS, useSettings } from '@/lib/settings-store'
 import { ALL_TOUR_IDS, TOUR_LABELS, useTourStore } from '@/lib/tour-store'
 import { ORDER_STATUS_FILTERS } from '@/hooks/use-orders'
+import {
+  NOTIFICATION_EVENT_TYPES,
+  fetchMutedEventTypes,
+  fetchNotificationThresholds,
+  setEventTypeMuted,
+  updateNotificationThresholds,
+  type NotificationThresholds,
+} from '@/lib/api/notifications'
+import { reportError } from '@/lib/logger'
 import { PageBody, PageHeader } from '@/components/layout/page-header'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
@@ -86,6 +98,108 @@ function Segmented<T extends string>({
   )
 }
 
+/** Threshold options for the admin overdue/stuck tuning. */
+const OVERDUE_TRANSIT_OPTIONS = [6, 12, 24, 48, 72]
+const OVERDUE_READY_OPTIONS = [24, 48, 72, 120, 168]
+const STUCK_DAYS_OPTIONS = [2, 3, 5, 7, 14]
+
+/**
+ * Notification preferences. Everyone is subscribed to their relevant events by
+ * default (opt-out); the switches below mute an event type. Admins additionally
+ * tune the overdue/stuck thresholds that drive the scheduled sweep.
+ */
+function NotificationsCard({ isAdmin }: { isAdmin: boolean }) {
+  const qc = useQueryClient()
+
+  const muted = useQuery({ queryKey: ['notification-mutes', 'types'], queryFn: fetchMutedEventTypes })
+  const mutedSet = new Set(muted.data ?? [])
+
+  const toggle = useMutation({
+    mutationFn: ({ eventType, muted }: { eventType: string; muted: boolean }) =>
+      setEventTypeMuted(eventType, muted),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['notification-mutes', 'types'] }),
+    onError: (e) => toast.error(reportError(e, 'Could not update notifications.', { op: 'notifications.mute' })),
+  })
+
+  const thresholds = useQuery({
+    queryKey: ['notification-thresholds'],
+    queryFn: fetchNotificationThresholds,
+    enabled: isAdmin,
+  })
+
+  const saveThresholds = useMutation({
+    mutationFn: (dto: NotificationThresholds) => updateNotificationThresholds(dto),
+    onSuccess: () => {
+      toast.success('Thresholds updated.')
+      qc.invalidateQueries({ queryKey: ['notification-thresholds'] })
+    },
+    onError: (e) => toast.error(reportError(e, 'Could not update thresholds.', { op: 'notifications.thresholds' })),
+  })
+
+  const setThreshold = (patch: Partial<NotificationThresholds>) => {
+    if (!thresholds.data) return
+    saveThresholds.mutate({ ...thresholds.data, ...patch })
+  }
+
+  return (
+    <Card icon={Bell} title="Notifications" description="Choose which events reach you. You're subscribed to everything relevant by default.">
+      {NOTIFICATION_EVENT_TYPES.map((evt) => (
+        <Row key={evt.value} name={evt.label} hint={evt.hint}>
+          <Switch
+            checked={!mutedSet.has(evt.value)}
+            disabled={muted.isLoading || toggle.isPending}
+            onCheckedChange={(on) => toggle.mutate({ eventType: evt.value, muted: !on })}
+          />
+        </Row>
+      ))}
+
+      {isAdmin && thresholds.data && (
+        <>
+          <Row name="Overdue: in transit" hint="Flag a delivery that's taken too long">
+            <Select
+              value={String(thresholds.data.overdue_in_transit_hours)}
+              onValueChange={(v) => setThreshold({ overdue_in_transit_hours: Number(v) })}
+            >
+              <SelectTrigger className="w-[150px]" size="sm"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {OVERDUE_TRANSIT_OPTIONS.map((h) => (
+                  <SelectItem key={h} value={String(h)}>{h} hours</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Row>
+          <Row name="Overdue: awaiting collection" hint="Flag a parcel waiting too long at the point">
+            <Select
+              value={String(thresholds.data.overdue_ready_hours)}
+              onValueChange={(v) => setThreshold({ overdue_ready_hours: Number(v) })}
+            >
+              <SelectTrigger className="w-[150px]" size="sm"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {OVERDUE_READY_OPTIONS.map((h) => (
+                  <SelectItem key={h} value={String(h)}>{h} hours</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Row>
+          <Row name="Stuck: no movement" hint="Flag a parcel that hasn't changed status">
+            <Select
+              value={String(thresholds.data.stuck_days)}
+              onValueChange={(v) => setThreshold({ stuck_days: Number(v) })}
+            >
+              <SelectTrigger className="w-[150px]" size="sm"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {STUCK_DAYS_OPTIONS.map((d) => (
+                  <SelectItem key={d} value={String(d)}>{d} days</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Row>
+        </>
+      )}
+    </Card>
+  )
+}
+
 /** A tour's home route — a tour targets elements on its own page. */
 const TOUR_ROUTES: Record<string, string> = {
   dashboard: '/dashboard',
@@ -96,6 +210,7 @@ const TOUR_ROUTES: Record<string, string> = {
 export function SettingsPage() {
   const navigate = useNavigate()
   const { user, signOut } = useAuth()
+  const { isAdmin } = usePermissions()
   const { resolvedTheme, setTheme } = useTheme()
   const s = useSettings()
   const restartTour = useTourStore((t) => t.restart)
@@ -173,6 +288,8 @@ export function SettingsPage() {
           <Switch checked={s.compactMode} onCheckedChange={(v) => s.update({ compactMode: v })} />
         </Row>
       </Card>
+
+      <NotificationsCard isAdmin={isAdmin} />
 
       <div className="flex items-center gap-3">
         <Button variant="outline" size="sm" onClick={() => s.reset()}>

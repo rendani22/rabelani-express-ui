@@ -9,6 +9,7 @@ import {
   fetchUnreadCount,
   markAllNotificationsRead,
   markNotificationRead,
+  setPackageMuted,
 } from '@/lib/api/notifications'
 
 const FEED_KEY = ['notifications', 'feed']
@@ -64,6 +65,12 @@ export function useNotifications() {
   const markAllRead = useMutation({ mutationFn: markAllNotificationsRead, onSuccess: invalidate })
   const remove = useMutation({ mutationFn: deleteNotification, onSuccess: invalidate })
   const removeAll = useMutation({ mutationFn: deleteAllNotifications, onSuccess: invalidate })
+  // Mute future notifications about one parcel. Drop the rows already in the
+  // feed for it too, so muting feels immediate.
+  const mutePackage = useMutation({
+    mutationFn: (packageId: string) => setPackageMuted(packageId, true),
+    onSuccess: invalidate,
+  })
 
   return {
     items: feed.data ?? [],
@@ -74,5 +81,6 @@ export function useNotifications() {
     markAllRead,
     remove,
     removeAll,
+    mutePackage,
   }
 }

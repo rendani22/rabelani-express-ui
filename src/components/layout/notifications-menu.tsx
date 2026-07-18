@@ -1,9 +1,17 @@
 import { useNavigate } from 'react-router-dom'
-import { Bell, CheckCheck, Inbox, Trash2 } from 'lucide-react'
+import { Bell, BellOff, CheckCheck, Inbox, Trash2 } from 'lucide-react'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { timeAgo } from '@/lib/format'
 import { useNotifications } from '@/hooks/use-notifications'
 import { SectionLabel, StatusStamp, TrackingNumber } from '@/components/dispatch'
+
+/** Labels for exception events that have no package-status StatusStamp. */
+const EVENT_LABELS: Record<string, string> = {
+  reschedule: 'Reschedule',
+  overdue: 'Overdue',
+  stuck: 'No movement',
+}
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -22,7 +30,7 @@ import {
  */
 export function NotificationsMenu() {
   const navigate = useNavigate()
-  const { items, unreadCount, isLoading, markRead, markAllRead, removeAll } = useNotifications()
+  const { items, unreadCount, isLoading, markRead, markAllRead, removeAll, mutePackage } = useNotifications()
 
   return (
     <DropdownMenu>
@@ -93,16 +101,18 @@ export function NotificationsMenu() {
                     navigate(to)
                   }}
                   className={cn(
-                    'flex cursor-pointer flex-col items-stretch gap-1 border-l-2 px-3 py-2.5 focus:bg-accent/60',
+                    'group flex cursor-pointer flex-col items-stretch gap-1 border-l-2 px-3 py-2.5 focus:bg-accent/60',
                     unread ? 'border-primary' : 'border-transparent',
                   )}
                 >
-                  {/* metadata line: status stamp · waybill · time */}
+                  {/* metadata line: status stamp / event label · waybill · time · mute */}
                   <div className="flex items-center gap-2">
                     {n.type ? (
                       <StatusStamp status={n.type} className={cn(!unread && 'opacity-65')} />
                     ) : (
-                      <SectionLabel className="text-[10px]">Update</SectionLabel>
+                      <SectionLabel className="text-[10px]">
+                        {(n.event && EVENT_LABELS[n.event]) ?? 'Update'}
+                      </SectionLabel>
                     )}
                     <span className="ml-auto flex items-center gap-1.5 whitespace-nowrap text-[11px] text-muted-foreground">
                       {n.reference && (
@@ -114,6 +124,24 @@ export function NotificationsMenu() {
                         </>
                       )}
                       <time className="mono">{timeAgo(n.created_at)}</time>
+                      {n.package_id && (
+                        <button
+                          type="button"
+                          aria-label="Mute notifications for this package"
+                          title="Mute this package"
+                          // Stop the row's select/navigate; just mute.
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            mutePackage.mutate(n.package_id as string)
+                            toast.success('Muted notifications for this package.')
+                          }}
+                          className="ml-0.5 rounded p-0.5 text-muted-foreground/60 opacity-0 transition-opacity hover:text-foreground focus:opacity-100 group-hover:opacity-100"
+                        >
+                          <BellOff className="size-3.5" />
+                        </button>
+                      )}
                     </span>
                   </div>
                   {/* the event, in plain words */}
