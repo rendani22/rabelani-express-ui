@@ -1,0 +1,64 @@
+name: DB migrate (dev)
+
+# Applies Supabase migrations to the DEV project (ref qmnqffpwvsvngjmyisrf).
+#
+# Runs automatically when migrations change on `dev`, and can be triggered
+# manually from the Actions tab (workflow_dispatch). Requires two repo secrets:
+#   • SUPABASE_ACCESS_TOKEN — a personal access token (Account → Access Tokens)
+#   • SUPABASE_DB_PASSWORD  — the dev project's database password
+# Until both are set the job fails fast with a clear message rather than hanging.
+
+on:
+  push:
+    branches: [dev]
+    paths:
+      - 'supabase/migrations/**'
+  workflow_dispatch:
+
+# Never run two migration pushes against the same DB at once, and never cancel
+# one mid-flight — a half-applied batch is worse than a queued one.
+concurrency:
+  group: db-migrate-dev
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      # Dev project ref (see `supabase:link-dev` in package.json).
+      SUPABASE_PROJECT_ID: qmnqffpwvsvngjmyisrf
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check required secrets
+        run: |
+          missing=0
+          if [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
+            echo "::error::SUPABASE_ACCESS_TOKEN secret is not set."; missing=1
+          fi
+          if [ -z "$SUPABASE_DB_PASSWORD" ]; then
+            echo "::error::SUPABASE_DB_PASSWORD secret is not set."; missing=1
+          fi
+          if [ "$missing" -ne 0 ]; then
+            echo "Add both secrets under Settings → Secrets and variables → Actions, then re-run."
+            exit 1
+          fi
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Show pending migrations
+        run: |
+          echo "Migrations in this checkout:"
+          ls -1 supabase/migrations
+
+      - name: Link dev project
+        run: supabase link --project-ref "$SUPABASE_PROJECT_ID"
+
+      - name: Push migrations
+        run: supabase db push

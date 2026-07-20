@@ -2,52 +2,64 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Read first
+
+**`AGENTS.md` is the full architecture reference** (directory map, data-layer patterns, routing table, styling system, component conventions, dependency rundown). Read it before non-trivial work — this file only covers orientation, commands, and the gotchas AGENTS.md doesn't. `DESIGN.md` is the "Dispatch" design system; `PRODUCT.md` is the product context.
+
 ## What this is
 
-**Rabelani Express UI** — an Angular 21 delivery/package-management dashboard backed by Supabase. Handles package tracking, driver management, inventory, proof-of-delivery (POD), purchase orders, QR label printing, and user/customer management.
+**Rabelani Express UI ("Dispatch")** — a React 19 + Vite 8 delivery/package-management dashboard on a Supabase backend (auth, Postgres, edge functions). Server state via TanStack Query; UI/preference state via Zustand; styling via Tailwind v4 (no config file — everything is in `src/index.css`); UI from shadcn/ui (`components/ui/`) plus domain primitives (`components/dispatch/`). Path alias `@/*` → `src/*`.
 
-> A detailed companion guide already exists at **`AGENTS.md`** — read it for the full architecture, file-by-file map, component conventions, and key dependencies. This file is the quick orientation; `AGENTS.md` is the reference.
+## Which branch is the real app
+
+- **`dev` is the active mainline** (React) — branch feature work from `dev` and target it.
+- **`main` is the pre-rewrite Angular app** and is effectively an archive; its tooling and layout do **not** match this codebase. Don't port patterns from it or open React PRs against it. (The React app was rewritten from Angular; `angular-archive` tag / "ported from the Angular …" comments refer to that lineage.)
 
 ## Commands
 
 ```bash
-npm start                # Dev server at localhost:4200 (prestart runs version:generate)
-npm run start:int        # Dev server against the integration environment
-npm run build            # Prod build to dist/cloudflare (prebuild runs version:generate)
-npm run build:int        # Integration build
-npm test                 # Unit tests — `ng test` → @angular/build:unit-test → Vitest
-npm run storybook        # Component explorer at localhost:6006
-npm run version:generate # Regenerate src/environments/version.ts from git + package.json
+npm run dev            # Vite dev server at localhost:5173 (host + *.trycloudflare.com allowed)
+npm run build          # tsc -b (typecheck) then vite build → dist/
+npm run lint           # oxlint
+npm test               # vitest run (whole suite)
+npm run test:watch     # vitest watch
+npm run test:coverage  # vitest run --coverage (enforces thresholds — see below)
+
+npx vitest run src/lib/format.test.ts     # a single test file
+npx vitest run -t "reschedule"            # tests whose name matches
 ```
 
-Run a single test by filtering with Vitest's pattern arg: `ng test --include src/app/path/to/file.spec.ts` (or pass a name filter). Tests are **Vitest**, not Karma/Jasmine — `*.spec.ts` files live next to the code they test.
+There is no separate typecheck script — `npm run build` (or `npx tsc -b`) is the typecheck. (Note: AGENTS.md predates the test setup and says there's no test script; there is — the above.)
 
-Edge functions deploy via Supabase CLI: `npm run deploy:create-package`, `npm run deploy:update-package`.
+### Testing notes
+- Vitest + jsdom + Testing Library; setup in `src/test/setup.ts`. Tests are colocated (`*.test.ts[x]`), and the pure Coupa parser under `supabase/functions/_shared/` is also covered.
+- **Coverage is gated to 100%** on an explicit allowlist in `vitest.config.ts` (`coverage.include` — pure `lib/` helpers, the domain model, stores, pure hooks). If you touch a file on that list, `test:coverage` will fail until every branch is covered. Pages, components, and the Supabase-backed `lib/api/` layer are intentionally out of scope.
 
-## Architecture essentials
+## The private logger dependency (important)
 
-- **No NgModules.** Every component is standalone with an explicit `imports` array. Routes lazy-load via `loadComponent` in `app.routes.ts`.
-- **No NgRx.** State lives in Angular **signals** inside services — services keep a private `signal(...)` and expose `.asReadonly()`. Derived state uses `computed()`.
-- **Barrel imports.** Import core types/services from `'../../core'` (resolved by `src/app/core/index.ts`), not from individual files. Feature-local services (e.g. `features/dashboard/services/`) are *not* re-exported from core.
-- **Three source layers** under `src/app/`: `core/` (models, services, guards, utils), `features/` (routed feature areas), `shared/` (reusable UI components, directives, the Supabase client wrapper).
+`src/lib/logger.ts` wraps `@rendani22/logger`, the shared **livecode-OPS** client, which installs from a **private GitHub Packages registry** (`.npmrc`, needs `GITHUB_TOKEN`). To keep install/typecheck/build/test working without that token:
 
-### Backend access — two paths, know which to use
+- `@rendani22/logger` is an **`optionalDependency`** — `npm install` degrades instead of hard-failing when it can't be fetched.
+- When `node_modules/@rendani22/logger` is absent, `vite.config.ts` and `vitest.config.ts` alias it to a console-only shim (`src/lib/ops-logger-fallback.ts`), and `tsconfig.app.json` redirects the type import there (typecheck-only; the production bundle still uses the real client when the token is present).
 
-- **Package mutations go through Supabase Edge Functions** (`create-package`, `update-package`, `driver-pickup`, `receive-at-collection`) via `PackageService.callEdgeFunction(...)`, with typed responses and type guards (`isCreatePackageSuccess`, `isApiError`). The `EDGE_FUNCTIONS` map lives in `core/models/package.models.ts`.
-- **Reads and most other entities use direct Supabase queries** (`supabaseService.client.from(...)`): packages reads, `DeliveryLocationService`, `DriverService`, `InventoryService`, `ReceiverService`, `StaffService`. Lock checks use Supabase RPCs (`is_pod_locked`, `get_pod_lock_status`).
-- `SupabaseService` (`shared/services/supabase.service.ts`) wraps the client; `AuthService` is a facade over it. Environment config (Supabase URL/keys) is selected by build configuration via `fileReplacements` in `angular.json` (`environment.ts` / `.int.ts` / `.prod.ts`).
+**Do not** move the logger back to `dependencies`, delete the fallback, or drop the aliases to "fix" a missing-module error — that reintroduces the token wall. Production telemetry is unchanged wherever the token exists.
 
-### UI conventions
+## Data & error-handling rules (enforced conventions)
 
-- Component files use **no `.component` suffix**: `name.ts`, `name.html`, `name.css` (one CSS file per component, not inline).
-- Prefer the shared form primitives in `shared/components/` (`text-input/`, `select/`, `checkbox/`, `toggle-switch/`, `button/`, etc.) over raw HTML inputs.
-- Forms use typed reactive forms: `fb.nonNullable.group(...)` with validators from `core/utils/form-validation.utils.ts`.
-- Styling is **Tailwind 3** (`darkMode: 'class'`); `ToastService` handles imperative notifications; `ThemeService` toggles the `dark` class on `<html>`.
+- **Keep React out of `lib/api/`.** Those modules are plain async Supabase functions; hooks in `src/hooks/` wrap them in `useQuery`/`useMutation`. Query keys are arrays (`['orders', query]`).
+- **Package *mutations* go through Supabase Edge Functions** (`create-package`, `update-package`, `driver-pickup`, `receive-at-collection`) via `callEdgeFunction` in `lib/api/packages.ts`; reads and other entities use direct `supabase.from(...)`. The `EDGE_FUNCTIONS` map + type guards live in `lib/models/package.ts`.
+- **All errors funnel through `reportError(err, fallback, ctx)`** (`lib/logger.ts`) — it logs the real error and returns a user-facing string; use it in `catch` / mutation `onError` with a `toast.error(...)`. Query/mutation failures are also logged centrally by the `QueryClient` caches in `main.tsx`.
+- Supabase `.single()`/`.maybeSingle()` with a string `.select()` can defeat a direct cast under TS 6 — after null-checking, cast through `unknown` (`data as unknown as T`).
 
-## Git workflow (Squad conventions)
+## Supabase / database
 
-This repo uses a **dev-first** branching model — see `.copilot/skills/git-workflow/SKILL.md`. All feature work branches from **`dev`**, not `main`. Issue branches are named `squad/{issue-number}-{kebab-slug}`. `main` holds released code only.
+- Migrations live in `supabase/migrations/` (timestamped). Apply with `npm run supabase:link-dev` then `npm run supabase:push`, or let the **`.github/workflows/db-migrate.yml`** CI apply them on push to `dev` (needs `SUPABASE_ACCESS_TOKEN` + `SUPABASE_DB_PASSWORD` repo secrets). Migrations are **not** auto-applied by pushing app code — they run only via `db push` / that CI.
+- **Notifications rows are created only by SECURITY DEFINER triggers/functions**, never by the client (the table has no INSERT policy). The status-change fan-out is `notify_staff_on_package_change`; `notify_package_exception` handles non-status events (reschedule/overdue/stuck); a pg_cron sweep drives overdue/stuck. System batches set the transaction-local `app.suppress_notifications` flag to silence per-row notifications while still recording status history.
+- Edge-function sources are under `supabase/functions/` (`create-package`, `update-package`, `_shared`); some deployed functions aren't vendored. Deploy via the `deploy*` npm scripts.
 
-When you change a public API or function signature, **update its tests in the same commit** — stale assertions (including hard-coded counts) block CI (`.copilot/skills/test-discipline/SKILL.md`).
+## Conventions
 
-**Never read `.env*` files** (other than `.env.example`/`.sample`/`.template`) and never write secrets into `.squad/` files — Scribe auto-commits them (`.copilot/skills/secret-handling/SKILL.md`).
+- **Files**: kebab-case `.ts`/`.tsx`, one concern per file; dialogs/panels sit beside their feature page under `src/pages/<feature>/`. No `.component` suffix.
+- **Add shadcn/ui primitives via the shadcn CLI** (`components.json`); merge classes with `cn()` from `@/lib/utils`. Prefer the `components/dispatch/` domain primitives (`StatusStamp`, `TrackingNumber`, etc.) for delivery-domain UI.
+- **Styling**: status → tone/label mapping is centralized in `lib/status.ts`; green is semantic (delivered/collected), cargo-orange `--primary` is for primary actions/brand only. Dark mode is class-based via `next-themes`.
+- **Toasts** = sonner; **icons** = lucide-react; **forms** are controlled/component-local (no form library).

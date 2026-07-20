@@ -1,59 +1,36 @@
-# RabelaniExpressUi
+# Rabelani Express UI ("Dispatch")
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.1.4.
+A React 19 + Vite delivery/package-management dashboard backed by Supabase — package tracking, driver management, inventory, proof-of-delivery (POD), purchase orders, QR label printing, and user/customer/staff management.
 
-## Development server
-
-To start a local development server, run:
+## Getting started
 
 ```bash
-ng serve
+npm install
+npm run dev        # dev server at http://localhost:5173
 ```
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+## Scripts
 
-## Code scaffolding
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Vite dev server at `localhost:5173` |
+| `npm run build` | Typecheck (`tsc -b`) then production build to `dist/` |
+| `npm run preview` | Serve the production build locally |
+| `npm run lint` | Lint with oxlint |
+| `npm test` | Run the test suite (vitest) |
+| `npm run test:coverage` | Tests with coverage (100% thresholds on the covered `lib/` set) |
 
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+## Configuration
 
-```bash
-ng generate component component-name
-```
+Runtime config lives in `src/lib/config.ts` and is overridable via Vite env vars (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_SUPABASE_FUNCTIONS_URL`, and the `VITE_OPS_*` logging vars). The Supabase anon key is a public client key.
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+## Stack
 
-```bash
-ng generate --help
-```
+React 19 · Vite 8 · TypeScript · Tailwind CSS v4 · shadcn/ui (radix-ui) · TanStack Query · Zustand · react-router-dom · Supabase.
 
-## Building
+## Documentation
 
-To build the project run:
+- **`CLAUDE.md`** — quick orientation and conventions.
+- **`AGENTS.md`** — full architecture, file-by-file map, and component conventions.
 
-```bash
-ng build
-```
-
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
-
-## Running unit tests
-
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
-
-```bash
-ng test
-```
-
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+> This app was rewritten from Angular to React; the pre-rewrite Angular source is preserved at the git tag `angular-archive`.

@@ -1,0 +1,153 @@
+name: Release notes
+
+# Draft notes are posted/updated on any PR into `main`.
+# Final notes are (re)generated when a PR merges (push to `main`): they are
+# written to CHANGELOG.md and published as a GitHub Release. Generation never
+# blocks the merge — the merge has already happened by the time `final` runs,
+# and the draft job is not a required check.
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [main]
+
+concurrency:
+  group: release-notes-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  draft:
+    if: github.event_name == 'pull_request' && !startsWith(github.head_ref, 'release-notes/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Determine range
+        id: range
+        run: |
+          git fetch origin main --quiet
+          echo "range=origin/main..${{ github.event.pull_request.head.sha }}" >> "$GITHUB_OUTPUT"
+      - name: Generate draft notes
+        continue-on-error: true
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          node scripts/release-notes/generate.mjs \
+            --range="${{ steps.range.outputs.range }}" \
+            --mode=draft \
+            --out=/tmp/release-notes.md
+          echo "---generated---" && cat /tmp/release-notes.md || true
+      - name: Upsert PR comment
+        continue-on-error: true
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let body;
+            try { body = fs.readFileSync('/tmp/release-notes.md', 'utf8'); }
+            catch { body = '_Release-note generation produced no output._'; }
+            const marker = '<!-- release-notes-bot -->';
+            body = `${marker}\n# 📝 Release notes (preview)\n\n${body}`;
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.pull_request.number;
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number });
+            const existing = comments.find((c) => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }
+
+  final:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Determine range
+        id: range
+        run: |
+          BEFORE="${{ github.event.before }}"
+          AFTER="${{ github.event.after }}"
+          # First push / unknown parent: fall back to the previous tag, else the last merge's first parent.
+          if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+            BEFORE="$(git describe --tags --abbrev=0 2>/dev/null || git rev-parse HEAD^ 2>/dev/null || echo "")"
+          fi
+          if [ -z "$BEFORE" ]; then
+            echo "range=$AFTER" >> "$GITHUB_OUTPUT"
+          else
+            echo "range=$BEFORE..$AFTER" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Generate final notes
+        id: gen
+        continue-on-error: true
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          node scripts/release-notes/generate.mjs \
+            --range="${{ steps.range.outputs.range }}" \
+            --mode=final \
+            --out=/tmp/release-notes.md > /tmp/release-notes.json
+          echo "version=$(node -e "process.stdout.write(require('/tmp/release-notes.json').version)")" >> "$GITHUB_OUTPUT"
+          echo "count=$(node -e "process.stdout.write(String(require('/tmp/release-notes.json').count))")" >> "$GITHUB_OUTPUT"
+      - name: Open CHANGELOG.md PR
+        # `main` is protected, so we cannot push the changelog directly. Instead
+        # open a PR from a `release-notes/<version>` branch. That PR is created
+        # with GITHUB_TOKEN, so it does not re-trigger this workflow; when a human
+        # merges it, the resulting push carries only a `docs:` commit, which the
+        # generator filters out (count=0), so no duplicate release is produced.
+        if: steps.gen.outcome == 'success' && steps.gen.outputs.count != '0'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.gen.outputs.version }}"
+          BRANCH="release-notes/${VERSION}"
+          NOTES="$(cat /tmp/release-notes.md)"
+          if [ ! -f CHANGELOG.md ]; then printf '# Changelog\n\n' > CHANGELOG.md; fi
+          # Insert the new entry directly after the "# Changelog" header.
+          {
+            head -n 1 CHANGELOG.md
+            echo ""
+            echo "$NOTES"
+            tail -n +2 CHANGELOG.md
+          } > CHANGELOG.new && mv CHANGELOG.new CHANGELOG.md
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git add CHANGELOG.md
+          git commit -m "docs: release notes for ${VERSION}" || { echo "nothing to commit"; exit 0; }
+          git push --force-with-lease origin "$BRANCH"
+          gh pr create \
+            --base main \
+            --head "$BRANCH" \
+            --title "docs: release notes for ${VERSION}" \
+            --body "Automated changelog for **${VERSION}**. The GitHub Release is already published; merging this only records the notes in \`CHANGELOG.md\`." \
+            || gh pr edit "$BRANCH" --title "docs: release notes for ${VERSION}"
+      - name: Publish GitHub Release
+        if: steps.gen.outcome == 'success' && steps.gen.outputs.count != '0'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.gen.outputs.version }}"
+          gh release create "$VERSION" \
+            --title "$VERSION" \
+            --notes-file /tmp/release-notes.md \
+            --target main || echo "release may already exist for $VERSION"

@@ -58,3 +58,7 @@ src/environments/version.ts
 .squad/.cache/
 # Squad: SubSquad activation file (local to this machine)
 .squad-workstream
+# Impeccable: live-mode session journal (local recovery state, not source)
+.impeccable/live/sessions/
+.env.local
+.env*.local

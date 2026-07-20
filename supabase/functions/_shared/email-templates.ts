@@ -37,6 +37,7 @@ export type EmailTemplateKey =
   | 'package_ready_for_collection'
   | 'package_completed'
   | 'package_contents_updated'
+  | 'customer_invited'
 
 // ----- Renderer ------------------------------------------------------------
 
@@ -234,138 +235,315 @@ export function buildCommonVars(envGet: (k: string) => string | undefined): Ctx 
 }
 
 // ----- Fallback templates --------------------------------------------------
-// Mirrors the seeded HTML in the email_templates migration. Kept in sync by
-// the Email Templates admin page; if you edit one, edit both.
+// Used only when the DB row is missing or the load fails, so an email is never
+// blocked by a deploy/seed gap.
+//
+// GENERATED, DO NOT HAND-EDIT. These are the exact output of
+// `compileBlocks(SEED_CONTENT[key])` in src/lib/email/ — the same bytes the
+// migration writes to `body_html` and the same bytes the editor compiles on
+// save. Editing the design means editing the block seeds and re-generating all
+// three together; hand-patching one copy is how the old templates drifted apart.
+//
+// Design notes live in src/lib/email/compile.ts ("the depot slip").
 
-const REGISTERED_HTML = `
-              <!DOCTYPE html>
-              <html>
-              <head>
-                <meta charset="utf-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-              </head>
-              <body style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #242424; background: #ffffff;">
-                <div style="background: #f75757; padding: 28px 24px; text-align: center;">
-                  <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Purchase Order Confirmation</h1>
-                  {{#po_number}}<p style="color: #ffe7e7;">Purchase Order Number: <strong>{{po_number}}</strong></p>{{/po_number}}
-                  <p style="color: #ffe7e7;">Your Package Reference: <strong>{{reference}}</strong></p>
-                </div>
-                <div style="padding: 24px;">
-                  <p>Hello,</p>
-                  <p>A package has been registered for you and is being prepared.</p>
-                  {{#notes}}<p><strong>Notes:</strong> {{notes}}</p>{{/notes}}
-                  {{#has_items}}
-                  <h3>Package Contents</h3>
-                  <table style="width:100%; border-collapse: collapse;">
-                    <thead><tr><th align="left">Qty</th><th align="left">Description</th></tr></thead>
-                    <tbody>{{#items}}<tr><td>{{quantity}}</td><td>{{description}}</td></tr>{{/items}}</tbody>
-                  </table>
-                  {{/has_items}}
-                  <h3>Delivery Point</h3>
-                  <p><strong>{{location_name}}</strong></p>
-                  {{#location_address}}<p>{{location_address}}</p>{{/location_address}}
-                  <p>Contact Number: {{collection_contact}}</p>
-                </div>
-                <div style="background: #242424; color: #ccc; padding: 16px; text-align: center;">
-                  Questions? <a href="mailto:{{support_email}}" style="color: #f75757;">{{support_email}}</a>
-                </div>
-              </body></html>`
+const PACKAGE_REGISTERED_HTML = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; background: #f3f1ed; -webkit-font-smoothing: antialiased;">
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background: #f3f1ed;">
+    <tr><td align="center" style="padding: 24px 12px;">
+    <table width="600" cellpadding="0" cellspacing="0" role="presentation" style="width: 100%; max-width: 600px; background: #fffefd; border: 1px solid #e1ddda; border-radius: 10px; overflow: hidden; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #1f1915;">
+      <tr><td style="padding: 18px 28px 16px; border-bottom: 1px solid #e1ddda;">
+        <table width="100%" cellpadding="0" cellspacing="0" role="presentation"><tr>
+          <td align="left" valign="middle">
+            <a href="https://www.rabelanimm.co.za/" style="text-decoration: none;"><img src="https://www.rabelanimm.co.za/images/logo.png" alt="Rabelani MM Trading Enterprise" height="40" style="display: block; height: 40px; width: auto; max-height: 40px; border: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 13px; font-weight: 700; color: #1f1915;" /></a>
+          </td>
+          <td align="right" valign="middle" style="font-family: ui-monospace, 'SF Mono', Menlo, Consolas, 'Courier New', monospace; font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #6e6762;">Order confirmation</td>
+        </tr></table>
+        
+      </td></tr>
+      <tr><td style="height: 4px; line-height: 4px; font-size: 0; background: #ea6600;">&nbsp;</td></tr>
+      <tr><td style="padding: 26px 28px 22px; background: #fcfaf7; border-bottom: 1px dashed #e1ddda;">
+        <span style="display: inline-block; background: #ea6600; color: #201308; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; font-weight: 700; line-height: 1; letter-spacing: 0.1em; text-transform: uppercase; padding: 6px 10px; border-radius: 4px;">Registered</span>
+        <p style="margin: 16px 0 4px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; font-weight: 500; line-height: 1; letter-spacing: 0.14em; text-transform: uppercase; color: #6e6762;">Package reference</p>
+        <p style="margin: 0; font-family: ui-monospace, 'SF Mono', Menlo, Consolas, 'Courier New', monospace; font-size: 26px; font-weight: 600; line-height: 1.15; color: #1f1915;">{{reference}}</p>
+        {{#po_number}}<p style="margin: 10px 0 0; font-family: ui-monospace, 'SF Mono', Menlo, Consolas, 'Courier New', monospace; font-size: 12px; color: #6e6762;">Purchase order · {{po_number}}</p>{{/po_number}}
+      </td></tr>
+      <tr><td style="height: 22px; line-height: 22px; font-size: 0;">&nbsp;</td></tr>
+      <tr><td style="padding: 0 28px; "><p style="margin: 0 0 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #1f1915;">A package has been registered for you and is being prepared. We will email you again when it is ready to collect.</p></td></tr>
+{{#notes}}      <tr><td style="padding: 0 28px; "><table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin: 0 0 14px; background: #f3f1ed; border-radius: 6px;"><tr><td style="padding: 12px 14px;">
+          <p style="margin: 0 0 8px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; font-weight: 600; line-height: 1; letter-spacing: 0.14em; text-transform: uppercase; color: #6e6762;">Notes</p>
+          <p style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 13px; line-height: 1.6; color: #1f1915;">{{notes}}</p>
+        </td></tr></table></td></tr>{{/notes}}
+      <tr><td style="padding: 0 28px; "><p style="margin: 0 0 8px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; font-weight: 600; line-height: 1; letter-spacing: 0.14em; text-transform: uppercase; color: #6e6762;">Contents</p>{{#has_items}}<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="border-collapse: collapse; margin: 0 0 18px;"><thead><tr><th align="left" width="44" style="padding: 0 0 8px; border-bottom: 1px solid #e1ddda; font-family: ui-monospace, 'SF Mono', Menlo, Consolas, 'Courier New', monospace; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #6e6762;">Qty</th><th align="left" style="padding: 0 0 8px; border-bottom: 1px solid #e1ddda; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: #6e6762;">Description</th></tr></thead><tbody>{{#items}}<tr><td style="padding: 10px 0; border-bottom: 1px solid #f3f1ed; font-family: ui-monospace, 'SF Mono', Menlo, Consolas, 'Courier New', monospace; font-size: 14px; font-weight: 500; font-variant-numeric: tabular-nums; color: #1f1915;">{{quantity}}</td><td style="padding: 10px 0; border-bottom: 1px solid #f3f1ed; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.5; color: #1f1915;">{{description}}</td></tr>{{/items}}</tbody></table>{{/has_items}}</td></tr>
+      <tr><td style="padding: 0 28px; "><p style="margin: 0 0 8px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; font-weight: 600; line-height: 1; letter-spacing: 0.14em; text-transform: uppercase; color: #6e6762;">Collection point</p></td></tr>
+      <tr><td style="padding: 0 28px; "><p style="margin: 0 0 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #1f1915;"><strong>{{location_name}}</strong></p></td></tr>
+{{#location_address}}      <tr><td style="padding: 0 28px; "><p style="margin: 0 0 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #1f1915;">{{location_address}}</p></td></tr>{{/location_address}}
+      <tr><td style="padding: 0 28px; "><p style="margin: 0 0 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #1f1915;">Contact {{collection_contact}}</p></td></tr>
+      <tr><td style="height: 6px; line-height: 6px; font-size: 0;">&nbsp;</td></tr>
+      <tr><td style="padding: 18px 28px 22px; background: #fcfaf7; border-top: 1px solid #e1ddda;">
+        <table width="100%" cellpadding="0" cellspacing="0" role="presentation"><tr>
+          <td valign="middle">
+            <p style="margin: 0 0 6px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; line-height: 1.5; color: #6e6762;">Questions? <a href="mailto:{{support_email}}" style="color: #ea6600; text-decoration: none; font-weight: 600;">{{support_email}}</a></p>
+            <p style="margin: 0 0 10px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11px; line-height: 1.5; color: #6e6762;">Automated message &middot; please do not reply directly to this email.</p>
+            {{#review_form_url}}<p style="margin: 0 0 12px;"><a href="{{review_form_url}}" style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; color: #6e6762; text-decoration: underline;">Review our service</a></p>{{/review_form_url}}
+            <p style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11px; line-height: 1.5; color: #a49d97;">&copy; {{current_year}} Rabelani MM Trading Enterprise &middot; <a href="https://www.rabelanimm.co.za/" style="color: #a49d97; text-decoration: none;">rabelanimm.co.za</a></p>
+          </td>
+          {{#review_qr_code_url}}
+        <td align="right" valign="middle" width="84" style="padding-left: 12px;">
+          <img src="{{review_qr_code_url}}" alt="Scan to review our service" width="72" height="72" style="display: block; width: 72px; height: 72px; border: 1px solid #e1ddda; border-radius: 4px;" />
+        </td>
+        {{/review_qr_code_url}}
+        </tr></table>
+      </td></tr>
+    </table>
+    </td></tr>
+  </table>
+</body>
+</html>`
 
-const READY_HTML = `
-              <!DOCTYPE html>
-              <html><body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <div style="background: #f75757; padding: 28px; text-align: center;">
-                  <h1 style="color: #fff; margin: 0;">Ready for Collection</h1>
-                  {{#po_number}}<p style="color:#ffe7e7;">PO: <strong>{{po_number}}</strong></p>{{/po_number}}
-                  <p style="color:#ffe7e7;">Reference: <strong>{{reference}}</strong></p>
-                </div>
-                <div style="padding: 24px;">
-                  <p>Your package is ready for collection at {{location_name}}.</p>
-                  {{#has_items}}
-                  <table style="width:100%; border-collapse: collapse;">
-                    <thead><tr><th align="left">Qty</th><th align="left">Description</th></tr></thead>
-                    <tbody>{{#items}}<tr><td>{{quantity}}</td><td>{{description}}</td></tr>{{/items}}</tbody>
-                  </table>
-                  {{/has_items}}
-                  <p>Contact: {{collection_contact}}</p>
-                </div>
-                <div style="background:#242424; color:#ccc; padding: 16px; text-align:center;">
-                  <a href="mailto:{{support_email}}" style="color:#f75757;">{{support_email}}</a>
-                </div>
-              </body></html>`
+const PACKAGE_READY_FOR_COLLECTION_HTML = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; background: #f3f1ed; -webkit-font-smoothing: antialiased;">
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background: #f3f1ed;">
+    <tr><td align="center" style="padding: 24px 12px;">
+    <table width="600" cellpadding="0" cellspacing="0" role="presentation" style="width: 100%; max-width: 600px; background: #fffefd; border: 1px solid #e1ddda; border-radius: 10px; overflow: hidden; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #1f1915;">
+      <tr><td style="padding: 18px 28px 16px; border-bottom: 1px solid #e1ddda;">
+        <table width="100%" cellpadding="0" cellspacing="0" role="presentation"><tr>
+          <td align="left" valign="middle">
+            <a href="https://www.rabelanimm.co.za/" style="text-decoration: none;"><img src="https://www.rabelanimm.co.za/images/logo.png" alt="Rabelani MM Trading Enterprise" height="40" style="display: block; height: 40px; width: auto; max-height: 40px; border: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 13px; font-weight: 700; color: #1f1915;" /></a>
+          </td>
+          <td align="right" valign="middle" style="font-family: ui-monospace, 'SF Mono', Menlo, Consolas, 'Courier New', monospace; font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #6e6762;">Collection notice</td>
+        </tr></table>
+        
+      </td></tr>
+      <tr><td style="height: 4px; line-height: 4px; font-size: 0; background: #ea6600;">&nbsp;</td></tr>
+      <tr><td style="padding: 26px 28px 22px; background: #fcfaf7; border-bottom: 1px dashed #e1ddda;">
+        <span style="display: inline-block; background: #ea6600; color: #201308; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; font-weight: 700; line-height: 1; letter-spacing: 0.1em; text-transform: uppercase; padding: 6px 10px; border-radius: 4px;">Ready for collection</span>
+        <p style="margin: 16px 0 4px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; font-weight: 500; line-height: 1; letter-spacing: 0.14em; text-transform: uppercase; color: #6e6762;">Package reference</p>
+        <p style="margin: 0; font-family: ui-monospace, 'SF Mono', Menlo, Consolas, 'Courier New', monospace; font-size: 26px; font-weight: 600; line-height: 1.15; color: #1f1915;">{{reference}}</p>
+        {{#po_number}}<p style="margin: 10px 0 0; font-family: ui-monospace, 'SF Mono', Menlo, Consolas, 'Courier New', monospace; font-size: 12px; color: #6e6762;">Purchase order · {{po_number}}</p>{{/po_number}}
+      </td></tr>
+      <tr><td style="height: 22px; line-height: 22px; font-size: 0;">&nbsp;</td></tr>
+      <tr><td style="padding: 0 28px; "><p style="margin: 0 0 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #1f1915;">Your package is ready for collection at <strong>{{location_name}}</strong>. Bring the reference above, a valid staff card, and a witness to sign with.</p></td></tr>
+{{#notes}}      <tr><td style="padding: 0 28px; "><table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin: 0 0 14px; background: #f3f1ed; border-radius: 6px;"><tr><td style="padding: 12px 14px;">
+          <p style="margin: 0 0 8px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; font-weight: 600; line-height: 1; letter-spacing: 0.14em; text-transform: uppercase; color: #6e6762;">Notes</p>
+          <p style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 13px; line-height: 1.6; color: #1f1915;">{{notes}}</p>
+        </td></tr></table></td></tr>{{/notes}}
+      <tr><td style="padding: 0 28px; "><p style="margin: 0 0 8px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; font-weight: 600; line-height: 1; letter-spacing: 0.14em; text-transform: uppercase; color: #6e6762;">Contents</p>{{#has_items}}<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="border-collapse: collapse; margin: 0 0 18px;"><thead><tr><th align="left" width="44" style="padding: 0 0 8px; border-bottom: 1px solid #e1ddda; font-family: ui-monospace, 'SF Mono', Menlo, Consolas, 'Courier New', monospace; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #6e6762;">Qty</th><th align="left" style="padding: 0 0 8px; border-bottom: 1px solid #e1ddda; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: #6e6762;">Description</th></tr></thead><tbody>{{#items}}<tr><td style="padding: 10px 0; border-bottom: 1px solid #f3f1ed; font-family: ui-monospace, 'SF Mono', Menlo, Consolas, 'Courier New', monospace; font-size: 14px; font-weight: 500; font-variant-numeric: tabular-nums; color: #1f1915;">{{quantity}}</td><td style="padding: 10px 0; border-bottom: 1px solid #f3f1ed; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.5; color: #1f1915;">{{description}}</td></tr>{{/items}}</tbody></table>{{/has_items}}</td></tr>
+      <tr><td style="padding: 0 28px; "><p style="margin: 0 0 8px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; font-weight: 600; line-height: 1; letter-spacing: 0.14em; text-transform: uppercase; color: #6e6762;">Collection point</p></td></tr>
+      <tr><td style="padding: 0 28px; "><p style="margin: 0 0 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #1f1915;"><strong>{{location_name}}</strong></p></td></tr>
+{{#location_address}}      <tr><td style="padding: 0 28px; "><p style="margin: 0 0 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #1f1915;">{{location_address}}</p></td></tr>{{/location_address}}
+      <tr><td style="padding: 0 28px; "><p style="margin: 0 0 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #1f1915;">Contact {{collection_contact}}</p></td></tr>
+      <tr><td style="padding: 0 28px; "><p style="margin: 0 0 8px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; font-weight: 600; line-height: 1; letter-spacing: 0.14em; text-transform: uppercase; color: #6e6762;">Collection hours</p></td></tr>
+      <tr><td style="padding: 0 28px; "><p style="margin: 0 0 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #1f1915;">{{collection_hours_weekday}}</p></td></tr>
+      <tr><td style="padding: 0 28px; "><p style="margin: 0 0 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #1f1915;">{{collection_hours_saturday}}</p></td></tr>
+      <tr><td style="padding: 0 28px; "><p style="margin: 0 0 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #1f1915;">{{collection_hours_sunday}}</p></td></tr>
+      <tr><td style="padding: 0 28px; "><p style="margin: 0 0 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #1f1915;">{{collection_hours_holidays}}</p></td></tr>
+      <tr><td style="height: 6px; line-height: 6px; font-size: 0;">&nbsp;</td></tr>
+      <tr><td style="padding: 18px 28px 22px; background: #fcfaf7; border-top: 1px solid #e1ddda;">
+        <table width="100%" cellpadding="0" cellspacing="0" role="presentation"><tr>
+          <td valign="middle">
+            <p style="margin: 0 0 6px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; line-height: 1.5; color: #6e6762;">Questions? <a href="mailto:{{support_email}}" style="color: #ea6600; text-decoration: none; font-weight: 600;">{{support_email}}</a></p>
+            <p style="margin: 0 0 10px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11px; line-height: 1.5; color: #6e6762;">Automated message &middot; please do not reply directly to this email.</p>
+            {{#review_form_url}}<p style="margin: 0 0 12px;"><a href="{{review_form_url}}" style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; color: #6e6762; text-decoration: underline;">Review our service</a></p>{{/review_form_url}}
+            <p style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11px; line-height: 1.5; color: #a49d97;">&copy; {{current_year}} Rabelani MM Trading Enterprise &middot; <a href="https://www.rabelanimm.co.za/" style="color: #a49d97; text-decoration: none;">rabelanimm.co.za</a></p>
+          </td>
+          {{#review_qr_code_url}}
+        <td align="right" valign="middle" width="84" style="padding-left: 12px;">
+          <img src="{{review_qr_code_url}}" alt="Scan to review our service" width="72" height="72" style="display: block; width: 72px; height: 72px; border: 1px solid #e1ddda; border-radius: 4px;" />
+        </td>
+        {{/review_qr_code_url}}
+        </tr></table>
+      </td></tr>
+    </table>
+    </td></tr>
+  </table>
+</body>
+</html>`
 
-const COMPLETED_HTML = `
-              <!DOCTYPE html>
-              <html><body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <div style="background: #f75757; padding: 28px; text-align: center;">
-                  <h1 style="color: #fff; margin: 0;">Package Completed</h1>
-                  {{#po_number}}<p style="color:#ffe7e7;">PO: <strong>{{po_number}}</strong></p>{{/po_number}}
-                  <p style="color:#ffe7e7;">Reference: <strong>{{reference}}</strong></p>
-                </div>
-                <div style="padding: 24px;">
-                  <p>Your Package Collection/Delivery has been completed. Thank you for your Order.</p>
-                  {{#has_items}}
-                  <table style="width:100%; border-collapse: collapse;">
-                    <thead><tr><th align="left">Qty</th><th align="left">Description</th></tr></thead>
-                    <tbody>{{#items}}<tr><td>{{quantity}}</td><td>{{description}}</td></tr>{{/items}}</tbody>
-                  </table>
-                  {{/has_items}}
-                </div>
-                <div style="background:#242424; color:#ccc; padding: 16px; text-align:center;">
-                  <a href="mailto:{{support_email}}" style="color:#f75757;">{{support_email}}</a>
-                </div>
-              </body></html>`
+const PACKAGE_COMPLETED_HTML = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; background: #f3f1ed; -webkit-font-smoothing: antialiased;">
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background: #f3f1ed;">
+    <tr><td align="center" style="padding: 24px 12px;">
+    <table width="600" cellpadding="0" cellspacing="0" role="presentation" style="width: 100%; max-width: 600px; background: #fffefd; border: 1px solid #e1ddda; border-radius: 10px; overflow: hidden; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #1f1915;">
+      <tr><td style="padding: 18px 28px 16px; border-bottom: 1px solid #e1ddda;">
+        <table width="100%" cellpadding="0" cellspacing="0" role="presentation"><tr>
+          <td align="left" valign="middle">
+            <a href="https://www.rabelanimm.co.za/" style="text-decoration: none;"><img src="https://www.rabelanimm.co.za/images/logo.png" alt="Rabelani MM Trading Enterprise" height="40" style="display: block; height: 40px; width: auto; max-height: 40px; border: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 13px; font-weight: 700; color: #1f1915;" /></a>
+          </td>
+          <td align="right" valign="middle" style="font-family: ui-monospace, 'SF Mono', Menlo, Consolas, 'Courier New', monospace; font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #6e6762;">Completion notice</td>
+        </tr></table>
+        
+      </td></tr>
+      <tr><td style="height: 4px; line-height: 4px; font-size: 0; background: #3b9555;">&nbsp;</td></tr>
+      <tr><td style="padding: 26px 28px 22px; background: #fcfaf7; border-bottom: 1px dashed #e1ddda;">
+        <span style="display: inline-block; background: #3b9555; color: #201308; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; font-weight: 700; line-height: 1; letter-spacing: 0.1em; text-transform: uppercase; padding: 6px 10px; border-radius: 4px;">Delivered</span>
+        <p style="margin: 16px 0 4px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; font-weight: 500; line-height: 1; letter-spacing: 0.14em; text-transform: uppercase; color: #6e6762;">Package reference</p>
+        <p style="margin: 0; font-family: ui-monospace, 'SF Mono', Menlo, Consolas, 'Courier New', monospace; font-size: 26px; font-weight: 600; line-height: 1.15; color: #1f1915;">{{reference}}</p>
+        {{#po_number}}<p style="margin: 10px 0 0; font-family: ui-monospace, 'SF Mono', Menlo, Consolas, 'Courier New', monospace; font-size: 12px; color: #6e6762;">Purchase order · {{po_number}}</p>{{/po_number}}
+      </td></tr>
+      <tr><td style="height: 22px; line-height: 22px; font-size: 0;">&nbsp;</td></tr>
+      <tr><td style="padding: 0 28px; "><p style="margin: 0 0 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #1f1915;">Collection is complete. The signed proof of delivery is attached to this email as a PDF. Thank you for your order.</p></td></tr>
+{{#notes}}      <tr><td style="padding: 0 28px; "><table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin: 0 0 14px; background: #f3f1ed; border-radius: 6px;"><tr><td style="padding: 12px 14px;">
+          <p style="margin: 0 0 8px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; font-weight: 600; line-height: 1; letter-spacing: 0.14em; text-transform: uppercase; color: #6e6762;">Notes</p>
+          <p style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 13px; line-height: 1.6; color: #1f1915;">{{notes}}</p>
+        </td></tr></table></td></tr>{{/notes}}
+      <tr><td style="padding: 0 28px; "><p style="margin: 0 0 8px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; font-weight: 600; line-height: 1; letter-spacing: 0.14em; text-transform: uppercase; color: #6e6762;">Contents</p>{{#has_items}}<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="border-collapse: collapse; margin: 0 0 18px;"><thead><tr><th align="left" width="44" style="padding: 0 0 8px; border-bottom: 1px solid #e1ddda; font-family: ui-monospace, 'SF Mono', Menlo, Consolas, 'Courier New', monospace; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #6e6762;">Qty</th><th align="left" style="padding: 0 0 8px; border-bottom: 1px solid #e1ddda; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: #6e6762;">Description</th></tr></thead><tbody>{{#items}}<tr><td style="padding: 10px 0; border-bottom: 1px solid #f3f1ed; font-family: ui-monospace, 'SF Mono', Menlo, Consolas, 'Courier New', monospace; font-size: 14px; font-weight: 500; font-variant-numeric: tabular-nums; color: #1f1915;">{{quantity}}</td><td style="padding: 10px 0; border-bottom: 1px solid #f3f1ed; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.5; color: #1f1915;">{{description}}</td></tr>{{/items}}</tbody></table>{{/has_items}}</td></tr>
+      <tr><td style="height: 6px; line-height: 6px; font-size: 0;">&nbsp;</td></tr>
+      <tr><td style="padding: 18px 28px 22px; background: #fcfaf7; border-top: 1px solid #e1ddda;">
+        <table width="100%" cellpadding="0" cellspacing="0" role="presentation"><tr>
+          <td valign="middle">
+            <p style="margin: 0 0 6px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; line-height: 1.5; color: #6e6762;">Questions? <a href="mailto:{{support_email}}" style="color: #ea6600; text-decoration: none; font-weight: 600;">{{support_email}}</a></p>
+            <p style="margin: 0 0 10px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11px; line-height: 1.5; color: #6e6762;">Automated message &middot; please do not reply directly to this email.</p>
+            {{#review_form_url}}<p style="margin: 0 0 12px;"><a href="{{review_form_url}}" style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; color: #6e6762; text-decoration: underline;">Review our service</a></p>{{/review_form_url}}
+            <p style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11px; line-height: 1.5; color: #a49d97;">&copy; {{current_year}} Rabelani MM Trading Enterprise &middot; <a href="https://www.rabelanimm.co.za/" style="color: #a49d97; text-decoration: none;">rabelanimm.co.za</a></p>
+          </td>
+          {{#review_qr_code_url}}
+        <td align="right" valign="middle" width="84" style="padding-left: 12px;">
+          <img src="{{review_qr_code_url}}" alt="Scan to review our service" width="72" height="72" style="display: block; width: 72px; height: 72px; border: 1px solid #e1ddda; border-radius: 4px;" />
+        </td>
+        {{/review_qr_code_url}}
+        </tr></table>
+      </td></tr>
+    </table>
+    </td></tr>
+  </table>
+</body>
+</html>`
 
-const CONTENTS_UPDATED_HTML = `
-              <!DOCTYPE html>
-              <html><body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <div style="background: #f75757; padding: 28px; text-align: center;">
-                  <h1 style="color: #fff; margin: 0;">Package Contents Updated</h1>
-                  {{#po_number}}<p style="color:#ffe7e7;">PO: <strong>{{po_number}}</strong></p>{{/po_number}}
-                  <p style="color:#ffe7e7;">Reference: <strong>{{reference}}</strong></p>
-                </div>
-                <div style="padding: 24px;">
-                  <p>Your Package has been edited.</p>
-                  <h3>Updated Contents</h3>
-                  {{#has_updated_items}}
-                  <table style="width:100%; border-collapse: collapse;">
-                    <thead><tr><th align="left">Qty</th><th align="left">Description</th></tr></thead>
-                    <tbody>{{#updated_items}}<tr><td>{{quantity}}</td><td>{{description}}</td></tr>{{/updated_items}}</tbody>
-                  </table>
-                  {{/has_updated_items}}
-                  {{^has_updated_items}}<p><em>No items.</em></p>{{/has_updated_items}}
-                  <h3>Previous Contents</h3>
-                  {{#has_previous_items}}
-                  <table style="width:100%; border-collapse: collapse;">
-                    <thead><tr><th align="left">Qty</th><th align="left">Description</th></tr></thead>
-                    <tbody>{{#previous_items}}<tr><td>{{quantity}}</td><td>{{description}}</td></tr>{{/previous_items}}</tbody>
-                  </table>
-                  {{/has_previous_items}}
-                  {{^has_previous_items}}<p><em>No items.</em></p>{{/has_previous_items}}
-                  {{#notes}}<h3>Notes</h3><p style="white-space: pre-wrap;">{{notes}}</p>{{/notes}}
-                  <p>Thank you for your Order.</p>
-                </div>
-                <div style="background:#242424; color:#ccc; padding: 16px; text-align:center;">
-                  <a href="mailto:{{support_email}}" style="color:#f75757;">{{support_email}}</a>
-                </div>
-              </body></html>`
+const PACKAGE_CONTENTS_UPDATED_HTML = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; background: #f3f1ed; -webkit-font-smoothing: antialiased;">
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background: #f3f1ed;">
+    <tr><td align="center" style="padding: 24px 12px;">
+    <table width="600" cellpadding="0" cellspacing="0" role="presentation" style="width: 100%; max-width: 600px; background: #fffefd; border: 1px solid #e1ddda; border-radius: 10px; overflow: hidden; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #1f1915;">
+      <tr><td style="padding: 18px 28px 16px; border-bottom: 1px solid #e1ddda;">
+        <table width="100%" cellpadding="0" cellspacing="0" role="presentation"><tr>
+          <td align="left" valign="middle">
+            <a href="https://www.rabelanimm.co.za/" style="text-decoration: none;"><img src="https://www.rabelanimm.co.za/images/logo.png" alt="Rabelani MM Trading Enterprise" height="40" style="display: block; height: 40px; width: auto; max-height: 40px; border: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 13px; font-weight: 700; color: #1f1915;" /></a>
+          </td>
+          <td align="right" valign="middle" style="font-family: ui-monospace, 'SF Mono', Menlo, Consolas, 'Courier New', monospace; font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #6e6762;">Amendment notice</td>
+        </tr></table>
+        
+      </td></tr>
+      <tr><td style="height: 4px; line-height: 4px; font-size: 0; background: #ea6600;">&nbsp;</td></tr>
+      <tr><td style="padding: 26px 28px 22px; background: #fcfaf7; border-bottom: 1px dashed #e1ddda;">
+        <span style="display: inline-block; background: #ea6600; color: #201308; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; font-weight: 700; line-height: 1; letter-spacing: 0.1em; text-transform: uppercase; padding: 6px 10px; border-radius: 4px;">Contents updated</span>
+        <p style="margin: 16px 0 4px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; font-weight: 500; line-height: 1; letter-spacing: 0.14em; text-transform: uppercase; color: #6e6762;">Package reference</p>
+        <p style="margin: 0; font-family: ui-monospace, 'SF Mono', Menlo, Consolas, 'Courier New', monospace; font-size: 26px; font-weight: 600; line-height: 1.15; color: #1f1915;">{{reference}}</p>
+        {{#po_number}}<p style="margin: 10px 0 0; font-family: ui-monospace, 'SF Mono', Menlo, Consolas, 'Courier New', monospace; font-size: 12px; color: #6e6762;">Purchase order · {{po_number}}</p>{{/po_number}}
+      </td></tr>
+      <tr><td style="height: 22px; line-height: 22px; font-size: 0;">&nbsp;</td></tr>
+      <tr><td style="padding: 0 28px; "><p style="margin: 0 0 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #1f1915;">The contents of your package have been amended. The current contents are below.</p></td></tr>
+      <tr><td style="padding: 0 28px; "><p style="margin: 0 0 8px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; font-weight: 600; line-height: 1; letter-spacing: 0.14em; text-transform: uppercase; color: #6e6762;">Updated contents</p>{{#has_updated_items}}<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="border-collapse: collapse; margin: 0 0 18px;"><thead><tr><th align="left" width="44" style="padding: 0 0 8px; border-bottom: 1px solid #e1ddda; font-family: ui-monospace, 'SF Mono', Menlo, Consolas, 'Courier New', monospace; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #6e6762;">Qty</th><th align="left" style="padding: 0 0 8px; border-bottom: 1px solid #e1ddda; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: #6e6762;">Description</th></tr></thead><tbody>{{#updated_items}}<tr><td style="padding: 10px 0; border-bottom: 1px solid #f3f1ed; font-family: ui-monospace, 'SF Mono', Menlo, Consolas, 'Courier New', monospace; font-size: 14px; font-weight: 500; font-variant-numeric: tabular-nums; color: #1f1915;">{{quantity}}</td><td style="padding: 10px 0; border-bottom: 1px solid #f3f1ed; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.5; color: #1f1915;">{{description}}</td></tr>{{/updated_items}}</tbody></table>{{/has_updated_items}}{{^has_updated_items}}<p style="margin: 0 0 18px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 13px; color: #6e6762;">No items.</p>{{/has_updated_items}}</td></tr>
+      <tr><td style="padding: 0 28px; "><p style="margin: 0 0 8px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; font-weight: 600; line-height: 1; letter-spacing: 0.14em; text-transform: uppercase; color: #6e6762;">Previous contents</p>{{#has_previous_items}}<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="border-collapse: collapse; margin: 0 0 18px;"><thead><tr><th align="left" width="44" style="padding: 0 0 8px; border-bottom: 1px solid #e1ddda; font-family: ui-monospace, 'SF Mono', Menlo, Consolas, 'Courier New', monospace; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #6e6762;">Qty</th><th align="left" style="padding: 0 0 8px; border-bottom: 1px solid #e1ddda; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: #6e6762;">Description</th></tr></thead><tbody>{{#previous_items}}<tr><td style="padding: 10px 0; border-bottom: 1px solid #f3f1ed; font-family: ui-monospace, 'SF Mono', Menlo, Consolas, 'Courier New', monospace; font-size: 14px; font-weight: 500; font-variant-numeric: tabular-nums; color: #1f1915;">{{quantity}}</td><td style="padding: 10px 0; border-bottom: 1px solid #f3f1ed; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.5; color: #1f1915;">{{description}}</td></tr>{{/previous_items}}</tbody></table>{{/has_previous_items}}{{^has_previous_items}}<p style="margin: 0 0 18px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 13px; color: #6e6762;">No items.</p>{{/has_previous_items}}</td></tr>
+{{#notes}}      <tr><td style="padding: 0 28px; "><table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin: 0 0 14px; background: #f3f1ed; border-radius: 6px;"><tr><td style="padding: 12px 14px;">
+          <p style="margin: 0 0 8px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; font-weight: 600; line-height: 1; letter-spacing: 0.14em; text-transform: uppercase; color: #6e6762;">Notes</p>
+          <p style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 13px; line-height: 1.6; color: #1f1915;">{{notes}}</p>
+        </td></tr></table></td></tr>{{/notes}}
+      <tr><td style="height: 6px; line-height: 6px; font-size: 0;">&nbsp;</td></tr>
+      <tr><td style="padding: 18px 28px 22px; background: #fcfaf7; border-top: 1px solid #e1ddda;">
+        <table width="100%" cellpadding="0" cellspacing="0" role="presentation"><tr>
+          <td valign="middle">
+            <p style="margin: 0 0 6px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; line-height: 1.5; color: #6e6762;">Questions? <a href="mailto:{{support_email}}" style="color: #ea6600; text-decoration: none; font-weight: 600;">{{support_email}}</a></p>
+            <p style="margin: 0 0 10px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11px; line-height: 1.5; color: #6e6762;">Automated message &middot; please do not reply directly to this email.</p>
+            {{#review_form_url}}<p style="margin: 0 0 12px;"><a href="{{review_form_url}}" style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; color: #6e6762; text-decoration: underline;">Review our service</a></p>{{/review_form_url}}
+            <p style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11px; line-height: 1.5; color: #a49d97;">&copy; {{current_year}} Rabelani MM Trading Enterprise &middot; <a href="https://www.rabelanimm.co.za/" style="color: #a49d97; text-decoration: none;">rabelanimm.co.za</a></p>
+          </td>
+          {{#review_qr_code_url}}
+        <td align="right" valign="middle" width="84" style="padding-left: 12px;">
+          <img src="{{review_qr_code_url}}" alt="Scan to review our service" width="72" height="72" style="display: block; width: 72px; height: 72px; border: 1px solid #e1ddda; border-radius: 4px;" />
+        </td>
+        {{/review_qr_code_url}}
+        </tr></table>
+      </td></tr>
+    </table>
+    </td></tr>
+  </table>
+</body>
+</html>`
+
+const CUSTOMER_INVITED_HTML = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; background: #f3f1ed; -webkit-font-smoothing: antialiased;">
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background: #f3f1ed;">
+    <tr><td align="center" style="padding: 24px 12px;">
+    <table width="600" cellpadding="0" cellspacing="0" role="presentation" style="width: 100%; max-width: 600px; background: #fffefd; border: 1px solid #e1ddda; border-radius: 10px; overflow: hidden; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #1f1915;">
+      <tr><td style="padding: 18px 28px 16px; border-bottom: 1px solid #e1ddda;">
+        <table width="100%" cellpadding="0" cellspacing="0" role="presentation"><tr>
+          <td align="left" valign="middle">
+            <a href="https://www.rabelanimm.co.za/" style="text-decoration: none;"><img src="https://www.rabelanimm.co.za/images/logo.png" alt="Rabelani MM Trading Enterprise" height="40" style="display: block; height: 40px; width: auto; max-height: 40px; border: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 13px; font-weight: 700; color: #1f1915;" /></a>
+          </td>
+          <td align="right" valign="middle" style="font-family: ui-monospace, 'SF Mono', Menlo, Consolas, 'Courier New', monospace; font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #6e6762;">Account invitation</td>
+        </tr></table>
+        
+      </td></tr>
+      <tr><td style="height: 4px; line-height: 4px; font-size: 0; background: #ea6600;">&nbsp;</td></tr>
+      <tr><td style="height: 24px; line-height: 24px; font-size: 0;">&nbsp;</td></tr>
+      <tr><td style="padding: 0 28px; "><h1 style="margin: 0 0 10px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 20px; font-weight: 600; letter-spacing: -0.01em; color: #1f1915;">Welcome to Rabelani Express</h1></td></tr>
+      <tr><td style="padding: 0 28px; "><p style="margin: 0 0 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #1f1915;">Hello {{name}}, an account has been created for you at <strong>{{company_name}}</strong>. Set a password to sign in.</p></td></tr>
+{{#is_buyer}}      <tr><td style="padding: 0 28px; "><p style="margin: 0 0 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #1f1915;">As a <strong>Buyer</strong>, you can view <strong>your own packages and those of the end users assigned to you</strong> at {{company_name}} — reference, contents, status, and any notes we’ve added for you.</p></td></tr>{{/is_buyer}}
+{{#is_runner}}      <tr><td style="padding: 0 28px; "><p style="margin: 0 0 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #1f1915;">As an <strong>End user</strong>, you can view <strong>the packages assigned to you</strong> — reference, contents, status, and any notes we’ve added for you.</p></td></tr>{{/is_runner}}
+      <tr><td style="padding: 0 28px; "><p style="margin: 8px 0 18px;"><a href="{{action_link}}" style="display: inline-block; background: #ea6600; color: #201308; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 13px; font-weight: 700; letter-spacing: 0.02em; text-decoration: none; padding: 12px 20px; border-radius: 6px;">Set your password</a></p></td></tr>
+      <tr><td style="padding: 0 28px; "><p style="margin: 0 0 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #1f1915;">This link expires after a while — if it stops working, ask your administrator to re-send the invite.</p></td></tr>
+      <tr><td style="height: 6px; line-height: 6px; font-size: 0;">&nbsp;</td></tr>
+      <tr><td style="padding: 18px 28px 22px; background: #fcfaf7; border-top: 1px solid #e1ddda;">
+        <table width="100%" cellpadding="0" cellspacing="0" role="presentation"><tr>
+          <td valign="middle">
+            <p style="margin: 0 0 6px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; line-height: 1.5; color: #6e6762;">Questions? <a href="mailto:{{support_email}}" style="color: #ea6600; text-decoration: none; font-weight: 600;">{{support_email}}</a></p>
+            <p style="margin: 0 0 10px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11px; line-height: 1.5; color: #6e6762;">Automated message &middot; please do not reply directly to this email.</p>
+            
+            <p style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11px; line-height: 1.5; color: #a49d97;">&copy; {{current_year}} Rabelani MM Trading Enterprise &middot; <a href="https://www.rabelanimm.co.za/" style="color: #a49d97; text-decoration: none;">rabelanimm.co.za</a></p>
+          </td>
+          
+        </tr></table>
+      </td></tr>
+    </table>
+    </td></tr>
+  </table>
+</body>
+</html>`
 
 export const FALLBACK_TEMPLATES: Record<EmailTemplateKey, EmailTemplate> = {
   package_registered: {
     subject: 'Purchase Order Confirmation{{#po_number}} - {{po_number}}{{/po_number}} - {{reference}}',
-    body_html: REGISTERED_HTML
+    body_html: PACKAGE_REGISTERED_HTML
   },
   package_ready_for_collection: {
     subject: 'Ready for Collection{{#po_number}} - {{po_number}}{{/po_number}} - {{reference}}',
-    body_html: READY_HTML
+    body_html: PACKAGE_READY_FOR_COLLECTION_HTML
   },
   package_completed: {
     subject: 'Package Completed{{#po_number}} - {{po_number}}{{/po_number}} - {{reference}}',
-    body_html: COMPLETED_HTML
+    body_html: PACKAGE_COMPLETED_HTML
   },
   package_contents_updated: {
     subject: 'Package Contents Updated{{#po_number}} - {{po_number}}{{/po_number}} - {{reference}}',
-    body_html: CONTENTS_UPDATED_HTML
+    body_html: PACKAGE_CONTENTS_UPDATED_HTML
+  },
+  customer_invited: {
+    subject: 'Welcome to Rabelani Express',
+    body_html: CUSTOMER_INVITED_HTML
   }
 }
-

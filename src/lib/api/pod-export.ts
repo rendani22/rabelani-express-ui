@@ -1,0 +1,80 @@
+import JSZip from 'jszip'
+import { getPackageLockStatus, getPodForPackage } from '@/lib/api/packages'
+import { generatePodPdfBlob } from '@/lib/pod-pdf'
+import { logger } from '@/lib/logger'
+import type { Package } from '@/lib/models/package'
+
+export interface PodExportResult {
+  zipped: number
+  skipped: number
+  /** references that had no proof-of-delivery record */
+  skippedRefs: string[]
+}
+
+/** Trigger a browser download of a blob. */
+function saveBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+/**
+ * Bundle proof-of-delivery PDFs for the given packages into a zip and download it.
+ * Uses a stored `pdfUrl` when one exists (fast path); otherwise generates the POD
+ * PDF client-side from its `pods` record — the same document the single-download
+ * dialog produces. Packages with no POD record at all are skipped and reported.
+ */
+export async function downloadPodsZip(
+  packages: Package[],
+  filename = 'pods.zip',
+): Promise<PodExportResult> {
+  const zip = new JSZip()
+  let zipped = 0
+  const skippedRefs: string[] = []
+
+  for (const pkg of packages) {
+    const fileName = `POD-${pkg.reference}${pkg.po_number ? `-${pkg.po_number}` : ''}.pdf`
+
+    // Fast path: a POD PDF was already stored server-side.
+    const lock = await getPackageLockStatus(pkg.id)
+    if (lock?.pdfUrl) {
+      try {
+        const res = await fetch(lock.pdfUrl)
+        if (res.ok) {
+          zip.file(fileName, await res.blob())
+          zipped++
+          continue
+        }
+      } catch (err) {
+        // Non-fatal: fall through to client-side generation, but record why.
+        logger.warn(err, { op: 'pod.zip.fetchStored', reference: pkg.reference })
+      }
+    }
+
+    // Otherwise generate it from the POD record (PODs aren't stored in this app).
+    try {
+      const pod = await getPodForPackage(pkg.id)
+      if (!pod) {
+        skippedRefs.push(pkg.reference)
+        continue
+      }
+      zip.file(fileName, await generatePodPdfBlob(pkg, pod))
+      zipped++
+    } catch (err) {
+      logger.warn(err, { op: 'pod.zip.generate', reference: pkg.reference })
+      skippedRefs.push(pkg.reference)
+    }
+  }
+
+  if (zipped > 0) {
+    const blob = await zip.generateAsync({ type: 'blob' })
+    saveBlob(blob, filename)
+  }
+
+  return { zipped, skipped: skippedRefs.length, skippedRefs }
+}

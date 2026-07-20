@@ -7,6 +7,7 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
 import { resolveTemplate, renderEmail, buildCommonVars } from '../_shared/email-templates.ts'
 import { captureException } from '../_shared/sentry.ts'
+import { extractDeliveryPhotoUrl } from '../_shared/delivery-photo.ts'
 
 interface PodPartyPayload {
   name: string
@@ -53,6 +54,7 @@ interface UpdatePackageRequest {
   package_id: string
   status?: 'pending' | 'notified' | 'in_transit' | 'ready_for_collection' | 'collected' | 'returned'
   notes?: string
+  customer_notes?: string
   receiver_email?: string
   /**
    * Optional auth.users.id of the driver this package is being assigned to.
@@ -184,14 +186,25 @@ serve(async (req) => {
       )
     }
 
-    // Drivers complete deliveries from the mobile app, so they must be able
-    // to call this function (e.g. to mark a package as `collected`). The
-    // remaining roles continue to manage other transitions.
-    if (!['warehouse', 'admin', 'collection', 'driver'].includes(callerProfile.role)) {
+    // Authorization is now the `orders.update` permission (see
+    // docs/access-control-policy-design.md).
+    //
+    // COMPATIBILITY FALLBACK: an active `driver` is allowed through even without
+    // the permission. Drivers complete deliveries from the native mobile app, and
+    // a wrong permission default here would strand them in the field with no way
+    // to mark a package collected. Remove this fallback — and the OR below —
+    // once the driver role's permission set has been verified against what the
+    // mobile app actually calls.
+    const { data: hasOrdersUpdate } = await userClient.rpc('has_permission', {
+      p_key: 'orders.update'
+    })
+    const isDriverFallback = callerProfile.is_active && callerProfile.role === 'driver'
+
+    if (!hasOrdersUpdate && !isDriverFallback) {
       return new Response(
         JSON.stringify({
           error: 'Insufficient permissions to update packages',
-          details: `User role is '${callerProfile.role}'`
+          details: `User role is '${callerProfile.role}' and lacks the 'orders.update' permission`
         }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
@@ -199,7 +212,7 @@ serve(async (req) => {
 
     // Parse request body
     const body: UpdatePackageRequest = await req.json()
-    const { package_id, status, notes, receiver_email, driver_user_id, pod, items } = body
+    const { package_id, status, notes, customer_notes, receiver_email, driver_user_id, pod, items } = body
 
     if (!package_id) {
       return new Response(
@@ -638,6 +651,10 @@ serve(async (req) => {
       updateData.notes = notes?.trim() || null
     }
 
+    if (customer_notes !== undefined) {
+      updateData.customer_notes = customer_notes?.trim() || null
+    }
+
     if (receiver_email !== undefined) {
       // Validate email format
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -744,6 +761,12 @@ serve(async (req) => {
       const completionStatus: 'Delivered' | 'Collected' =
         hasDeliveryPhoto ? 'Delivered' : (pod.completion_status ?? 'Collected')
 
+      // Lift the photo URL out of the notes blob into its own column so POD
+      // compliance can be measured without regexing free text. Narrower than
+      // the check above on purpose: notes reading "delivery photo taken" set
+      // 'Delivered' but yield no URL, and that gap is the thing worth counting.
+      const deliveryPhotoUrl = extractDeliveryPhotoUrl(effectiveNotes)
+
       const podRow: Record<string, unknown> = {
         package_id,
         // NOT NULL columns mirrored from the package / caller.
@@ -769,7 +792,8 @@ serve(async (req) => {
         witness_signature:        pod.witness.signature_data_url,
         completed_at:             pod.collected_at,
         completed_by:             callingUser.id,
-        completion_status:        completionStatus
+        completion_status:        completionStatus,
+        delivery_photo_url:       deliveryPhotoUrl
       }
 
       // Insert only if no POD row exists yet (the unique index on
@@ -853,6 +877,8 @@ serve(async (req) => {
             ...buildCommonVars((k) => Deno.env.get(k) ?? undefined),
             reference: updatedPackage.reference,
             po_number: poNumber || '',
+            // Customer-facing email → customer_notes only, never internal notes.
+            notes: updatedPackage.customer_notes || '',
             items: packageItems.map(i => ({ quantity: i.quantity, description: i.description })),
             has_items: packageItems.length > 0,
             location_name: locationName,
@@ -961,7 +987,8 @@ serve(async (req) => {
             ...buildCommonVars((k) => Deno.env.get(k) ?? undefined),
             reference: updatedPackage.reference,
             po_number: poNumber || '',
-            notes: updatedPackage.notes || '',
+            // Customer-facing email → customer_notes only, never internal notes.
+            notes: updatedPackage.customer_notes || '',
             items: packageItems.map(i => ({ quantity: i.quantity, description: i.description })),
             has_items: packageItems.length > 0,
             location_name: locationName,
@@ -1087,6 +1114,8 @@ serve(async (req) => {
               ...buildCommonVars((k) => Deno.env.get(k) ?? undefined),
               reference: updatedPackage.reference,
               po_number: poNumber || '',
+              // Customer-facing email → customer_notes only, never internal notes.
+              notes: updatedPackage.customer_notes || '',
               items: packageItems.map(i => ({ quantity: i.quantity, description: i.description })),
               has_items: packageItems.length > 0
             })
@@ -1207,7 +1236,8 @@ serve(async (req) => {
             ...buildCommonVars((k) => Deno.env.get(k) ?? undefined),
             reference: updatedPackage.reference,
             po_number: poNumber || '',
-            notes: updatedPackage.notes || '',
+            // Customer-facing email → customer_notes only, never internal notes.
+            notes: updatedPackage.customer_notes || '',
             updated_items: updatedItems,
             has_updated_items: updatedItems.length > 0,
             previous_items: previousItems,
