@@ -136,3 +136,40 @@ export async function deactivateStaff(id: string): Promise<StaffProfile> {
 export async function reactivateStaff(id: string): Promise<StaffProfile> {
   return updateStaff(id, { is_active: true })
 }
+
+/**
+ * Permanently delete a staff member (admin only). Invokes the `delete-staff`
+ * Edge Function, which deletes the auth user — cascading away the profile,
+ * notifications, push tokens, and live locations. This is irreversible.
+ *
+ * Users with activity history (packages, PODs) can't be deleted; the function
+ * returns a `has_activity` error and the caller should deactivate instead.
+ * `userId` is the staff member's auth `user_id`, not the profile `id`.
+ */
+export async function deleteStaff(userId: string): Promise<void> {
+  const { data, error } = await supabase.functions.invoke('delete-staff', {
+    body: { user_id: userId },
+  })
+
+  if (error) {
+    // On a non-2xx response supabase-js returns a FunctionsHttpError with the
+    // body in `context` (data is null). Pull the function's own message out so
+    // the admin sees the "deactivate instead" guidance, not "non-2xx status".
+    throw new Error(await extractFunctionError(error))
+  }
+  if (data?.error) throw new Error(data.error)
+}
+
+/** Best-effort extraction of an edge function's `{ error }` message. */
+async function extractFunctionError(error: unknown): Promise<string> {
+  const ctx = (error as { context?: Response })?.context
+  if (ctx && typeof ctx.clone === 'function') {
+    try {
+      const payload = await ctx.clone().json()
+      if (payload?.error) return String(payload.error)
+    } catch {
+      // Body wasn't JSON — fall through to the generic message.
+    }
+  }
+  return error instanceof Error ? error.message : 'Could not delete the user.'
+}

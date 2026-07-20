@@ -16,6 +16,7 @@
     "supabase:push": "supabase db push",
     "deploy-functions": "supabase functions deploy",
     "deploy:create-package": "supabase functions deploy create-package",
+    "deploy:delete-staff": "supabase functions deploy delete-staff",
     "deploy:update-package": "supabase functions deploy update-package",
     "deploy:invite-customer": "supabase functions deploy invite-customer",
     "deploy:customer-pod": "supabase functions deploy customer-pod",
