@@ -1,5 +1,6 @@
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Compass, HelpCircle, LogOut, Mail, Menu, Search, Settings, X } from 'lucide-react'
+import { config } from '@/lib/config'
 import { useAuth } from '@/lib/auth'
 import { useUIStore } from '@/lib/ui-store'
 import { tourIdForPath, useTourStore } from '@/lib/tour-store'
@@ -20,7 +21,7 @@ import {
 import { SidebarContent } from './sidebar'
 import { NotificationsMenu } from './notifications-menu'
 
-const ENV_LABEL = 'INT'
+const ENV_LABEL = config.envLabel
 
 function initials(email?: string | null) {
   if (!email) return '?'
