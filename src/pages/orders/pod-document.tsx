@@ -109,11 +109,6 @@ export function PodDocument({ pkg, pod }: { pkg: Package; pod: PodRecord }) {
         <div className="text-right">
           <p className="text-xs uppercase tracking-wide text-gray-500">Purchase Order · Reference</p>
           <p className="font-mono text-sm font-semibold">{poReferenceDisplay(pkg, pod)}</p>
-          {pod.is_locked && (
-            <span className="mt-2 inline-flex items-center gap-1 rounded bg-red-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
-              Locked
-            </span>
-          )}
         </div>
       </header>
 
@@ -225,7 +220,6 @@ export function PodDocument({ pkg, pod }: { pkg: Package; pod: PodRecord }) {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p>
             Generated {formatDateTime(pod.completed_at)}
-            {pod.locked_at ? ` · Locked ${formatDateTime(pod.locked_at)}` : ''}
           </p>
           <p className="font-mono">{poReferenceDisplay(pkg, pod)}</p>
         </div>

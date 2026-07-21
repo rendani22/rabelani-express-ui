@@ -2,6 +2,7 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { fetchOperationsDashboard, fetchSlaBreaches } from '@/lib/api/operations-dashboard'
 import { fetchExecutiveDashboard } from '@/lib/api/executive-dashboard'
+import { fetchSignalsDashboard } from '@/lib/api/signals-dashboard'
 import { listCompanies } from '@/lib/api/customers'
 import { downloadCsv, slugify, toCsv, yyyymmdd } from '@/lib/csv'
 import { reportError } from '@/lib/logger'
@@ -67,6 +68,17 @@ export function useExecutiveDashboard(companyId?: string | null) {
   return useQuery({
     queryKey: ['dashboard', 'executive', companyId ?? 'all'],
     queryFn: () => fetchExecutiveDashboard(undefined, companyId),
+  })
+}
+
+/**
+ * Perfect Order Rate and the levers under it. `weeks` sizes the sparklines
+ * only — the headline comparison is a fixed rolling 28 days, server-side.
+ */
+export function useSignalsDashboard(companyId?: string | null, weeks = 12) {
+  return useQuery({
+    queryKey: ['dashboard', 'signals', companyId ?? 'all', weeks],
+    queryFn: () => fetchSignalsDashboard(companyId, weeks),
   })
 }
 
