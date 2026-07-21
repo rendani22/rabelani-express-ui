@@ -25,8 +25,10 @@
 -- column's documented meaning (buyer_id is for end users / uninvited receivers).
 
 WITH sole_buyer AS (
-  -- Companies whose single active Buyer is unambiguous.
-  SELECT company_id, min(id) AS buyer_id
+  -- Companies whose single active Buyer is unambiguous. There is no min(uuid)
+  -- in Postgres, and the HAVING below guarantees the group holds exactly one
+  -- row, so take that row's id out of an array_agg.
+  SELECT company_id, (array_agg(id))[1] AS buyer_id
   FROM   public.receiver_profiles
   WHERE  role = 'buyer' AND is_active AND company_id IS NOT NULL
   GROUP  BY company_id

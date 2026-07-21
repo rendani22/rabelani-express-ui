@@ -61,12 +61,20 @@ export async function fetchCompletedOrders(range?: {
   return { packages, total: packages.length, names }
 }
 
-/** All packages for a given receiver email (their package history). */
-export async function fetchPackagesByReceiver(email: string): Promise<Package[]> {
+/**
+ * All packages for a given receiver (their package history).
+ *
+ * Matched on `receiver_id`, not `receiver_email`: the stored email casing
+ * differs between the two sides — create-package lowercases what it writes,
+ * while a staff-created profile keeps the email exactly as typed — so an equality
+ * match on the string silently returned nothing for those customers. The FK is
+ * case-proof and is fully backfilled (20260707130000 + 20260721130000).
+ */
+export async function fetchPackagesByReceiver(receiverId: string): Promise<Package[]> {
   const { data, error } = await supabase
     .from('packages')
     .select('*, items:package_items(id, quantity, description, inventory_item_id)')
-    .eq('receiver_email', email)
+    .eq('receiver_id', receiverId)
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
   if (error) throw new Error(error.message)

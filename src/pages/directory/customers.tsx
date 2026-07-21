@@ -31,8 +31,8 @@ import { CustomerDialog, type CustomerDialogTab } from './customer-dialogs'
 
 function HistoryPanel({ customer, open, onOpenChange }: { customer: ReceiverProfile | null; open: boolean; onOpenChange: (o: boolean) => void }) {
   const packages = useQuery({
-    queryKey: ['receiver-packages', customer?.email],
-    queryFn: () => fetchPackagesByReceiver(customer!.email),
+    queryKey: ['receiver-packages', customer?.id],
+    queryFn: () => fetchPackagesByReceiver(customer!.id),
     enabled: !!customer && open,
   })
   return (
