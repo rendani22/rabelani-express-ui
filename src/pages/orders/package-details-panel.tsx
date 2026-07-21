@@ -10,6 +10,7 @@ import { displayStatusMeta, statusMeta } from '@/lib/status'
 import {
   deletePackageWithInventoryReturn,
   getPackageAuditLog,
+  getPackageStatusHistory,
   getPodForPackage,
   receiveAtCollection,
   updatePackage,
@@ -148,6 +149,14 @@ export function PackageDetailsPanel({
     enabled: !!pkg && open && isDone,
   })
 
+  // Recorded transitions, so every stop the parcel has already passed carries
+  // the time it happened rather than just the creation stamp.
+  const history = useQuery({
+    queryKey: ['package-status-history', pkg?.id],
+    queryFn: () => getPackageStatusHistory(pkg!.id),
+    enabled: !!pkg && open,
+  })
+
   // Audit log, lazily loaded when the section is first expanded.
   const canViewAudit = can('orders.audit.view')
   const audit = useQuery({
@@ -168,6 +177,8 @@ export function PackageDetailsPanel({
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ['orders'] })
     qc.invalidateQueries({ queryKey: ['dashboard'] })
+    // a status move writes a history row via trigger — re-read the stamps
+    qc.invalidateQueries({ queryKey: ['package-status-history'] })
   }
 
   const advance = useMutation({
@@ -248,7 +259,7 @@ export function PackageDetailsPanel({
   if (!pkg || !status) return null
 
   const name = receiverName || nameFromEmail(pkg.receiver_email)
-  const stops = packageRouteStops({ ...pkg, status })
+  const stops = packageRouteStops({ ...pkg, status }, history.data ?? [])
   const { photoUrls, text: notesText } = parseNotes(notes)
   const statusTargets = allowedStatusTargets(status)
 

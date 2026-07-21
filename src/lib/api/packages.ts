@@ -1155,6 +1155,33 @@ export async function getPodForPackage(packageId: string): Promise<PodRecord | n
   }
 }
 
+/** One recorded status transition for a package (`package_status_history`). */
+export interface PackageStatusEvent {
+  readonly status: string
+  readonly changed_at: string
+}
+
+/**
+ * The status transitions recorded for a package, oldest first — the evidence
+ * behind the chain-of-custody line. RLS gates the table to staff with
+ * `orders.read`. Best-effort: an unreadable history just means the route line
+ * renders without stamps, so this returns `[]` rather than throwing.
+ */
+export async function getPackageStatusHistory(packageId: string): Promise<PackageStatusEvent[]> {
+  try {
+    const { data, error } = await supabase
+      .from('package_status_history')
+      .select('status, changed_at')
+      .eq('package_id', packageId)
+      .order('changed_at', { ascending: true })
+
+    if (error || !data) return []
+    return data as PackageStatusEvent[]
+  } catch {
+    return []
+  }
+}
+
 /** A single package audit-log row (admin-only view). Ported from the details panel. */
 export interface AuditLogEntry {
   readonly id: string

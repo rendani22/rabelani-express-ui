@@ -75,6 +75,15 @@ interface UpdatePackageRequest {
    * increase) and a movement row is logged per affected inventory item.
    */
   items?: PackageItemsDiff
+  /**
+   * Suppress every receiver-facing transition email this request would
+   * otherwise send. Set by internal bookkeeping updates the receiver must not
+   * hear about — currently a driver's "couldn't deliver" report, which rolls
+   * the package back to `notified` (see `applyDeliveryException` in the mobile
+   * app). Without it the receiver would be re-sent the "package registered"
+   * mail every time a delivery attempt fails.
+   */
+  suppress_notification?: boolean
 }
 
 /**
@@ -212,7 +221,12 @@ serve(async (req) => {
 
     // Parse request body
     const body: UpdatePackageRequest = await req.json()
-    const { package_id, status, notes, customer_notes, receiver_email, driver_user_id, pod, items } = body
+    const { package_id, status, notes, customer_notes, receiver_email, driver_user_id, pod, items, suppress_notification } = body
+
+    // Gate on every receiver-facing transition email below. Bookkeeping updates
+    // (e.g. a failed delivery attempt rolling the package back to `notified`)
+    // must not mail the receiver.
+    const suppressNotification = suppress_notification === true
 
     if (!package_id) {
       return new Response(
@@ -805,7 +819,8 @@ serve(async (req) => {
     let readyEmailError: string | null = null
     const transitionedToReady =
       effectiveStatus === 'ready_for_collection' &&
-      existingPackage.status !== 'ready_for_collection'
+      existingPackage.status !== 'ready_for_collection' &&
+      !suppressNotification
 
     if (transitionedToReady) {
       try {
@@ -915,7 +930,8 @@ serve(async (req) => {
     let notifiedEmailError: string | null = null
     const transitionedToNotified =
       effectiveStatus === 'notified' &&
-      existingPackage.status !== 'notified'
+      existingPackage.status !== 'notified' &&
+      !suppressNotification
 
     if (transitionedToNotified) {
       try {
@@ -1030,7 +1046,8 @@ serve(async (req) => {
     let completedEmailDeferred = false
     const transitionedToCollected =
       effectiveStatus === 'collected' &&
-      existingPackage.status !== 'collected'
+      existingPackage.status !== 'collected' &&
+      !suppressNotification
 
     if (transitionedToCollected) {
       const sendCompletedEmail = async () => {
@@ -1188,7 +1205,7 @@ serve(async (req) => {
     // ------------------------------------------------------------------
     let itemsUpdatedEmailSent = false
     let itemsUpdatedEmailError: string | null = null
-    if (itemChangesSummary) {
+    if (itemChangesSummary && !suppressNotification) {
       try {
         const resendApiKey = Deno.env.get('RESEND_API_KEY')
         const poNumber: string | null = existingPackage.po_number ?? null
@@ -1288,6 +1305,7 @@ serve(async (req) => {
         items_updated_email_sent: itemChangesSummary ? itemsUpdatedEmailSent : undefined,
         items_updated_email_error: itemChangesSummary ? itemsUpdatedEmailError : undefined,
         item_changes: itemChangesSummary,
+        notifications_suppressed: suppressNotification || undefined,
         performed_by_name: callerProfile.full_name,
         performed_by_role: callerProfile.role
       }
