@@ -97,7 +97,6 @@ export interface DriverStats {
 export interface PodStats {
   total: number
   withPdf: number
-  locked: number
   today: number
   thisWeek: number
 }
@@ -307,7 +306,6 @@ const EMPTY_DRIVER_STATS: DriverStats = {
 const EMPTY_POD_STATS: PodStats = {
   total: 0,
   withPdf: 0,
-  locked: 0,
   today: 0,
   thisWeek: 0,
 }

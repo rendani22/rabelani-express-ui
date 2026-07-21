@@ -11,8 +11,15 @@ export interface StaffProfile {
   id: string
   user_id: string
   email: string
-  name?: string | null
-  surname?: string | null
+  /**
+   * `staff_profiles.full_name` — one column, NOT NULL. It is deliberately not
+   * `name`/`surname`: those belong to `receiver_profiles` (customers) and to
+   * drivers, and this type used to declare them too. Nothing ever populated
+   * them here, so every read was silently `undefined` — which is how the POD
+   * attached to the completion email came to show the staff member's email
+   * address where the in-app POD showed their name.
+   */
+  full_name: string
   role: StaffRole
 }
 

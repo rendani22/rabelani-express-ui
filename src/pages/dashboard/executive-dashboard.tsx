@@ -424,7 +424,6 @@ function PodComplianceCard({ c }: { c: PodCompliance }) {
             ['Completed', c.total],
             ['With POD', c.withPod],
             ['With PDF', c.withPdf],
-            ['Locked', c.locked],
           ] as const
         ).map(([l, v]) => (
           <div key={l} className="flex items-center justify-between">

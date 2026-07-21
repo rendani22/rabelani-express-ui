@@ -200,7 +200,6 @@ export interface PodCompliance {
   total: number
   withPod: number
   withPdf: number
-  locked: number
   /** Completed orders whose POD is a delivery (driver drop-off, not a pickup). */
   deliveries: number
   /** Deliveries carrying a photo — the rest cannot be evidenced beyond a signature. */
@@ -211,8 +210,6 @@ export interface PodCompliance {
   podRate: number
   /** % of completed orders whose POD has a captured PDF. */
   pdfRate: number
-  /** % of completed orders finalized (locked). */
-  lockedRate: number
   /** % of deliveries with a photo. Denominator is `deliveries`, not `total`. */
   photoRate: number
   /** Rating from podRate (>=90 good, >=75 watch, else risk). */
@@ -305,7 +302,6 @@ interface DashboardOpsPayload {
     total: number
     withPod: number
     withPdf: number
-    locked: number
     deliveries: number
     deliveriesWithPhoto: number
     today: number
@@ -426,14 +422,12 @@ const EMPTY_POD: PodCompliance = {
   total: 0,
   withPod: 0,
   withPdf: 0,
-  locked: 0,
   deliveries: 0,
   deliveriesWithPhoto: 0,
   today: 0,
   thisWeek: 0,
   podRate: 0,
   pdfRate: 0,
-  lockedRate: 0,
   photoRate: 0,
   level: 'neutral',
   photoLevel: 'neutral',
@@ -831,7 +825,6 @@ function buildPodCompliance(ops: DashboardOpsPayload | null): PodCompliance {
     ...pod,
     podRate,
     pdfRate: rate(pod.withPdf, pod.total),
-    lockedRate: rate(pod.locked, pod.total),
     photoRate,
     level: pod.total > 0 ? band(podRate) : 'neutral',
     photoLevel: pod.deliveries > 0 ? band(photoRate) : 'neutral',

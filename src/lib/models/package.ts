@@ -239,8 +239,8 @@ export interface PodRecord {
   readonly id: string
   readonly package_id: string
   readonly pod_reference: string | null
-  readonly is_locked: boolean | null
-  readonly locked_at: string | null
+  /** Server-stored PDF, when one was generated. The bulk export's fast path. */
+  readonly pdf_url: string | null
 
   // Receiver
   readonly receiver_name: string | null
@@ -267,14 +267,6 @@ export interface PodRecord {
    * `deliveryPhotoUrls()`, which falls back to the legacy notes blob.
    */
   readonly delivery_photo_url?: string | null
-}
-
-/** Package lock status information */
-export interface PackageLockStatus {
-  readonly isLocked: boolean
-  readonly lockedAt: string | null
-  readonly podReference: string | null
-  readonly pdfUrl: string | null
 }
 
 /** Union type for create package API responses */
@@ -379,10 +371,7 @@ export type CreatePackageResult =
   PackageServiceResult<CreatePackageSuccessResponse>
 
 /** Result type for update package operation */
-export type UpdatePackageResult =
-  PackageServiceResult<UpdatePackageSuccessResponse> & {
-    readonly isLocked?: boolean
-  }
+export type UpdatePackageResult = PackageServiceResult<UpdatePackageSuccessResponse>
 
 /** Result type for package action operations (pickup, receive) */
 export type PackageActionResult =

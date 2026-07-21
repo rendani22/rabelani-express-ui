@@ -24,7 +24,6 @@ import { PACKAGE_STATUS } from '@/lib/status'
 import type {
   Package,
   PackageFilters,
-  PackageLockStatus,
   PodRecord,
   CreatePackageRequest,
   UpdatePackageRequest,
@@ -704,7 +703,6 @@ export async function getMyRecentPackages(limit = 5): Promise<readonly Package[]
 
 /**
  * Update a package via Edge Function.
- * Enforces lock checks - locked packages cannot be modified.
  *
  * @param id - Package UUID
  * @param updates - Fields to update (excluding package_id)
@@ -731,11 +729,7 @@ export async function updatePackage(
     }
 
     if (isApiError(response)) {
-      const errorMessage = response.details ?? response.error
-
-      // Check if it's a lock error
-      const isLocked = response.error === 'Package is locked'
-      return { success: false, error: errorMessage, isLocked }
+      return { success: false, error: response.details ?? response.error }
     }
 
     return { success: false, error: 'Unexpected response format' }
@@ -1108,56 +1102,6 @@ export async function deletePackages(ids: readonly string[]): Promise<{
   }
 }
 
-// ============================================================================
-// Lock Status
-// ============================================================================
-
-/**
- * Check if a package has a locked POD.
- *
- * @param packageId - Package UUID
- */
-export async function isPackageLocked(packageId: string): Promise<boolean> {
-  try {
-    const { data } = await supabase.rpc('is_pod_locked', {
-      p_package_id: packageId,
-    })
-
-    return data === true
-  } catch {
-    return false
-  }
-}
-
-/**
- * Get the lock status details for a package.
- *
- * @param packageId - Package UUID
- */
-export async function getPackageLockStatus(
-  packageId: string
-): Promise<PackageLockStatus | null> {
-  try {
-    const { data, error } = await supabase.rpc('get_pod_lock_status', {
-      p_package_id: packageId,
-    })
-
-    if (error || !data || data.length === 0) {
-      return null
-    }
-
-    const status = data[0]
-    return {
-      isLocked: status.is_locked,
-      lockedAt: status.locked_at,
-      podReference: status.pod_reference,
-      pdfUrl: status.pdf_url,
-    }
-  } catch {
-    return null
-  }
-}
-
 /**
  * Resolve the set of inventory item ids that may be ADDED to a package during
  * item editing. Ported from the details panel's `loadPoInventoryIds`:
@@ -1196,7 +1140,7 @@ export async function getPodForPackage(packageId: string): Promise<PodRecord | n
     const { data, error } = await supabase
       .from('pods')
       .select(
-        'id, package_id, pod_reference, is_locked, locked_at, ' +
+        'id, package_id, pod_reference, pdf_url, ' +
           'receiver_name, receiver_employee_number, receiver_phone, receiver_signature, ' +
           'witness_name, witness_employee_number, witness_phone, witness_signature, ' +
           'completed_at, completed_by, staff_name, completion_status, delivery_photo_url'

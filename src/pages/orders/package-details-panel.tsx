@@ -10,7 +10,6 @@ import { displayStatusMeta, statusMeta } from '@/lib/status'
 import {
   deletePackageWithInventoryReturn,
   getPackageAuditLog,
-  getPackageLockStatus,
   getPodForPackage,
   receiveAtCollection,
   updatePackage,
@@ -142,11 +141,6 @@ export function PackageDetailsPanel({
   const { can } = usePermissions()
   const canDelete = can('orders.delete')
   const canUpdate = can('orders.update')
-  const lock = useQuery({
-    queryKey: ['pod-lock', pkg?.id],
-    queryFn: () => getPackageLockStatus(pkg!.id),
-    enabled: !!pkg && open,
-  })
   const isDone = status === PACKAGE_STATUS.COLLECTED || status === PACKAGE_STATUS.DELIVERED
   const pod = useQuery({
     queryKey: ['pod-record', pkg?.id],
@@ -255,7 +249,6 @@ export function PackageDetailsPanel({
 
   const name = receiverName || nameFromEmail(pkg.receiver_email)
   const stops = packageRouteStops({ ...pkg, status })
-  const isLocked = lock.data?.isLocked
   const { photoUrls, text: notesText } = parseNotes(notes)
   const statusTargets = allowedStatusTargets(status)
 
@@ -323,7 +316,7 @@ export function PackageDetailsPanel({
             )}
 
             {/* manual status change (hidden once the POD is finalized) */}
-            {!isLocked && statusTargets.length > 0 && (
+            {statusTargets.length > 0 && (
               <div className="flex flex-col gap-2">
                 <SectionLabel>Change status</SectionLabel>
                 <Combobox
@@ -448,7 +441,7 @@ export function PackageDetailsPanel({
             )}
 
             {/* POD record */}
-            {(pod.data || isLocked) && (
+            {pod.data && (
               <div className="flex flex-col gap-3 rounded-lg border border-success/30 bg-success/5 p-4">
                 <div className="flex items-center gap-2 text-sm font-medium text-success">
                   <Lock className="size-4" /> Proof of delivery
@@ -458,16 +451,16 @@ export function PackageDetailsPanel({
                     </span>
                   )}
                 </div>
-                {(pod.data?.pod_reference || lock.data?.podReference) && (
+                {pod.data?.pod_reference && (
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-muted-foreground">Reference</span>
-                    <span className="mono">{pod.data?.pod_reference || lock.data?.podReference}</span>
+                    <span className="mono">{pod.data.pod_reference}</span>
                   </div>
                 )}
-                {(pod.data?.completed_at || lock.data?.lockedAt) && (
+                {pod.data?.completed_at && (
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-muted-foreground">Signed</span>
-                    <span>{formatDateTime(pod.data?.completed_at || lock.data?.lockedAt)}</span>
+                    <span>{formatDateTime(pod.data.completed_at)}</span>
                   </div>
                 )}
                 {pod.data && (
@@ -482,9 +475,9 @@ export function PackageDetailsPanel({
                       <FileText /> View / print POD
                     </PermissionButton>
                   )}
-                  {lock.data?.pdfUrl && can('pod.view') && (
+                  {pod.data?.pdf_url && can('pod.view') && (
                     <Button variant="outline" size="sm" asChild>
-                      <a href={lock.data.pdfUrl} target="_blank" rel="noreferrer">
+                      <a href={pod.data.pdf_url} target="_blank" rel="noreferrer">
                         <ImageIcon /> Stored PDF
                       </a>
                     </Button>

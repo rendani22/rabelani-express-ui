@@ -237,7 +237,7 @@ serve(async (req) => {
     // Hint the FK explicitly via `pods!<column-on-pods>(...)`.
     const { data: existingPackage, error: fetchError } = await adminClient
       .from('packages')
-      .select('*, pods!package_id(id, is_locked, locked_at, pod_reference)')
+      .select('*, pods!package_id(id, pod_reference)')
       .eq('id', package_id)
       .single()
 
@@ -251,44 +251,17 @@ serve(async (req) => {
       )
     }
 
-    // Check if package has a locked POD
-    // PostgREST may embed a related row as an object when there's a single
-    // related record instead of returning an array. Coerce to an array so
-    // `.find` is safe regardless of the shape returned by the DB.
-    const podsArray = existingPackage.pods == null
-      ? []
-      : Array.isArray(existingPackage.pods)
-        ? existingPackage.pods
-        : [existingPackage.pods]
-    const lockedPod = podsArray.find((p: any) => p?.is_locked === true)
-    if (lockedPod) {
-      // Log the denied attempt
-      await adminClient.from('audit_logs').insert({
-        action: 'PACKAGE_UPDATE_DENIED',
-        entity_type: 'package',
-        entity_id: package_id,
-        performed_by: callingUser.id,
-        metadata: {
-          package_reference: existingPackage.reference,
-          pod_reference: lockedPod.pod_reference,
-          locked_at: lockedPod.locked_at,
-          reason: 'Package has a locked POD and cannot be modified',
-          attempted_changes: { status, notes, receiver_email, has_pod_payload: !!pod },
-          performed_by_name: callerProfile.full_name,
-          performed_by_role: callerProfile.role
-        }
-      })
-
-      return new Response(
-        JSON.stringify({
-          error: 'Package is locked',
-          details: `Package ${existingPackage.reference} has a completed and locked POD (${lockedPod.pod_reference}). Locked packages cannot be modified.`,
-          pod_reference: lockedPod.pod_reference,
-          locked_at: lockedPod.locked_at
-        }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
+    // NOTE: there used to be a locked-POD guard here, rejecting the update with
+    // 403 "Package is locked". It read pods.is_locked, which nothing in this
+    // system has ever set, so it never fired once; that column and the rest of
+    // the flag mechanism went in 20260721170000_drop_pod_lock.sql.
+    //
+    // POD immutability is now enforced where it belongs, in the database:
+    // 20260721180000 freezes a pods row on insert (which is completion) via a
+    // trigger that binds this admin client too. Nothing needs checking here --
+    // the POD insert below is already guarded by an existence check, and an
+    // attempt to rewrite one would be refused by the trigger regardless of what
+    // this function decided.
 
     // ------------------------------------------------------------------
     // Items diff (pending/notified packages only).

@@ -6,6 +6,7 @@ import type { MarkCollectedPayload, Package, PodParty } from '@/lib/models/packa
 import { PACKAGE_STATUS } from '@/lib/status'
 import { updatePackage } from '@/lib/api/packages'
 import { getCurrentStaffProfile } from '@/lib/api/staff'
+import { buildPendingPodRecord, derivePodCompletionStatus } from '@/lib/pod-record'
 import { generatePodPdfBase64 } from '@/lib/pod-pdf'
 import { logger, reportError } from '@/lib/logger'
 import {
@@ -95,9 +96,7 @@ export function MarkCollectedDialog({
       }
 
       const staff = await getCurrentStaffProfile()
-      const hasDeliveryPhoto = /delivery photo/i.test(pkg!.notes ?? '')
-      const completion_status: 'Delivered' | 'Collected' =
-        hasDeliveryPhoto || staff?.role === 'driver' ? 'Delivered' : 'Collected'
+      const completion_status = derivePodCompletionStatus(pkg!.notes, staff?.role)
 
       const toParty = (p: PartyForm, sig: string): PodParty => ({
         name: p.name.trim(),
@@ -113,25 +112,27 @@ export function MarkCollectedDialog({
       // must not block the completion — the email then goes without the POD.
       let pdf_base64: string | undefined
       try {
-        pdf_base64 = await generatePodPdfBase64(pkg!, {
-          id: '',
-          package_id: pkg!.id,
-          pod_reference: null,
-          is_locked: false,
-          locked_at: null,
-          receiver_name: receiver.name.trim(),
-          receiver_employee_number: receiver.employee_number.trim(),
-          receiver_phone: receiver.phone.trim(),
-          receiver_signature: rSig,
-          witness_name: witness.name.trim(),
-          witness_employee_number: witness.employee_number.trim(),
-          witness_phone: witness.phone.trim(),
-          witness_signature: wSig,
-          completed_at: collected_at,
-          completed_by: staff?.user_id ?? null,
-          staff_name: staff ? [staff.name, staff.surname].filter(Boolean).join(' ') || staff.email : null,
-          completion_status,
-        })
+        pdf_base64 = await generatePodPdfBase64(
+          pkg!,
+          buildPendingPodRecord({
+            packageId: pkg!.id,
+            notes: pkg!.notes,
+            receiver: {
+              name: receiver.name.trim(),
+              employee_number: receiver.employee_number.trim(),
+              phone: receiver.phone.trim(),
+              signature: rSig,
+            },
+            witness: {
+              name: witness.name.trim(),
+              employee_number: witness.employee_number.trim(),
+              phone: witness.phone.trim(),
+              signature: wSig,
+            },
+            staff,
+            collectedAt: collected_at,
+          }),
+        )
       } catch (err) {
         logger.warn(err, { op: 'orders.markCollected.pdf', reference: pkg!.reference })
       }

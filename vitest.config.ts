@@ -46,6 +46,7 @@ export default defineConfig({
         'src/lib/status.ts',
         'src/lib/chart.ts',
         'src/lib/signals.ts',
+        'src/lib/pod-record.ts',
         'src/lib/audit-log.ts',
         'src/lib/driver-status.ts',
         'src/lib/package-timeline.ts',

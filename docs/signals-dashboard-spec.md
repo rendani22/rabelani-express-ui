@@ -136,12 +136,27 @@ touches it. The clause was `AND false` for every order, so POD compliance *and*
 Perfect Order Rate both read exactly 0.0% and the leak breakdown blamed POD for
 everything. Fixed in `20260721160000`.
 
-That leaves a real finding worth its own ticket: the lock machinery is fully
-built — a trigger stamps `locked_at`, RLS policies on `packages` key off locked
-PODs, `update-package` refuses to edit one — and **nothing engages it**, so every
-POD in the system stays editable forever. For a product whose pitch is "the
-record is the product", that is worth deciding on deliberately rather than by
-omission.
+The lock machinery around it — two `packages` triggers, a `pods` immutability
+trigger, `get_pod_lock_status()` / `is_pod_locked()`, a `NOT EXISTS` clause in
+two RLS policies, an unreachable `POD_LOCKED` audit branch, and a "Locked" count
+on two dashboards — was **removed** in `20260721170000_drop_pod_lock.sql`. It had
+been dead since the original schema: the Angular app never set the flag either,
+and its `pod-pdf.utils` comment claiming "the edge function inserts and locks the
+POD row" describes an intention that was never implemented.
+
+The migration refuses to run if any POD actually has `is_locked = true`, rather
+than silently dropping a column that turned out to carry meaning.
+
+POD immutability was then designed properly in `20260721180000`, on the rule
+that **a POD is final when the order is delivered or collected**. Because a POD
+row is only ever written at completion, that is the same as final-on-insert — so
+it needs no flag, no state column and no timestamp, which is why the old one only
+ever held a single value.
+
+A trigger freezes the row; the one permitted later write is attaching the
+generated PDF, once. It binds the admin client too, which RLS cannot. The
+permissive "Can update PODs" policy — which had let anyone holding
+`orders.update` rewrite signatures, names and completion status — is gone.
 
 **Why p90 and not the average.** The existing `avgTotalCycleHours` is on the
 Operations tab and reads fine at ~30h. But a courier depot's reputational damage

@@ -10,7 +10,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
 import { captureException } from '../_shared/sentry.ts'
 
 const POD_COLUMNS =
-  'id, package_id, pod_reference, is_locked, locked_at, ' +
+  'id, package_id, pod_reference, pdf_url, ' +
   'receiver_name, receiver_employee_number, receiver_phone, receiver_signature, ' +
   'witness_name, witness_employee_number, witness_phone, witness_signature, ' +
   'completed_at, completed_by, staff_name, completion_status, delivery_photo_url'

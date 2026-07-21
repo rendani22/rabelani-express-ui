@@ -152,7 +152,6 @@ function DriverOverview({ d }: { d: DriverStats }) {
 function PodBlock({ p }: { p: PodStats }) {
   const rows: [string, number][] = [
     ['With PDF', p.withPdf],
-    ['Locked', p.locked],
     ['Today', p.today],
     ['This week', p.thisWeek],
   ]

@@ -1,5 +1,5 @@
 import JSZip from 'jszip'
-import { getPackageLockStatus, getPodForPackage } from '@/lib/api/packages'
+import { getPodForPackage } from '@/lib/api/packages'
 import { generatePodPdfBlob } from '@/lib/pod-pdf'
 import { logger } from '@/lib/logger'
 import type { Package } from '@/lib/models/package'
@@ -40,11 +40,26 @@ export async function downloadPodsZip(
   for (const pkg of packages) {
     const fileName = `POD-${pkg.reference}${pkg.po_number ? `-${pkg.po_number}` : ''}.pdf`
 
+    // One read serves both paths: the stored PDF's URL lives on the POD row.
+    // (It used to come from get_pod_lock_status, which cost a second round trip
+    // per package and has been dropped along with the POD lock.)
+    let pod
+    try {
+      pod = await getPodForPackage(pkg.id)
+    } catch (err) {
+      logger.warn(err, { op: 'pod.zip.fetchRecord', reference: pkg.reference })
+      skippedRefs.push(pkg.reference)
+      continue
+    }
+    if (!pod) {
+      skippedRefs.push(pkg.reference)
+      continue
+    }
+
     // Fast path: a POD PDF was already stored server-side.
-    const lock = await getPackageLockStatus(pkg.id)
-    if (lock?.pdfUrl) {
+    if (pod.pdf_url) {
       try {
-        const res = await fetch(lock.pdfUrl)
+        const res = await fetch(pod.pdf_url)
         if (res.ok) {
           zip.file(fileName, await res.blob())
           zipped++
@@ -56,13 +71,8 @@ export async function downloadPodsZip(
       }
     }
 
-    // Otherwise generate it from the POD record (PODs aren't stored in this app).
+    // Otherwise generate it from the POD record.
     try {
-      const pod = await getPodForPackage(pkg.id)
-      if (!pod) {
-        skippedRefs.push(pkg.reference)
-        continue
-      }
       zip.file(fileName, await generatePodPdfBlob(pkg, pod))
       zipped++
     } catch (err) {

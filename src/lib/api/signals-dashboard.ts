@@ -68,11 +68,6 @@ export interface PodInput extends RateInput {
   photoRate: number | null
   /** Orders with a POD document on file. */
   compliant: number
-  /**
-   * Orders whose POD is locked. Reported, not required: nothing in the product
-   * currently sets `pods.is_locked`, so gating on it read as 0% for everything.
-   */
-  locked: number
   deliveries: number
   deliveriesWithPhoto: number
 }
