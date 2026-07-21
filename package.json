@@ -10,7 +10,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "preview": "vite preview",
+    "preview": "vite pryeview",
     "supabase:link-dev": "supabase link --project-ref qmnqffpwvsvngjmyisrf",
     "supabase:link-prod": "supabase link --project-ref udsigrijzqgmtmkilluv",
     "supabase:push": "supabase db push",

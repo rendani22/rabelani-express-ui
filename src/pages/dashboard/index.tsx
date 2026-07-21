@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useIsFetching, useQueryClient } from '@tanstack/react-query'
 import { AlertCircle, RefreshCw } from 'lucide-react'
 import { PageBody, PageHeader } from '@/components/layout/page-header'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -10,6 +11,7 @@ import { usePermissions } from '@/hooks/use-permissions'
 import { useAutoTour } from '@/hooks/use-auto-tour'
 import { OperationsDashboard } from './operations-dashboard'
 import { ExecutiveDashboard } from './executive-dashboard'
+import { SignalsDashboard } from './signals-dashboard'
 
 const ALL_COMPANIES = 'all'
 
@@ -52,6 +54,20 @@ export function DashboardPage() {
   const ops = useOperationsDashboard(companyId)
   const { can } = usePermissions()
   const canViewExec = can('dashboard.exec.view')
+  const canViewSignals = can('dashboard.signals.view')
+
+  // Controlled only so Refresh knows which view to reload; Operations stays the
+  // landing tab.
+  const [tab, setTab] = useState('operations')
+
+  /*
+    Refresh acts on the tab you are looking at. Each view owns its own query, so
+    this invalidates by key prefix rather than calling the one refetch it used
+    to — which silently reloaded Operations whatever you were reading.
+  */
+  const queryClient = useQueryClient()
+  const refreshing = useIsFetching({ queryKey: ['dashboard', tab] }) > 0
+  const refresh = () => queryClient.invalidateQueries({ queryKey: ['dashboard', tab] })
 
   const companyOptions = useMemo(
     () => [
@@ -88,24 +104,22 @@ export function DashboardPage() {
                 searchPlaceholder="Filter companies…"
               />
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => ops.refetch()}
-              disabled={ops.isFetching}
-            >
-              <RefreshCw className={ops.isFetching ? 'animate-spin' : ''} /> Refresh
+            <Button variant="outline" size="sm" onClick={refresh} disabled={refreshing}>
+              <RefreshCw className={refreshing ? 'animate-spin' : ''} /> Refresh
             </Button>
           </>
         }
       />
 
-      <Tabs defaultValue="operations" className="gap-6">
+      <Tabs value={tab} onValueChange={setTab} className="gap-6">
         <TabsList>
           <TabsTrigger value="operations">Operations</TabsTrigger>
           {/* Revenue. The RPC behind it now rejects callers without the
               permission, so showing the tab would only produce a 42501. */}
           {canViewExec && <TabsTrigger value="executive">Executive</TabsTrigger>}
+          {/* Perfect Order Rate and the levers under it. Same treatment as
+              Executive: the RPC rejects callers without the permission. */}
+          {canViewSignals && <TabsTrigger value="signals">Signals</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="operations">
@@ -126,6 +140,12 @@ export function DashboardPage() {
         {canViewExec && (
           <TabsContent value="executive">
             <ExecutiveDashboard companyId={companyId} />
+          </TabsContent>
+        )}
+
+        {canViewSignals && (
+          <TabsContent value="signals">
+            <SignalsDashboard companyId={companyId} />
           </TabsContent>
         )}
       </Tabs>

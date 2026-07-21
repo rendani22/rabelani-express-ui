@@ -49,6 +49,7 @@ export const PERMISSION_KEYS = [
   'email.send_test',
   'dashboard.ops.view',
   'dashboard.exec.view',
+  'dashboard.signals.view',
   'sla.export',
   'policies.manage',
 ] as const
