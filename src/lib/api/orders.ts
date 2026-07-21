@@ -61,8 +61,14 @@ export async function fetchCompletedOrders(range?: {
   return { packages, total: packages.length, names }
 }
 
+/** A package carrying the receiver it belongs to — needed when one history spans
+ *  several receivers (a buyer's, which covers their end users' parcels too). */
+export type ReceiverPackage = Package & { readonly receiver_id: string | null }
+
 /**
- * All packages for a given receiver (their package history).
+ * All packages belonging to any of the given receivers, newest first — one
+ * customer's history, or a buyer's whole portal scope (themselves plus the end
+ * users assigned to them, matching the `customer_packages` view).
  *
  * Matched on `receiver_id`, not `receiver_email`: the stored email casing
  * differs between the two sides — create-package lowercases what it writes,
@@ -70,15 +76,16 @@ export async function fetchCompletedOrders(range?: {
  * match on the string silently returned nothing for those customers. The FK is
  * case-proof and is fully backfilled (20260707130000 + 20260721130000).
  */
-export async function fetchPackagesByReceiver(receiverId: string): Promise<Package[]> {
+export async function fetchPackagesByReceivers(receiverIds: string[]): Promise<ReceiverPackage[]> {
+  if (receiverIds.length === 0) return []
   const { data, error } = await supabase
     .from('packages')
     .select('*, items:package_items(id, quantity, description, inventory_item_id)')
-    .eq('receiver_id', receiverId)
+    .in('receiver_id', receiverIds)
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
   if (error) throw new Error(error.message)
-  return (data ?? []) as Package[]
+  return (data ?? []) as ReceiverPackage[]
 }
 
 /** Soft-deleted packages (admin-only view). */

@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Building2, ChevronRight, Contact, Loader2, Mail, MoreVertical, Package as PackageIcon, Pencil, Phone, Plus, Search, Power, Trash2, UserCheck, UserX, Users } from 'lucide-react'
+import { Building2, ChevronRight, Contact, Loader2, Mail, MoreVertical, Package as PackageIcon, Pencil, Phone, Plus, Search, Power, Trash2, User, UserCheck, UserX, Users } from 'lucide-react'
 import type { ReceiverProfile } from '@/lib/api/receivers'
 import { deactivateReceiver, listReceivers, reactivateReceiver } from '@/lib/api/receivers'
 import { createCompany, deleteCompany, listCompanies, CUSTOMER_ROLE_LABEL, type Company, type CustomerRole } from '@/lib/api/customers'
-import { fetchPackagesByReceiver } from '@/lib/api/orders'
+import { fetchPackagesByReceivers } from '@/lib/api/orders'
 import { reportError } from '@/lib/logger'
 import { PageBody, PageHeader } from '@/components/layout/page-header'
 import { Button } from '@/components/ui/button'
@@ -29,18 +29,44 @@ import { formatDateShort } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { CustomerDialog, type CustomerDialogTab } from './customer-dialogs'
 
-function HistoryPanel({ customer, open, onOpenChange }: { customer: ReceiverProfile | null; open: boolean; onOpenChange: (o: boolean) => void }) {
+/**
+ * One customer's package history, scoped exactly as the customer portal scopes
+ * it: an end user's own parcels, and for a buyer their own plus every parcel of
+ * the end users assigned to them (`endUsers`). Staff answering "where is my
+ * order?" then see the same list the caller is looking at.
+ */
+function HistoryPanel({ customer, endUsers, open, onOpenChange }: {
+  customer: ReceiverProfile | null
+  /** End users whose parcels this customer can see. Empty unless they're a buyer. */
+  endUsers: ReceiverProfile[]
+  open: boolean
+  onOpenChange: (o: boolean) => void
+}) {
+  const scope = useMemo(
+    () => (customer ? [customer.id, ...endUsers.map((u) => u.id)] : []),
+    [customer, endUsers],
+  )
+  const endUserName = useMemo(
+    () => new Map(endUsers.map((u) => [u.id, `${u.name} ${u.surname}`.trim()])),
+    [endUsers],
+  )
   const packages = useQuery({
-    queryKey: ['receiver-packages', customer?.id],
-    queryFn: () => fetchPackagesByReceiver(customer!.id),
+    queryKey: ['receiver-packages', scope],
+    queryFn: () => fetchPackagesByReceivers(scope),
     enabled: !!customer && open,
   })
+  const ownCount = packages.data?.filter((p) => p.receiver_id === customer?.id).length ?? 0
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full gap-0 overflow-y-auto p-0 sm:max-w-md">
         <SheetHeader className="border-b p-5">
           <SheetTitle>Package history</SheetTitle>
           {customer && <p className="text-sm text-muted-foreground">{customer.name} {customer.surname}</p>}
+          {endUsers.length > 0 && (
+            <p className="text-xs text-muted-foreground">
+              Their portal view: their own orders, plus those of {endUsers.length} end user{endUsers.length !== 1 ? 's' : ''} assigned to them.
+            </p>
+          )}
         </SheetHeader>
         <div className="flex flex-col">
           {packages.isLoading ? (
@@ -48,19 +74,36 @@ function HistoryPanel({ customer, open, onOpenChange }: { customer: ReceiverProf
           ) : packages.data && packages.data.length > 0 ? (
             <>
               <ul className="flex flex-col divide-y">
-                {packages.data.map((pkg) => (
-                  <li key={pkg.id} className="flex items-start justify-between gap-3 px-5 py-4">
-                    <div className="flex min-w-0 flex-col gap-1">
-                      <TrackingNumber value={pkg.reference} />
-                      <span className="text-xs text-muted-foreground">{formatDateShort(pkg.created_at)}</span>
-                      {pkg.notes && <span className="truncate text-xs italic text-muted-foreground/80">{pkg.notes}</span>}
-                    </div>
-                    <StatusStamp status={pkg.status} />
-                  </li>
-                ))}
+                {packages.data.map((pkg) => {
+                  // Only a buyer ever sees a parcel that isn't theirs — name whose
+                  // it is, the same way the portal labels a mixed list.
+                  const owner = pkg.receiver_id && pkg.receiver_id !== customer?.id
+                    ? endUserName.get(pkg.receiver_id) ?? null
+                    : null
+                  return (
+                    <li key={pkg.id} className="flex items-start justify-between gap-3 px-5 py-4">
+                      <div className="flex min-w-0 flex-col gap-1">
+                        <TrackingNumber value={pkg.reference} />
+                        <span className="flex flex-wrap items-baseline gap-x-2 text-xs text-muted-foreground">
+                          {/* Customers identify orders by PO, not by our reference. */}
+                          {pkg.po_number && <span className="mono">PO {pkg.po_number}</span>}
+                          <span>{formatDateShort(pkg.created_at)}</span>
+                        </span>
+                        {owner && (
+                          <span className="flex items-center gap-1 text-xs text-foreground/70">
+                            <User className="size-3 shrink-0" /> <span className="truncate">{owner}</span>
+                          </span>
+                        )}
+                        {pkg.notes && <span className="truncate text-xs italic text-muted-foreground/80">{pkg.notes}</span>}
+                      </div>
+                      <StatusStamp status={pkg.status} />
+                    </li>
+                  )
+                })}
               </ul>
               <div className="border-t bg-muted/20 px-5 py-3 text-xs text-muted-foreground">
                 {packages.data.length} package{packages.data.length !== 1 ? 's' : ''} total
+                {endUsers.length > 0 && ` · ${ownCount} their own, ${packages.data.length - ownCount} for their end users`}
               </div>
             </>
           ) : (
@@ -76,6 +119,9 @@ function HistoryPanel({ customer, open, onOpenChange }: { customer: ReceiverProf
 }
 
 const UNASSIGNED = '__unassigned__'
+
+/** Stable empty list, so a customer with no end users keeps a stable query key. */
+const NO_END_USERS: ReceiverProfile[] = []
 
 /** Buyer/End user role as a small stamp tag (echoes StatusStamp), implies portal access. */
 function RoleTag({ role }: { role: CustomerRole }) {
@@ -227,6 +273,26 @@ export function CustomersPage() {
   }, [data])
 
   const buyerFor = (r: ReceiverProfile) => (r.buyer_id ? buyerName.get(r.buyer_id) ?? null : null)
+
+  // The other side of the same relationship: which end users each buyer can see.
+  // Deactivated end users stay in the list — the buyer keeps their history.
+  const endUsersOf = useMemo(() => {
+    const m = new Map<string, ReceiverProfile[]>()
+    for (const r of data ?? []) {
+      if (r.role !== 'runner' || !r.buyer_id) continue
+      const list = m.get(r.buyer_id) ?? []
+      list.push(r)
+      m.set(r.buyer_id, list)
+    }
+    return m
+  }, [data])
+
+  // A demoted or deactivated buyer has no portal view to mirror, so their
+  // history narrows back to their own parcels — same test as `buyerName`.
+  const historyEndUsers =
+    historyFor && historyFor.role === 'buyer' && historyFor.is_active
+      ? endUsersOf.get(historyFor.id) ?? NO_END_USERS
+      : NO_END_USERS
 
   // Search filter first, then group by company.
   const filtered = useMemo(() => {
@@ -395,7 +461,12 @@ export function CustomersPage() {
       )}
 
       <CustomerDialog customer={editing} open={dialogOpen} onOpenChange={setDialogOpen} initialTab={editTab} />
-      <HistoryPanel customer={historyFor} open={!!historyFor} onOpenChange={(o) => !o && setHistoryFor(null)} />
+      <HistoryPanel
+        customer={historyFor}
+        endUsers={historyEndUsers}
+        open={!!historyFor}
+        onOpenChange={(o) => !o && setHistoryFor(null)}
+      />
       <ConfirmDialog
         open={!!companyToRemove}
         onOpenChange={(o) => { if (!o && !removeCompany.isPending) setCompanyToRemove(null) }}
