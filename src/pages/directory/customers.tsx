@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Building2, ChevronRight, Clock, Contact, Loader2, Mail, MailWarning, MoreVertical, Package as PackageIcon, Pencil, Phone, Plus, Search, Power, Send, Trash2, User, UserCheck, UserX, Users } from 'lucide-react'
+import { Building2, ChevronRight, Contact, Loader2, Mail, MailWarning, MoreVertical, Package as PackageIcon, Pencil, Phone, Plus, Search, Power, Send, Trash2, User, UserCheck, UserX, Users } from 'lucide-react'
 import type { ReceiverProfile } from '@/lib/api/receivers'
 import { deactivateReceiver, listReceivers, reactivateReceiver } from '@/lib/api/receivers'
 import { createCompany, deleteCompany, listCompanies, listCustomerInviteStatus, resendCustomerInvite, CUSTOMER_ROLE_LABEL, type Company, type CustomerInviteStatus, type CustomerRole } from '@/lib/api/customers'
@@ -200,6 +200,7 @@ function CustomerCard({ r, buyerName, status, resending, onEdit, onContacts, onT
   const { can } = usePermissions()
   const state = inviteState(r.role, status)
   const cardLine = inviteCardLine(r.role, r.is_active, status)
+  const showResend = cardLine?.kind === 'resend'
   return (
     <div className={cn('group flex flex-col rounded-lg border bg-card transition-colors hover:border-foreground/15', !r.is_active && 'opacity-60')}>
       <div className="flex items-start justify-between gap-2 p-4 pb-3">
@@ -207,12 +208,17 @@ function CustomerCard({ r, buyerName, status, resending, onEdit, onContacts, onT
           <ReceiverAvatar name={`${r.name} ${r.surname}`} className="size-10" />
           <div className="flex min-w-0 flex-col gap-1.5">
             <span className="truncate font-semibold leading-none">{r.name} {r.surname}</span>
-            <div className="flex flex-wrap items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
               {r.role
                 ? <RoleTag role={r.role} />
                 : <span className="text-[11px] text-muted-foreground/70">No portal access</span>}
               {state === 'pending' && <PendingTag />}
               {!r.is_active && <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Inactive</span>}
+              {/* Reference info, not an action — it rides the chip row rather than
+                  spending a body row of its own on every healthy card. */}
+              {cardLine?.kind === 'last-seen' && (
+                <span className="text-[11px] text-muted-foreground/70">{cardLine.text}</span>
+              )}
             </div>
           </div>
         </div>
@@ -238,36 +244,39 @@ function CustomerCard({ r, buyerName, status, resending, onEdit, onContacts, onT
           ) : (
             // An end user with no buyer is a valid state, but nobody can see
             // their packages — say so rather than letting it pass unnoticed.
-            <button
-              type="button"
-              onClick={onEdit}
-              className="flex items-center gap-2 text-left text-warning transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:underline"
-            >
-              <UserX className="size-3.5 shrink-0" /> <span className="truncate">No buyer assigned</span>
-            </button>
+            // Suppressed while an invite is outstanding: two warning-toned rows
+            // of equal weight give the eye nothing to rank, and who can see this
+            // person's packages is moot until they can sign in at all.
+            !showResend && (
+              <button
+                type="button"
+                onClick={onEdit}
+                className="flex items-center gap-2 text-left text-warning transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:underline"
+              >
+                <UserX className="size-3.5 shrink-0" /> <span className="truncate">No buyer assigned</span>
+              </button>
+            )
           )
         )}
-        {cardLine?.kind === 'resend' ? (
-          // The whole point of noticing a pending card is to act on it, so the
-          // action sits on the card rather than behind the ⋯ menu — same
-          // pattern as the "No buyer assigned" row above.
-          <button
-            type="button"
-            onClick={onResend}
-            disabled={resending || !can('customers.invite')}
-            className="flex items-center gap-2 text-left text-warning transition-opacity hover:opacity-80 disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:underline"
-          >
-            {resending
-              ? <Loader2 className="size-3.5 shrink-0 animate-spin" />
-              : <Send className="size-3.5 shrink-0" />}
-            <span className="truncate">{resending ? 'Sending…' : 'Resend invite'}</span>
-          </button>
-        ) : cardLine?.kind === 'last-seen' ? (
-          <span className="flex items-center gap-2 text-muted-foreground">
-            <Clock className="size-3.5 shrink-0" /> <span className="truncate">{cardLine.text}</span>
-          </span>
-        ) : null}
       </div>
+      {showResend && (
+        // Shaped as a button, not as another icon+text row: the rows above are
+        // data, this is the one thing to *do* about the card. Styling it like
+        // its neighbours is what made the card read as cluttered.
+        <div className="px-4 pb-3.5">
+          <PermissionButton
+            permission="customers.invite"
+            variant="outline"
+            size="sm"
+            onClick={onResend}
+            disabled={resending}
+            deniedReason="You don't have permission to invite customers — ask an admin."
+          >
+            {resending ? <Loader2 className="animate-spin" /> : <Send />}
+            {resending ? 'Sending…' : 'Resend invite'}
+          </PermissionButton>
+        </div>
+      )}
       <div className="tear-line" />
       <button
         type="button"
