@@ -47,6 +47,75 @@ describe('packageRouteStops', () => {
     const stops = packageRouteStops(mk(PACKAGE_STATUS.RETURNED))
     expect(stops).toHaveLength(6)
     expect(stops[5]).toMatchObject({ label: 'Returned', state: 'current' })
+    expect(stops[5].timestamp).toBeUndefined() // no history loaded
+  })
+})
+
+describe('packageRouteStops timestamps', () => {
+  const at = (status: string, changed_at: string) => ({ status, changed_at })
+
+  it('stamps every reached stop from the recorded transitions', () => {
+    const stops = packageRouteStops(mk(PACKAGE_STATUS.READY_FOR_COLLECTION), [
+      at(PACKAGE_STATUS.NOTIFIED, '2026-01-06T08:00:00Z'),
+      at(PACKAGE_STATUS.IN_TRANSIT, '2026-01-07T09:30:00Z'),
+      at(PACKAGE_STATUS.READY_FOR_COLLECTION, '2026-01-07T15:45:00Z'),
+    ])
+    expect(stops.map((s) => !!s.timestamp)).toEqual([true, true, true, true, false])
+  })
+
+  it('never stamps an upcoming stop, even with a stray history row', () => {
+    const stops = packageRouteStops(mk(PACKAGE_STATUS.DRAFT), [
+      at(PACKAGE_STATUS.IN_TRANSIT, '2026-01-07T09:30:00Z'),
+    ])
+    expect(stops[2].state).toBe('upcoming')
+    expect(stops[2].timestamp).toBeUndefined()
+  })
+
+  it('keeps the first arrival when a status is entered twice', () => {
+    const first = packageRouteStops(mk(PACKAGE_STATUS.IN_TRANSIT), [
+      at(PACKAGE_STATUS.IN_TRANSIT, '2026-01-07T09:30:00Z'),
+    ])[2].timestamp
+    const bounced = packageRouteStops(mk(PACKAGE_STATUS.IN_TRANSIT), [
+      at(PACKAGE_STATUS.IN_TRANSIT, '2026-01-07T09:30:00Z'),
+      at(PACKAGE_STATUS.READY_FOR_COLLECTION, '2026-01-07T15:45:00Z'),
+      at(PACKAGE_STATUS.IN_TRANSIT, '2026-01-08T07:00:00Z'),
+    ])[2].timestamp
+    expect(bounced).toBe(first)
+  })
+
+  it('falls back to created_at for the creation stop when history has no draft row', () => {
+    const [created] = packageRouteStops(mk(PACKAGE_STATUS.NOTIFIED), [
+      at(PACKAGE_STATUS.NOTIFIED, '2026-01-06T08:00:00Z'),
+    ])
+    expect(created.timestamp).toBe(packageRouteStops(mk(PACKAGE_STATUS.DRAFT))[0].timestamp)
+  })
+
+  it('prefers a recorded draft transition over created_at', () => {
+    const [created] = packageRouteStops(mk(PACKAGE_STATUS.DRAFT), [
+      at(PACKAGE_STATUS.DRAFT, '2026-02-09T06:15:00Z'),
+    ])
+    expect(created.timestamp).not.toBe(packageRouteStops(mk(PACKAGE_STATUS.DRAFT))[0].timestamp)
+  })
+
+  it('stamps the terminal stop from a collected transition', () => {
+    const collected = packageRouteStops(mk(PACKAGE_STATUS.COLLECTED), [
+      at(PACKAGE_STATUS.COLLECTED, '2026-01-09T11:00:00Z'),
+    ]).at(-1)
+    expect(collected?.timestamp).toBeTruthy()
+  })
+
+  it('stamps the terminal stop from a delivered transition too', () => {
+    const collected = packageRouteStops(mk(PACKAGE_STATUS.DELIVERED), [
+      at(PACKAGE_STATUS.DELIVERED, '2026-01-09T11:00:00Z'),
+    ]).at(-1)
+    expect(collected?.timestamp).toBeTruthy()
+  })
+
+  it('stamps the Returned stop when the return was recorded', () => {
+    const stops = packageRouteStops(mk(PACKAGE_STATUS.RETURNED), [
+      at(PACKAGE_STATUS.RETURNED, '2026-01-10T12:00:00Z'),
+    ])
+    expect(stops[5].timestamp).toBeTruthy()
   })
 })
 
@@ -97,5 +166,20 @@ describe('customerRouteStops', () => {
     const stops = customerRouteStops(cust(PACKAGE_STATUS.RETURNED))
     expect(stops).toHaveLength(6)
     expect(stops[5]).toMatchObject({ label: 'Returned', detail: 'Sent back to the depot', state: 'current' })
+  })
+
+  it('stamps reached stops from history, same as the staff line', () => {
+    const stops = customerRouteStops(cust(PACKAGE_STATUS.IN_TRANSIT), [
+      { status: PACKAGE_STATUS.NOTIFIED, changed_at: '2026-01-06T08:00:00Z' },
+      { status: PACKAGE_STATUS.IN_TRANSIT, changed_at: '2026-01-07T09:30:00Z' },
+    ])
+    expect(stops.map((s) => !!s.timestamp)).toEqual([true, true, true, false, false])
+  })
+
+  it('stamps the customer Returned stop from history', () => {
+    const stops = customerRouteStops(cust(PACKAGE_STATUS.RETURNED), [
+      { status: PACKAGE_STATUS.RETURNED, changed_at: '2026-01-10T12:00:00Z' },
+    ])
+    expect(stops[5].timestamp).toBeTruthy()
   })
 })

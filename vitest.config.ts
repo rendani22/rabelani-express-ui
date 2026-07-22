@@ -49,6 +49,7 @@ export default defineConfig({
         'src/lib/pod-record.ts',
         'src/lib/audit-log.ts',
         'src/lib/driver-status.ts',
+        'src/lib/invite-status.ts',
         'src/lib/package-timeline.ts',
         'src/lib/inventory-movements.ts',
         'src/lib/tour-store.ts',

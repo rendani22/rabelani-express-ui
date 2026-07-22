@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import type { ReceiverProfile } from '@/lib/api/receivers'
 
 export type CustomerRole = 'buyer' | 'runner'
 
@@ -99,4 +100,52 @@ export async function inviteCustomer(dto: InviteCustomerDto): Promise<void> {
   const { data, error } = await supabase.functions.invoke('invite-customer', { body: dto })
   if (error) throw error
   if (data?.error) throw new Error(data.error)
+}
+
+/** One customer's auth-side invite state, from the `customer_invite_status` RPC. */
+export interface CustomerInviteStatus {
+  receiver_id: string
+  /** auth.users.email_confirmed_at — NULL until they accept the invite. */
+  confirmed_at: string | null
+  /** auth.users.last_sign_in_at — NULL if they have never had a session. */
+  last_sign_in_at: string | null
+}
+
+/**
+ * Invite/verification state for every customer with an auth account.
+ *
+ * Staff-only: the RPC filters on `customers.read` internally and returns zero
+ * rows to a caller without it, so a permission gap shows up as missing badges
+ * rather than as an error on the directory.
+ */
+export async function listCustomerInviteStatus(): Promise<CustomerInviteStatus[]> {
+  const { data, error } = await supabase.rpc('customer_invite_status')
+  if (error) throw error
+  return (data ?? []) as CustomerInviteStatus[]
+}
+
+/**
+ * Re-send a customer's portal invite.
+ *
+ * This is the same edge-function call as the original invite — `invite-customer`
+ * is idempotent and mints a fresh link every time. It is named separately
+ * because the intent at the call site is different, and because the caller has
+ * a `ReceiverProfile` rather than a hand-filled form.
+ *
+ * For a customer who never accepted, Supabase issues a genuine *invite* link
+ * (GoTrue rejects an invite only for an already-confirmed user), so this is not
+ * a password-reset in disguise.
+ */
+export async function resendCustomerInvite(profile: ReceiverProfile): Promise<void> {
+  if (!profile.role) throw new Error('This customer has no portal access to re-send.')
+  if (!profile.company_id) throw new Error('This customer has no company assigned.')
+  await inviteCustomer({
+    email: profile.email,
+    name: profile.name,
+    surname: profile.surname,
+    phone: profile.phone,
+    company_id: profile.company_id,
+    role: profile.role,
+    buyer_id: profile.buyer_id ?? null,
+  })
 }
