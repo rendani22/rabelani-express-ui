@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Building2, ChevronRight, Contact, Loader2, Mail, MailWarning, MoreVertical, Package as PackageIcon, Pencil, Phone, Plus, Search, Power, Send, Trash2, User, UserCheck, UserX, Users } from 'lucide-react'
+import { Building2, ChevronRight, Contact, Loader2, Mail, MoreVertical, Package as PackageIcon, Pencil, Phone, Plus, Search, Power, Send, Trash2, User, UserCheck, UserX, Users } from 'lucide-react'
 import type { ReceiverProfile } from '@/lib/api/receivers'
 import { deactivateReceiver, listReceivers, reactivateReceiver } from '@/lib/api/receivers'
 import { createCompany, deleteCompany, listCompanies, listCustomerInviteStatus, resendCustomerInvite, CUSTOMER_ROLE_LABEL, type Company, type CustomerInviteStatus, type CustomerRole } from '@/lib/api/customers'
@@ -124,27 +124,28 @@ const UNASSIGNED = '__unassigned__'
 /** Stable empty list, so a customer with no end users keeps a stable query key. */
 const NO_END_USERS: ReceiverProfile[] = []
 
-/** Buyer/End user role as a small stamp tag (echoes StatusStamp), implies portal access. */
-function RoleTag({ role }: { role: CustomerRole }) {
+/**
+ * Buyer/End user role as a small stamp tag (echoes StatusStamp), implies portal
+ * access. Goes amber when the invite was issued but never accepted, so one chip
+ * carries both facts instead of the row growing a second one.
+ *
+ * Colour alone is not an accessible signal, so the pending state also ships a
+ * `title` for pointer users and visually-hidden text for screen readers.
+ */
+function RoleTag({ role, pending }: { role: CustomerRole; pending?: boolean }) {
   return (
-    <span className="inline-flex items-center gap-1 rounded-[3px] border border-border bg-muted px-1.5 py-0.5 text-[10px] font-semibold uppercase leading-none tracking-[0.08em] text-muted-foreground">
+    <span
+      title={pending ? 'Invite pending. This customer has not accepted their invite yet.' : undefined}
+      className={cn(
+        'inline-flex items-center gap-1 rounded-[3px] border px-1.5 py-0.5 text-[10px] font-semibold uppercase leading-none tracking-[0.08em]',
+        pending
+          ? 'border-warning/50 bg-warning/10 text-warning'
+          : 'border-border bg-muted text-muted-foreground',
+      )}
+    >
       <span className="size-1 rounded-full bg-current opacity-60" aria-hidden />
       {CUSTOMER_ROLE_LABEL[role]}
-    </span>
-  )
-}
-
-/**
- * The invite was issued but never accepted — this customer still has no way
- * into the portal. Uses the same warning tone as the "No buyer assigned"
- * affordance below it, because it means the same kind of thing: someone needs
- * to do something about this row.
- */
-function PendingTag() {
-  return (
-    <span className="inline-flex items-center gap-1 rounded-[3px] border border-warning/40 bg-warning/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase leading-none tracking-[0.08em] text-warning">
-      <MailWarning className="size-2.5 shrink-0" aria-hidden />
-      Invite pending
+      {pending && <span className="sr-only">, invite pending</span>}
     </span>
   )
 }
@@ -210,9 +211,8 @@ function CustomerCard({ r, buyerName, status, resending, onEdit, onContacts, onT
             <span className="truncate font-semibold leading-none">{r.name} {r.surname}</span>
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
               {r.role
-                ? <RoleTag role={r.role} />
+                ? <RoleTag role={r.role} pending={state === 'pending'} />
                 : <span className="text-[11px] text-muted-foreground/70">No portal access</span>}
-              {state === 'pending' && <PendingTag />}
               {!r.is_active && <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Inactive</span>}
               {/* Reference info, not an action — it rides the chip row rather than
                   spending a body row of its own on every healthy card. */}
@@ -227,6 +227,15 @@ function CustomerCard({ r, buyerName, status, resending, onEdit, onContacts, onT
             <Button variant="ghost" size="icon-sm" aria-label="Actions" className="-mr-1 text-muted-foreground"><MoreVertical /></Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            {/* Only for an outstanding invite — there is nothing to re-send to a
+                customer who already accepted, and a deactivated one would get a
+                link that cannot sign them in. */}
+            {showResend && (
+              <DropdownMenuItem onSelect={onResend} disabled={resending || !can('customers.invite')}>
+                {resending ? <Loader2 className="animate-spin" /> : <Send />}
+                {resending ? 'Sending…' : 'Resend invite'}
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem onSelect={onEdit} disabled={!can('customers.update')}><Pencil /> Edit</DropdownMenuItem>
             <DropdownMenuItem onSelect={onContacts} disabled={!can('customers.update')}><Contact /> Manage contacts</DropdownMenuItem>
             <DropdownMenuItem onSelect={onToggle} disabled={!can('customers.deactivate')}><Power /> {r.is_active ? 'Deactivate' : 'Reactivate'}</DropdownMenuItem>
@@ -244,39 +253,16 @@ function CustomerCard({ r, buyerName, status, resending, onEdit, onContacts, onT
           ) : (
             // An end user with no buyer is a valid state, but nobody can see
             // their packages — say so rather than letting it pass unnoticed.
-            // Suppressed while an invite is outstanding: two warning-toned rows
-            // of equal weight give the eye nothing to rank, and who can see this
-            // person's packages is moot until they can sign in at all.
-            !showResend && (
-              <button
-                type="button"
-                onClick={onEdit}
-                className="flex items-center gap-2 text-left text-warning transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:underline"
-              >
-                <UserX className="size-3.5 shrink-0" /> <span className="truncate">No buyer assigned</span>
-              </button>
-            )
+            <button
+              type="button"
+              onClick={onEdit}
+              className="flex items-center gap-2 text-left text-warning transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:underline"
+            >
+              <UserX className="size-3.5 shrink-0" /> <span className="truncate">No buyer assigned</span>
+            </button>
           )
         )}
       </div>
-      {showResend && (
-        // Shaped as a button, not as another icon+text row: the rows above are
-        // data, this is the one thing to *do* about the card. Styling it like
-        // its neighbours is what made the card read as cluttered.
-        <div className="px-4 pb-3.5">
-          <PermissionButton
-            permission="customers.invite"
-            variant="outline"
-            size="sm"
-            onClick={onResend}
-            disabled={resending}
-            deniedReason="You don't have permission to invite customers — ask an admin."
-          >
-            {resending ? <Loader2 className="animate-spin" /> : <Send />}
-            {resending ? 'Sending…' : 'Resend invite'}
-          </PermissionButton>
-        </div>
-      )}
       <div className="tear-line" />
       <button
         type="button"
