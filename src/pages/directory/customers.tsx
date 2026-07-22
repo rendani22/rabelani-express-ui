@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Building2, ChevronRight, Contact, Loader2, Mail, MoreVertical, Package as PackageIcon, Pencil, Phone, Plus, Search, Power, Send, Trash2, User, UserCheck, UserX, Users } from 'lucide-react'
+import { Building2, ChevronRight, Contact, Loader2, Mail, MailWarning, MoreVertical, Package as PackageIcon, Pencil, Phone, Plus, Search, Power, Send, Trash2, User, UserCheck, UserX, Users } from 'lucide-react'
 import type { ReceiverProfile } from '@/lib/api/receivers'
 import { deactivateReceiver, listReceivers, reactivateReceiver } from '@/lib/api/receivers'
 import { createCompany, deleteCompany, listCompanies, listCustomerInviteStatus, resendCustomerInvite, CUSTOMER_ROLE_LABEL, type Company, type CustomerInviteStatus, type CustomerRole } from '@/lib/api/customers'
@@ -143,7 +143,11 @@ function RoleTag({ role, pending }: { role: CustomerRole; pending?: boolean }) {
           : 'border-border bg-muted text-muted-foreground',
       )}
     >
-      <span className="size-1 rounded-full bg-current opacity-60" aria-hidden />
+      {/* The icon replaces the dot rather than joining it: two leading glyphs in
+          a 10px chip is noise, and the icon already does the dot's job. */}
+      {pending
+        ? <MailWarning className="size-2.5 shrink-0" aria-hidden />
+        : <span className="size-1 rounded-full bg-current opacity-60" aria-hidden />}
       {CUSTOMER_ROLE_LABEL[role]}
       {pending && <span className="sr-only">, invite pending</span>}
     </span>
