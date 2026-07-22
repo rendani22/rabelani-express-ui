@@ -178,6 +178,52 @@ function matchOrderLine(rows: readonly string[], i: number): MatchedOrderLine | 
 }
 
 /**
+ * The Coupa notifications that are not purchase orders, by the label the
+ * ingest reports them as.
+ *
+ * Matched loosely, against the subject and body together, because
+ * `matchNonPoNotification` refuses to fire on any email stating a PO ID. That
+ * guard -- not the precision of these patterns -- is what keeps a real order
+ * from being dropped, so a pattern here only has to be recognisable.
+ *
+ * Adding a kind is one entry. Coupa sends plenty more from this address
+ * (requisitions, comments, portal account mail); they are absent because they
+ * have not been seen, and an unrecognised email failing loudly is the correct
+ * outcome until one is.
+ */
+const NON_PO_NOTIFICATIONS: readonly { readonly label: string; readonly re: RegExp }[] = [
+  // `Service Sheet #285159 Approved by Exxaro Resources`, and the rejected and
+  // submitted variants, which differ from it only in the trailing verb.
+  { label: 'Service Sheet', re: /\bservice sheet\s+#?\d+/i },
+  // `Invoice #INV-0012 has been approved` -- also disputed, paid, voided.
+  { label: 'Invoice', re: /\binvoice\s+#\S+/i },
+]
+
+/**
+ * Names the kind of non-PO Coupa notification this email is, or null if it is
+ * not one this system knows about.
+ *
+ * Coupa sends far more than purchase orders from the one address, and every
+ * other kind used to reach support as a failed ingestion -- because an
+ * unreadable email is deliberately treated as an incident, Coupa owning the PO
+ * template and being free to change it without warning. Dropping the kinds we
+ * can name keeps that alarm worth listening to; anything of an unrecognised
+ * shape still fails exactly as loudly as it did before.
+ *
+ * An email stating a `PO ID` is a purchase order no matter what its subject
+ * claims, and is never matched here. Nothing else stands between a loose
+ * pattern and a silently discarded order, so that check comes first.
+ */
+export function matchNonPoNotification(subject: string | undefined, body: string): string | null {
+  if (PO_NUMBER_RE.test(body)) return null
+  // Both, not one or the other: a mailbox rule that rewrites the subject must
+  // not hide the body's signature, and a body this system cannot read at all
+  // must not hide the subject's.
+  const haystack = `${subject ?? ''}\n${body}`
+  return NON_PO_NOTIFICATIONS.find((kind) => kind.re.test(haystack))?.label ?? null
+}
+
+/**
  * Parses the plain-text body of a Coupa PO notification.
  *
  * Callers pass the text/plain part where available; an HTML-only body must be

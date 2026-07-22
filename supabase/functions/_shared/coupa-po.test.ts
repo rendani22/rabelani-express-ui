@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { htmlToText, normalizePoNumber, parseCoupaPoEmail, resolveCoupaCustomer } from './coupa-po'
+import {
+  htmlToText,
+  matchNonPoNotification,
+  normalizePoNumber,
+  parseCoupaPoEmail,
+  resolveCoupaCustomer,
+} from './coupa-po'
 
 /** The GG80700992 notification, verbatim, as the sample the parser was built against. */
 const SAMPLE = `Exxaro Resources Purchase Order #GG80700992
@@ -370,6 +376,89 @@ describe('parseCoupaPoEmail', () => {
     const po = parsed(text + SAMPLE)
     expect(po.submittedBy).toBe('Ramadimetja Maria Mochaki')
     expect(po.onBehalfOf).toBe('Thabo Nkosi')
+  })
+})
+
+describe('matchNonPoNotification', () => {
+  /**
+   * A service sheet approval, verbatim. Coupa sends it from the same address as
+   * a purchase order, so it clears the sender gate and used to reach support as
+   * a failed ingestion -- the noise this function exists to stop.
+   */
+  const SERVICE_SHEET = `Powered by
+
+http://www.coupa.com
+
+Service Sheet #285159 Approved by Exxaro Resources
+
+Hi Supplier,
+
+The work you submitted as Service Sheet #285159 for Purchase Order #GG80688472 has been reviewed and approved by Exxaro Resources. No further action is required, but please review the details below for more information.
+
+Service Sheet Overview
+
+Purchase Order Number
+
+688472
+
+Total Amount Approved
+
+30,400.00 ZAR
+
+Submitted at
+
+07/21/2026
+
+Approved at
+
+07/22/2026
+
+Summary
+
+PO Line 1 - 200000556-PROVIDE, CATERING:VARIETY OF FUNCTIONS
+
+Total Amount:
+
+30,400.00 ZAR
+
+Due Date: 06/09/2026
+
+Completion Date: None`
+
+  it('names a service sheet notification', () => {
+    expect(matchNonPoNotification('Service Sheet #285159 Approved by Exxaro Resources', SERVICE_SHEET)).toBe(
+      'Service Sheet',
+    )
+  })
+
+  it('names a service sheet from its body alone, for a forwarder that sends no subject', () => {
+    expect(matchNonPoNotification(undefined, SERVICE_SHEET)).toBe('Service Sheet')
+  })
+
+  it('names a service sheet whose subject the forwarder rewrote', () => {
+    // Mailbox rules prefix subjects; the body still carries the signature.
+    expect(matchNonPoNotification('Fwd: notification from Coupa', SERVICE_SHEET)).toBe('Service Sheet')
+  })
+
+  it('names an invoice notification', () => {
+    expect(matchNonPoNotification('Invoice #INV-0012 has been approved', 'Hi Supplier, ...')).toBe('Invoice')
+  })
+
+  it('does not claim a real purchase order', () => {
+    expect(matchNonPoNotification('Exxaro Resources Purchase Order #GG80700992', SAMPLE)).toBeNull()
+  })
+
+  it('does not claim an email that states a PO ID, whatever its subject says', () => {
+    // The guard the loose patterns rely on: a PO ID means purchase order, so no
+    // signature can drop one. Without this, a PO whose lines happened to mention
+    // an invoice number would vanish silently.
+    expect(matchNonPoNotification('Service Sheet #285159 Approved by Exxaro Resources', SAMPLE)).toBeNull()
+  })
+
+  it('leaves an unrecognised email to fail loudly', () => {
+    // The whole point of naming these: an email of an unknown shape is still an
+    // incident, because Coupa can change the PO template without warning.
+    expect(matchNonPoNotification('Exxaro Resources Purchase Order #GG80700992', 'Something new from Coupa.')).toBeNull()
   })
 })
 

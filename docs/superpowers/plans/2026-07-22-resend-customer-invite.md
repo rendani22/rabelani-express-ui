@@ -26,6 +26,7 @@
 
 1. **No `src/hooks/use-customer-invite-status.ts`.** `customers.tsx` already calls `useQuery` inline for `['receivers']` and `['companies']` (`src/pages/directory/customers.tsx:255-256`). A wrapper with no added logic would not match its neighbours. Files in `src/hooks/` here exist when there is real logic to hold.
 2. **`lastSeenLabel` returns the complete phrase** (`"Last seen 3h ago"` / `"Never signed in"`) rather than a bare relative time. Returning bare time forces the component to prefix `"Last seen "`, which renders "Last seen Never signed in" in the edge case. Keeping assembly in the pure module means it is covered by tests.
+3. **No settled "Sent" label on the resend control.** Spec §4 calls for the button to go disabled-in-flight then show a settled "Sent" label. Only the in-flight state was built; on success the button reverts to "Resend invite" (or disappears, if the invalidated status flips the card out of "pending"). The sonner success toast (`Invite re-sent to {email}.`) already confirms the send, so a settled label on the button would just repeat that confirmation in a second place.
 
 ---
 
