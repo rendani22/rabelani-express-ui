@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Building2, ChevronRight, Contact, Loader2, Mail, MoreVertical, Package as PackageIcon, Pencil, Phone, Plus, Search, Power, Trash2, User, UserCheck, UserX, Users } from 'lucide-react'
+import { Building2, ChevronRight, Contact, Loader2, Mail, MailWarning, MoreVertical, Package as PackageIcon, Pencil, Phone, Plus, Search, Power, Send, Trash2, User, UserCheck, UserX, Users } from 'lucide-react'
 import type { ReceiverProfile } from '@/lib/api/receivers'
 import { deactivateReceiver, listReceivers, reactivateReceiver } from '@/lib/api/receivers'
-import { createCompany, deleteCompany, listCompanies, CUSTOMER_ROLE_LABEL, type Company, type CustomerRole } from '@/lib/api/customers'
+import { createCompany, deleteCompany, listCompanies, listCustomerInviteStatus, resendCustomerInvite, CUSTOMER_ROLE_LABEL, type Company, type CustomerInviteStatus, type CustomerRole } from '@/lib/api/customers'
 import { fetchPackagesByReceivers } from '@/lib/api/orders'
 import { reportError } from '@/lib/logger'
 import { PageBody, PageHeader } from '@/components/layout/page-header'
@@ -26,6 +26,7 @@ import {
 import { StatusStamp, TrackingNumber } from '@/components/dispatch'
 import { ReceiverAvatar } from '@/components/dispatch/receiver-avatar'
 import { formatDateShort } from '@/lib/format'
+import { inviteCardLine, inviteState } from '@/lib/invite-status'
 import { cn } from '@/lib/utils'
 import { CustomerDialog, type CustomerDialogTab } from './customer-dialogs'
 
@@ -123,12 +124,32 @@ const UNASSIGNED = '__unassigned__'
 /** Stable empty list, so a customer with no end users keeps a stable query key. */
 const NO_END_USERS: ReceiverProfile[] = []
 
-/** Buyer/End user role as a small stamp tag (echoes StatusStamp), implies portal access. */
-function RoleTag({ role }: { role: CustomerRole }) {
+/**
+ * Buyer/End user role as a small stamp tag (echoes StatusStamp), implies portal
+ * access. Goes amber when the invite was issued but never accepted, so one chip
+ * carries both facts instead of the row growing a second one.
+ *
+ * Colour alone is not an accessible signal, so the pending state also ships a
+ * `title` for pointer users and visually-hidden text for screen readers.
+ */
+function RoleTag({ role, pending }: { role: CustomerRole; pending?: boolean }) {
   return (
-    <span className="inline-flex items-center gap-1 rounded-[3px] border border-border bg-muted px-1.5 py-0.5 text-[10px] font-semibold uppercase leading-none tracking-[0.08em] text-muted-foreground">
-      <span className="size-1 rounded-full bg-current opacity-60" aria-hidden />
+    <span
+      title={pending ? 'Invite pending. This customer has not accepted their invite yet.' : undefined}
+      className={cn(
+        'inline-flex items-center gap-1 rounded-[3px] border px-1.5 py-0.5 text-[10px] font-semibold uppercase leading-none tracking-[0.08em]',
+        pending
+          ? 'border-warning/50 bg-warning/10 text-warning'
+          : 'border-border bg-muted text-muted-foreground',
+      )}
+    >
+      {/* The icon replaces the dot rather than joining it: two leading glyphs in
+          a 10px chip is noise, and the icon already does the dot's job. */}
+      {pending
+        ? <MailWarning className="size-2.5 shrink-0" aria-hidden />
+        : <span className="size-1 rounded-full bg-current opacity-60" aria-hidden />}
       {CUSTOMER_ROLE_LABEL[role]}
+      {pending && <span className="sr-only">, invite pending</span>}
     </span>
   )
 }
@@ -167,16 +188,24 @@ function NewCompanyDialog({ companies }: { companies: Company[] }) {
 }
 
 /** A single customer card. */
-function CustomerCard({ r, buyerName, onEdit, onContacts, onToggle, onHistory }: {
+function CustomerCard({ r, buyerName, status, resending, onEdit, onContacts, onToggle, onHistory, onResend }: {
   r: ReceiverProfile
   /** For end users: the name of the buyer who sees them, or null if nobody does. */
   buyerName: string | null
+  /** Auth-side invite state, or undefined while unknown (loading/failed/no auth user). */
+  status: CustomerInviteStatus | undefined
+  /** True while this specific card's resend is in flight. */
+  resending: boolean
   onEdit: () => void
   onContacts: () => void
   onToggle: () => void
   onHistory: () => void
+  onResend: () => void
 }) {
   const { can } = usePermissions()
+  const state = inviteState(r.role, status)
+  const cardLine = inviteCardLine(r.role, r.is_active, status)
+  const showResend = cardLine?.kind === 'resend'
   return (
     <div className={cn('group flex flex-col rounded-lg border bg-card transition-colors hover:border-foreground/15', !r.is_active && 'opacity-60')}>
       <div className="flex items-start justify-between gap-2 p-4 pb-3">
@@ -184,11 +213,16 @@ function CustomerCard({ r, buyerName, onEdit, onContacts, onToggle, onHistory }:
           <ReceiverAvatar name={`${r.name} ${r.surname}`} className="size-10" />
           <div className="flex min-w-0 flex-col gap-1.5">
             <span className="truncate font-semibold leading-none">{r.name} {r.surname}</span>
-            <div className="flex items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
               {r.role
-                ? <RoleTag role={r.role} />
+                ? <RoleTag role={r.role} pending={state === 'pending'} />
                 : <span className="text-[11px] text-muted-foreground/70">No portal access</span>}
               {!r.is_active && <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Inactive</span>}
+              {/* Reference info, not an action — it rides the chip row rather than
+                  spending a body row of its own on every healthy card. */}
+              {cardLine?.kind === 'last-seen' && (
+                <span className="text-[11px] text-muted-foreground/70">{cardLine.text}</span>
+              )}
             </div>
           </div>
         </div>
@@ -197,6 +231,15 @@ function CustomerCard({ r, buyerName, onEdit, onContacts, onToggle, onHistory }:
             <Button variant="ghost" size="icon-sm" aria-label="Actions" className="-mr-1 text-muted-foreground"><MoreVertical /></Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            {/* Only for an outstanding invite — there is nothing to re-send to a
+                customer who already accepted, and a deactivated one would get a
+                link that cannot sign them in. */}
+            {showResend && (
+              <DropdownMenuItem onSelect={onResend} disabled={resending || !can('customers.invite')}>
+                {resending ? <Loader2 className="animate-spin" /> : <Send />}
+                {resending ? 'Sending…' : 'Resend invite'}
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem onSelect={onEdit} disabled={!can('customers.update')}><Pencil /> Edit</DropdownMenuItem>
             <DropdownMenuItem onSelect={onContacts} disabled={!can('customers.update')}><Contact /> Manage contacts</DropdownMenuItem>
             <DropdownMenuItem onSelect={onToggle} disabled={!can('customers.deactivate')}><Power /> {r.is_active ? 'Deactivate' : 'Reactivate'}</DropdownMenuItem>
@@ -254,6 +297,16 @@ export function CustomersPage() {
 
   const { data, isLoading } = useQuery({ queryKey: ['receivers'], queryFn: listReceivers })
   const companies = useQuery({ queryKey: ['companies'], queryFn: listCompanies })
+
+  // Separate from ['receivers'] on purpose: this crosses into auth.users via an
+  // RPC, and a failure here must not take the directory down with it.
+  const inviteStatus = useQuery({ queryKey: ['customer-invite-status'], queryFn: listCustomerInviteStatus })
+
+  const statusById = useMemo(() => {
+    const m = new Map<string, CustomerInviteStatus>()
+    for (const s of inviteStatus.data ?? []) m.set(s.receiver_id, s)
+    return m
+  }, [inviteStatus.data])
 
   const companyName = useMemo(() => {
     const m = new Map<string, string>()
@@ -340,6 +393,15 @@ export function CustomersPage() {
     onError: (e) => toast.error(reportError(e, 'Could not update the customer.', { op: 'customers.toggle' })),
   })
 
+  const resend = useMutation({
+    mutationFn: (r: ReceiverProfile) => resendCustomerInvite(r),
+    onSuccess: (_, r) => {
+      toast.success(`Invite re-sent to ${r.email}.`)
+      qc.invalidateQueries({ queryKey: ['customer-invite-status'] })
+    },
+    onError: (e) => toast.error(reportError(e, 'Could not re-send the invite.', { op: 'customers.resendInvite' })),
+  })
+
   const removeCompany = useMutation({
     mutationFn: (id: string) => deleteCompany(id),
     onSuccess: () => {
@@ -415,10 +477,13 @@ export function CustomersPage() {
                         key={r.id}
                         r={r}
                         buyerName={buyerFor(r)}
+                        status={statusById.get(r.id)}
+                        resending={resend.isPending && resend.variables?.id === r.id}
                         onEdit={() => openCustomer(r, 'details')}
                         onContacts={() => openCustomer(r, 'contacts')}
                         onToggle={() => toggle.mutate(r)}
                         onHistory={() => setHistoryFor(r)}
+                        onResend={() => resend.mutate(r)}
                       />
                     ))}
                   </div>

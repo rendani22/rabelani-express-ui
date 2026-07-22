@@ -23,6 +23,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
 import {
   COUPA_SENDER,
   htmlToText,
+  matchNonPoNotification,
   parseCoupaPoEmail,
   resolveCoupaCustomer,
   type CoupaCustomerCandidate,
@@ -356,6 +357,17 @@ serve(async (req) => {
       : payload.html
         ? htmlToText(payload.html)
         : ''
+
+    // The sender check above only says the mail came from Coupa; this says it
+    // is a purchase order. A service sheet approval or an invoice status change
+    // arrives from the same address and is not a failed ingestion -- it is not
+    // an ingestion at all, so it leaves on the same terms as a non-Coupa mail:
+    // 202 so the provider does not retry, and no queue row, audit row, Sentry
+    // event or support mail, because nothing was lost.
+    const ignoredAs = matchNonPoNotification(payload.subject, body)
+    if (ignoredAs) {
+      return json({ ignored: true, reason: `${ignoredAs} notification, not a purchase order` }, 202)
+    }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!

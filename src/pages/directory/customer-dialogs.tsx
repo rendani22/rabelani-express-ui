@@ -126,6 +126,12 @@ export function CustomerDialog({
     onSuccess: () => {
       toast.success(willInvite ? 'Invite sent.' : customer ? 'Customer updated.' : 'Customer added.')
       qc.invalidateQueries({ queryKey: ['receivers'] })
+      // Both the invite path and an edit that flips the portal-access switch
+      // (which can set role -> null, revoking access) change what the
+      // customer card should show — the pending chip, the resend action, or
+      // the last-seen line all key off this query, and it does not otherwise
+      // refetch while the directory stays mounted behind the dialog.
+      qc.invalidateQueries({ queryKey: ['customer-invite-status'] })
       onOpenChange(false)
     },
     onError: (e) => toast.error(reportError(e, 'Could not save the customer.', { op: 'customers.save' })),
