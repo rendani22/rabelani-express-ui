@@ -29,3 +29,30 @@ export function lastSeenLabel(status: CustomerInviteStatus | undefined): string 
   if (!status?.confirmed_at) return null
   return status.last_sign_in_at ? `Last seen ${timeAgo(status.last_sign_in_at)}` : 'Never signed in'
 }
+
+/**
+ * What, if anything, the customer card should show below the role/buyer rows:
+ * a resend action, a last-seen line, or nothing. This is the one place that
+ * decides between the two — the page should only render what comes back.
+ *
+ * A deactivated customer has no portal access (getCurrentCustomer requires
+ * is_active), so a freshly minted invite link would be dead on arrival —
+ * resend is withheld even though the "pending" chip elsewhere is still an
+ * accurate description of their auth state. Last-seen only ever appears for a
+ * confirmed, currently-active customer: a status row can outlive the access
+ * it once described (role revoked, or a stale/failed refetch), and 'none'
+ * should show nothing beyond "No portal access".
+ */
+export function inviteCardLine(
+  role: CustomerRole | null | undefined,
+  isActive: boolean,
+  status: CustomerInviteStatus | undefined,
+): { kind: 'resend' } | { kind: 'last-seen'; text: string } | null {
+  const state = inviteState(role, status)
+  if (state === 'pending') return isActive ? { kind: 'resend' } : null
+  // `lastSeenLabel` is only ever null when `status.confirmed_at` is falsy, and
+  // `state === 'active'` already guarantees it isn't — so this is never null
+  // here, but the cast stays honest about `lastSeenLabel`'s own return type.
+  if (state === 'active') return { kind: 'last-seen', text: lastSeenLabel(status) as string }
+  return null
+}

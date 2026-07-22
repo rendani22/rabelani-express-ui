@@ -26,7 +26,7 @@ import {
 import { StatusStamp, TrackingNumber } from '@/components/dispatch'
 import { ReceiverAvatar } from '@/components/dispatch/receiver-avatar'
 import { formatDateShort } from '@/lib/format'
-import { inviteState, lastSeenLabel } from '@/lib/invite-status'
+import { inviteCardLine, inviteState } from '@/lib/invite-status'
 import { cn } from '@/lib/utils'
 import { CustomerDialog, type CustomerDialogTab } from './customer-dialogs'
 
@@ -199,12 +199,7 @@ function CustomerCard({ r, buyerName, status, resending, onEdit, onContacts, onT
 }) {
   const { can } = usePermissions()
   const state = inviteState(r.role, status)
-  const lastSeen = lastSeenLabel(status)
-  // A deactivated customer has no portal access (getCurrentCustomer requires
-  // is_active), so a freshly minted invite link would be dead on arrival —
-  // never offer to resend one, even though the "pending" chip itself is still
-  // an accurate description of their auth state.
-  const canResend = state === 'pending' && r.is_active
+  const cardLine = inviteCardLine(r.role, r.is_active, status)
   return (
     <div className={cn('group flex flex-col rounded-lg border bg-card transition-colors hover:border-foreground/15', !r.is_active && 'opacity-60')}>
       <div className="flex items-start justify-between gap-2 p-4 pb-3">
@@ -252,7 +247,7 @@ function CustomerCard({ r, buyerName, status, resending, onEdit, onContacts, onT
             </button>
           )
         )}
-        {canResend ? (
+        {cardLine?.kind === 'resend' ? (
           // The whole point of noticing a pending card is to act on it, so the
           // action sits on the card rather than behind the ⋯ menu — same
           // pattern as the "No buyer assigned" row above.
@@ -267,9 +262,9 @@ function CustomerCard({ r, buyerName, status, resending, onEdit, onContacts, onT
               : <Send className="size-3.5 shrink-0" />}
             <span className="truncate">{resending ? 'Sending…' : 'Resend invite'}</span>
           </button>
-        ) : lastSeen ? (
+        ) : cardLine?.kind === 'last-seen' ? (
           <span className="flex items-center gap-2 text-muted-foreground">
-            <Clock className="size-3.5 shrink-0" /> <span className="truncate">{lastSeen}</span>
+            <Clock className="size-3.5 shrink-0" /> <span className="truncate">{cardLine.text}</span>
           </span>
         ) : null}
       </div>
