@@ -41,6 +41,7 @@ ingested PO still gets a human on the Global PO page before it means anything.
 | 10 | The actor is the **all-zeros system uuid**, not a user. | `performed_by` is NOT NULL and a webhook has no `auth.uid()`. This reuses the existing convention — `audit_table_changes()` and the phase-5 policy trigger already record `COALESCE(auth.uid(), '00000000-…')`. No migration, no fake user. |
 | 11 | The ingestion report is **network-wide, never company-scoped**. | A failed ingestion has no PO and so no customer — frequently that *is* the failure. Scoped, it could only show successes and would report a 0% failure rate however much was being dropped. The card hides when the dashboard is company-scoped. |
 | 12 | Coupa notifications that are **not** purchase orders are dropped by name, not by shape. | `matchNonPoNotification` in `_shared/coupa-po.ts` carries one entry per recognised kind (today: service sheets, invoices). A match returns `202 {ignored:true}` before any database work — no queue row, no audit row, no Sentry event, no support mail, exactly like a non-Coupa sender. Anything of an *unrecognised* shape still fails loudly, which is the point: "unreadable" has to stay an alarm, because Coupa owns the PO template and can change it without warning. Adding a kind is one line; it never fires on an email stating a `PO ID`. |
+| 13 | A **rejected ingestion is not a Sentry event**. The dead-letter queue is where it is raised. | `unreadable_email`, `unknown_item_codes`, `unknown_customer` and `already_recorded` audit, queue and mail support, and then stop. Each one already has a durable copy of the email, a row on the Global PO page, a Retry button and an owner — a Sentry event on top is a duplicate alert nobody can clear, and it makes the issue feed noisy enough to hide the real ones. Sentry still fires for what the queue *cannot* show: an unset `COUPA_INGEST_SECRET`, an unhandled throw (`unexpected_error`), and any failure of the queue/audit/forward-to-support machinery itself — the cases where the retry path is the thing that broke. |
 
 ## Built
 
@@ -104,8 +105,9 @@ ingested PO still gets a human on the Global PO page before it means anything.
 4. **Point a forwarder at the function** — see "Monitoring the mailbox" below.
    Any provider works that maps onto `IngestRequest` (`{ from, subject, text,
    html }`) and sends the secret as `X-Ingest-Secret`.
-5. **Set `SENTRY_DSN`**, or parse failures and unknown-code rejections go
-   nowhere — see the alerting TODO below.
+5. **Set `SENTRY_DSN`** — not for rejections (those live in the queue, see
+   below), but for the cases the queue cannot show: an unset secret, an
+   unhandled throw, or a failure of the queue/audit/mail machinery itself.
 
 ## Monitoring the mailbox
 
@@ -244,10 +246,13 @@ ingestion, run again.
       is trivially spoofed. If the secret is not enough, add DKIM/SPF
       verification at the forwarder.
 - [ ] **Who is paged.** Failures are no longer silent from the app's side — they
-      are audited, counted on the Executive card, and emailed to support. But
-      nothing *pages* anyone: the card is pull, not push. If a Coupa template
-      change breaks every email overnight, the failure figure is only as fast as
-      the next person to open the dashboard.
+      are audited, counted on the Executive card, queued for replay, and
+      emailed to support. But nothing *pages* anyone: the card is pull, not
+      push, and per decision #13 a rejection no longer raises a Sentry event. If
+      a Coupa template change breaks every email overnight, the alarm is the
+      support mailbox and the next person to open the dashboard. If that turns
+      out to be too slow, the fix is a threshold alert on the queue ("N
+      unreadable in an hour"), not putting every rejection back into Sentry.
 - [ ] **The counts are a floor, not a ledger.** The audit insert is best-effort
       (a failed insert must not fail the ingestion), so an attempt whose audit
       row could not be written is invisible to the report. Sentry is the backstop.

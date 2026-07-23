@@ -283,7 +283,19 @@ serve(async (req) => {
    */
   let queued = false
 
-  /** Every dead end audits, queues, and (usually) emails; only wording differs. */
+  /**
+   * Every dead end audits, queues, and (usually) emails; only wording differs.
+   *
+   * None of them raise a Sentry event. A rejection is not a lost signal: the
+   * email is in `coupa_ingestion_failures`, visible on the Global PO page with
+   * a Retry button, and support has already been mailed. Reporting it again
+   * only duplicates an alert someone is holding, and turns a queue an admin
+   * works through into an error feed nobody can clear.
+   *
+   * Sentry keeps the things the queue cannot show: an unset secret, an
+   * unexpected crash, and any failure of the queue/audit/mail machinery itself
+   * -- those are the cases where the retry path is the thing that broke.
+   */
   const reject = async (
     reason: CoupaFailureReason,
     failure: Omit<IngestFailure, 'from' | 'emailSubject' | 'body'>,
@@ -384,12 +396,9 @@ serve(async (req) => {
     const parsed = parseCoupaPoEmail(body)
     if (!parsed.success) {
       // Coupa owns this template and can change it without notice, so a parse
-      // failure is a real incident, not routine input validation.
-      await captureException(new Error(`Coupa PO parse failed: ${parsed.error}`), {
-        level: 'error',
-        logger: 'ingest-coupa-po',
-        extra: { subject: payload.subject, error: parsed.error }
-      })
+      // failure is a real incident, not routine input validation -- but it is
+      // raised in the queue, not in Sentry. `unreadable_email` rows piling up
+      // on the Global PO page are the signal that the template moved.
       await reject('unreadable_email', {
         reason: 'The email could not be read',
         details: parsed.error,
@@ -421,11 +430,6 @@ serve(async (req) => {
       // RPC would reject a partial payload anyway, and a purchase order that
       // silently lost a line is worse than one that was never created: the
       // second is visible, the first is not.
-      await captureException(new Error(`Coupa PO ${po.poNumber} references unknown item codes`), {
-        level: 'error',
-        logger: 'ingest-coupa-po',
-        extra: { poNumber: po.poNumber, unknownCodes }
-      })
       await reject(
         'unknown_item_codes',
         {
@@ -463,11 +467,6 @@ serve(async (req) => {
       // Refuse the whole PO rather than record it with no customer: a PO with
       // no customer is invisible to the company-scoped dashboards, so it would
       // be lost in a way nobody notices. An exception a person reads is better.
-      await captureException(new Error(`Coupa PO ${po.poNumber} has no matching customer`), {
-        level: 'error',
-        logger: 'ingest-coupa-po',
-        extra: { poNumber: po.poNumber, onBehalfOf: po.onBehalfOf, submittedBy: po.submittedBy }
-      })
       await reject('unknown_customer', {
         reason: 'The customer could not be identified',
         details: customer.error,
@@ -493,11 +492,6 @@ serve(async (req) => {
       // POs on revision, and how to apply a revision is still an open decision,
       // so refuse loudly rather than pick one silently.
       if (rpcError.code === '23505') {
-        await captureException(new Error(`Coupa PO ${po.poNumber} already exists (revision?)`), {
-          level: 'warning',
-          logger: 'ingest-coupa-po',
-          extra: { poNumber: po.poNumber }
-        })
         await reject('already_recorded', {
           reason: 'This purchase order is already recorded',
           details: `${po.poNumber} already exists. Coupa re-sends a PO when it is revised, so this email may carry changed quantities.`,
@@ -547,6 +541,11 @@ serve(async (req) => {
       total: po.total
     })
   } catch (err) {
+    // The one failure that still reports. The classified rejections above are
+    // known outcomes with an owner and a Retry button; this is an unhandled
+    // throw -- nobody has decided it is expected, and the queue row says
+    // "something went wrong" without saying where. That is a bug, and bugs are
+    // what Sentry is for.
     await captureException(err, { level: 'error', logger: 'ingest-coupa-po' })
     const details = err instanceof Error ? err.message : String(err)
 
