@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { AlertCircle, CalendarClock, ChevronLeft, ChevronRight, Download, MoreHorizontal, Package as PackageIcon, PackageCheck, Plus, RefreshCw, Search, Trash2 } from 'lucide-react'
+import { toast } from 'sonner'
+import { AlertCircle, CalendarClock, ChevronLeft, ChevronRight, Download, FileDown, MoreHorizontal, Package as PackageIcon, PackageCheck, Plus, RefreshCw, Search, Trash2 } from 'lucide-react'
 import type { Package } from '@/lib/models/package'
 import {
   DropdownMenu,
@@ -9,6 +10,10 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { getPackage } from '@/lib/api/packages'
+import { fetchOrdersForExport } from '@/lib/api/orders'
+import { ordersToCsv } from '@/lib/orders-export'
+import { downloadCsv, yyyymmdd } from '@/lib/csv'
+import { reportError } from '@/lib/logger'
 import { ORDER_STATUS_FILTERS, useOrders } from '@/hooks/use-orders'
 import { useCompanies } from '@/hooks/use-dashboard'
 import { useDebounced } from '@/hooks/use-debounced'
@@ -102,6 +107,26 @@ export function OrdersPage() {
     setPanelOpen(true)
   }
 
+  // Export every order matching the current filters (not just the visible page).
+  const [exporting, setExporting] = useState(false)
+  const onExport = async () => {
+    setExporting(true)
+    try {
+      const result = await fetchOrdersForExport({ status, search: debouncedSearch, companyId: company === 'all' ? null : company })
+      if (result.packages.length === 0) {
+        toast.info('No orders to export for the current filters.')
+        return
+      }
+      const csv = ordersToCsv(result.packages, result.names)
+      downloadCsv(`orders-${yyyymmdd()}.csv`, csv)
+      toast.success(`Exported ${result.packages.length} order${result.packages.length === 1 ? '' : 's'} to CSV.`)
+    } catch (err) {
+      toast.error(reportError(err, 'Could not export orders.', { op: 'orders.export' }))
+    } finally {
+      setExporting(false)
+    }
+  }
+
   return (
     <PageBody>
       <PageHeader
@@ -128,6 +153,9 @@ export function OrdersPage() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+            <Button variant="outline" size="sm" onClick={onExport} disabled={exporting} data-tour="orders-export">
+              <FileDown className={exporting ? 'animate-pulse' : ''} /> {exporting ? 'Exporting…' : 'Export CSV'}
+            </Button>
             <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching} data-tour="orders-refresh">
               <RefreshCw className={isFetching ? 'animate-spin' : ''} /> Refresh
             </Button>

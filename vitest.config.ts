@@ -43,6 +43,7 @@ export default defineConfig({
         'src/lib/utils.ts',
         'src/lib/format.ts',
         'src/lib/csv.ts',
+        'src/lib/orders-export.ts',
         'src/lib/status.ts',
         'src/lib/chart.ts',
         'src/lib/signals.ts',
