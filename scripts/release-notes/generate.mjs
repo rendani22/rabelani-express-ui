@@ -23,9 +23,9 @@
 //   RELEASE_NOTES_MODEL   default 'claude-sonnet-5'
 
 import { execFileSync } from 'node:child_process'
-import { readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { dirname, join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = join(__dirname, '..', '..')
@@ -362,7 +362,12 @@ const date = args.date ? String(args.date) : new Date().toISOString().slice(0, 1
 const notes = render(enriched, version, date)
 
 if (OUT) {
-  writeFileSync(join(REPO_ROOT, OUT), notes + '\n', 'utf8')
+  // `resolve` honours an absolute --out (e.g. /tmp/release-notes.md from CI);
+  // a relative one is anchored at the repo root. Create the parent dir first so
+  // a not-yet-existing target directory doesn't ENOENT the write.
+  const outPath = resolve(REPO_ROOT, OUT)
+  mkdirSync(dirname(outPath), { recursive: true })
+  writeFileSync(outPath, notes + '\n', 'utf8')
   console.error(`wrote ${OUT}`)
 }
 // Emit machine-readable outputs for the workflow (stdout).
