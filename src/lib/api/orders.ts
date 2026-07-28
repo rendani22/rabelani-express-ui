@@ -97,6 +97,30 @@ export async function fetchDeletedOrders(): Promise<OrdersResult> {
   return { packages, total: packages.length, names }
 }
 
+/** Upper bound on rows pulled in a single CSV export (matches the completed-orders cap). */
+const EXPORT_LIMIT = 5000
+
+/**
+ * All orders matching the current list filters (status/search/company), ignoring
+ * pagination — the source for the CSV export. Capped at {@link EXPORT_LIMIT} rows,
+ * newest first, same as the on-screen list.
+ */
+export async function fetchOrdersForExport(
+  q: Pick<OrdersQuery, 'status' | 'search' | 'companyId'>,
+): Promise<OrdersResult> {
+  const result = await loadPackages({
+    limit: EXPORT_LIMIT,
+    ...(q.status && q.status !== 'all' ? { status: q.status } : {}),
+    ...(q.search ? { search: q.search } : {}),
+    ...(q.companyId ? { companyId: q.companyId } : {}),
+  })
+  if (!result.success) throw new Error(result.error)
+
+  const packages = [...result.data]
+  const names = await fetchReceiverNames(packages.map((p) => p.receiver_email))
+  return { packages, total: result.count ?? packages.length, names }
+}
+
 export async function fetchOrders(q: OrdersQuery): Promise<OrdersResult> {
   const result = await loadPackages({
     page: q.page,
