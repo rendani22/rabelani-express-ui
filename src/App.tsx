@@ -3,6 +3,7 @@ import { ProtectedRoute } from '@/components/protected-route'
 import { StaffRoute, CustomerRoute, HomeRedirect } from '@/components/role-routes'
 import { AppLayout } from '@/components/layout/app-layout'
 import { CustomerLayout } from '@/components/layout/customer-layout'
+import { Welcome } from '@/pages/welcome'
 import { Login } from '@/pages/login'
 import { AcceptInvite } from '@/pages/accept-invite'
 import { ResetPassword } from '@/pages/reset-password'
@@ -28,6 +29,7 @@ import { PermissionRoute } from '@/components/permission-route'
 export default function App() {
   return (
     <Routes>
+      <Route path="/welcome" element={<Welcome />} />
       <Route path="/login" element={<Login />} />
       <Route path="/accept-invite" element={<AcceptInvite />} />
       <Route path="/reset-password" element={<ResetPassword />} />
