@@ -44,7 +44,15 @@ export interface StaffProfile {
 // Result interfaces (field names identical to the Angular service)
 // ============================================================================
 
-/** Dashboard statistics for package overview */
+/**
+ * Dashboard statistics for package overview.
+ *
+ * Every figure here except `drafts` counts *released* orders only — a draft is
+ * captured but deliberately not sent to the receiver, so it has no pipeline
+ * stage, no SLA clock and nothing to fulfil. `total` is therefore the exact sum
+ * of the status buckets, and `drafts` sits alongside it as the count the
+ * headline leaves out.
+ */
 export interface PackageStats {
   total: number
   pending: number
@@ -55,6 +63,8 @@ export interface PackageStats {
   todayCount: number
   weeklyCount: number
   monthlyCount: number
+  /** Captured-but-unreleased orders. Excluded from every other field here. */
+  drafts: number
 }
 
 /** Status distribution item for charts */
@@ -227,7 +237,8 @@ export interface HourlyHeatmap {
  * the payload onto the presentation shapes above.
  */
 interface DashboardMetricsPayload {
-  stats: PackageStats
+  /** `drafts` is optional: it arrives only once the draft-split migration is deployed. */
+  stats: Omit<PackageStats, 'drafts'> & { drafts?: number }
   statusCounts: Record<string, number>
   weeklyTimeSeries: Array<{ date: string; count: number }>
   monthlyTimeSeries: Array<{ date: string; count: number }>
@@ -292,6 +303,7 @@ const EMPTY_STATS: PackageStats = {
   todayCount: 0,
   weeklyCount: 0,
   monthlyCount: 0,
+  drafts: 0,
 }
 
 const EMPTY_DRIVER_STATS: DriverStats = {
@@ -430,7 +442,9 @@ export async function fetchSlaBreaches(companyId?: string | null): Promise<SlaBr
 /** Maps the RPC payload onto the presentation bundle (port of `applyMetrics`). */
 function mapMetrics(m: DashboardMetricsPayload): OperationsDashboardData {
   return {
-    stats: m.stats,
+    // Pre-migration payloads have no `drafts`; 0 is honest there — drafts were
+    // folded into the other counts, so there is no separate figure to report.
+    stats: { ...m.stats, drafts: m.stats.drafts ?? 0 },
     statusDistribution: buildStatusDistribution(m.statusCounts),
     weeklyTimeSeries: buildWeeklySeries(m.weeklyTimeSeries),
     monthlyTimeSeries: buildMonthlySeries(m.monthlyTimeSeries),
@@ -983,6 +997,8 @@ function formatShortDate(date: Date): string {
 
 function getStatusLabel(status: PackageStatus): string {
   switch (status) {
+    case PACKAGE_STATUS.DRAFT:
+      return 'Draft'
     case PACKAGE_STATUS.PENDING:
       return 'Pending'
     case PACKAGE_STATUS.NOTIFIED:

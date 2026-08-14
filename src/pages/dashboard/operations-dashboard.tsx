@@ -86,7 +86,16 @@ function StatsRow({
 }) {
   return (
     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-      <StatTile icon={Package} label="Total Packages" value={stats.total} accent />
+      {/* Total counts released orders only, so it reconciles with the tiles
+          beside it. Drafts are named in the subtitle rather than silently
+          dropped — and only when there are any. */}
+      <StatTile
+        icon={Package}
+        label="Total Packages"
+        value={stats.total}
+        subtitle={stats.drafts > 0 ? `${num(stats.drafts)} draft not counted` : undefined}
+        accent
+      />
       <StatTile icon={Clock} label="Pending" value={stats.pending} />
       <StatTile icon={Truck} label="In Transit" value={stats.inTransit} />
       <StatTile icon={Inbox} label="Ready to Collect" value={stats.readyForCollection} />
