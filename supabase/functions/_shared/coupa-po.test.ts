@@ -457,6 +457,153 @@ Completion Date: None`
     expect(matchNonPoNotification('Fwd: notification from Coupa', SERVICE_SHEET)).toBe('Service Sheet')
   })
 
+  /**
+   * The GG80711310 emailed order copy, verbatim down to the terms-and-conditions
+   * boilerplate it trails (elided -- it carries no signature either way). Same
+   * sender and a subject all but identical to a real PO notification, but it
+   * states `PO NUMBER` rather than `PO ID`, so it used to reach support as an
+   * unreadable email.
+   */
+  const EMAILED_PO_COPY = `Powered by
+
+Coupa
+
+Coupa
+
+-----------------------------------------------------------------
+Exxaro Coal (Pty) Ltd Grootegeluk Mine Purchase Order #GG80711310
+-----------------------------------------------------------------
+
+Order Summary
+
+Date
+
+2026/08/14
+
+PO Total
+
+1 614,60 ZAR
+
+Payment Terms
+
+Z001
+
+Contact
+
+Deeron Meyer
+
+DEERON.MEYER@EXXARO.COM
+
+Manage Order
+( https://exxaro.coupahost.com/supplier_order_headers/view_po_via_email/fa2b2b0e0413c0ed2b6983ea954dbbb01dfde39f )
+
+
+Create Invoice
+( https://exxaro.coupahost.com/supplier_invoices/fa2b2b0e0413c0ed2b6983ea954dbbb01dfde39f/create_invoice_from_po_via_email )
+
+
+Orders details below
+
+acknowledge_email_icon
+( https://exxaro.coupahost.com/supplier_order_headers/fa2b2b0e0413c0ed2b6983ea954dbbb01dfde39f/ack_po_via_email )
+
+
+Acknowledge PO
+
+tracking_email_icon
+( https://exxaro.coupahost.com/supplier_order_headers/fa2b2b0e0413c0ed2b6983ea954dbbb01dfde39f/add_shipment_details_via_email )
+
+
+Add Delivery Tracking
+
+------------------------------
+Never Miss an Order with Coupa
+------------------------------
+
+COMPANY
+
+Rabelani MM Trading Enterprise CC
+
+02 SNEUFPEUL
+
+LEPHALALE,  Limpopo 0557
+
+Attn: Erick Mulaudzi
+rabelanimm@gmail.com
+
+PURCHASE ORDER
+
+PO NUMBER
+GG80711310
+ERP PR NUMBER
+
+DATE
+2026/08/14
+BREAK DOWN ORDER
+No
+PURCHASE GROUP
+
+G44
+CONTACT PERSON
+Pule Legong
+
+Ship To
+Exxaro Coal (Pty) Ltd Grootegeluk Mine
+DA01-Main Store
+
+We require an order acknowledgment for the following items:
+
+Line
+Description
+Need By Date
+Qty
+Unit
+
+Price
+
+Total
+
+1
+
+CHARCOAL, WOOD: TYPE: CHARKA BRIQUETTES, CONTAINER TYPE: BAG,
+CAPACITY: 4 KG
+
+Item Number: 378942
+
+Unloading Point: 152B
+
+2026/08/20
+15
+Each
+
+107,64
+
+1 614,60
+
+Total net item value excl.tax 1 614,60 ZAR`
+
+  it('names the emailed order copy Exxaro sends alongside the notification', () => {
+    expect(
+      matchNonPoNotification('Exxaro Coal (Pty) Ltd Grootegeluk Mine Purchase Order #GG80711310', EMAILED_PO_COPY),
+    ).toBe('Emailed PO copy')
+  })
+
+  it('names the emailed order copy from an HTML body, where the hrefs are gone', () => {
+    // htmlToText strips every attribute, so the `..._via_email` routes vanish
+    // and only the button text is left to recognise it by.
+    const html = htmlToText(`
+      <p><a href="https://exxaro.coupahost.com/x/ack_po_via_email">Acknowledge PO</a></p>
+      <table><tr><td>PO NUMBER</td><td>GG80711310</td></tr></table>`)
+    expect(html).not.toContain('ack_po_via_email')
+    expect(matchNonPoNotification(undefined, html)).toBe('Emailed PO copy')
+  })
+
+  it('does not claim a real purchase order that happens to link back via email', () => {
+    // The PO ID guard, again: the copy's signature must not drop the
+    // notification if Coupa ever puts the same action links on it.
+    expect(matchNonPoNotification(undefined, `${SAMPLE}\n\nAcknowledge PO`)).toBeNull()
+  })
+
   it('names an invoice notification', () => {
     expect(matchNonPoNotification('Invoice #INV-0012 has been approved', 'Hi Supplier, ...')).toBe('Invoice')
   })

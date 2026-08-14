@@ -221,6 +221,20 @@ const NON_PO_NOTIFICATIONS: readonly { readonly label: string; readonly re: RegE
   { label: 'Service Sheet', re: /\bservice sheet\s+#?\d+/i },
   // `Invoice #INV-0012 has been approved` -- also disputed, paid, voided.
   { label: 'Invoice', re: /\binvoice\s+#\S+/i },
+  // Exxaro's printable order copy: the same order as a document, with buttons
+  // that act on it by return mail. It is a purchase order, but not one this
+  // system can use -- it states the number under a `PO NUMBER` heading rather
+  // than in the `PO ID` field, and names nobody the order was raised for (only
+  // Exxaro's own buyer, under `Contact Person`), so `resolveCoupaCustomer`
+  // would have nothing to match a customer against even if it were read. The
+  // CSP notification for the same order carries all of that and is the one
+  // ingested; this copy is a second rendering of an order already handled.
+  //
+  // Matched on the `..._via_email` action routes (`ack_po_via_email`,
+  // `add_shipment_details_via_email`, ...) and, for a body flattened out of
+  // HTML -- where `htmlToText` drops every href -- on the button text those
+  // routes sit behind.
+  { label: 'Emailed PO copy', re: /_via_email\b|^[ \t]*Acknowledge PO[ \t]*$/im },
 ]
 
 /**
