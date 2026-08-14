@@ -301,6 +301,23 @@ describe('parseCoupaPoEmail', () => {
     expect(po.submittedBy).toBe('Thabo Nkosi')
   })
 
+  it('keeps a name whose middle is blank whole, on one line', () => {
+    // GG80711250 failed on "Stefan  (SP) Els": Coupa joins first, middle and
+    // last name, so a person with no middle name has two spaces inside their
+    // own name. The value used to be cut at the first such run, leaving
+    // "Stefan" -- which matched no customer.
+    const po = parsed(SAMPLE.replace('Submitted By    Ramadimetja Maria Mochaki', 'Submitted By    Stefan  (SP) Els'))
+    expect(po.submittedBy).toBe('Stefan (SP) Els')
+  })
+
+  it('keeps a name whose middle is blank whole, when the value sits below its label', () => {
+    // GG80711250's actual layout -- the split-line one, where the two-space run
+    // is the only thing on the line that could be mistaken for a column break.
+    const po = parsed(SAMPLE_SPLIT_LINES.replaceAll('Richard Tshepang Tladi', 'Stefan  (SP) Els'))
+    expect(po.onBehalfOf).toBe('Stefan (SP) Els')
+    expect(po.submittedBy).toBe('Stefan (SP) Els')
+  })
+
   it('reads the header fields when every value sits below its label', () => {
     const po = parsed(SAMPLE_SPLIT_LINES)
     expect(po.poNumber).toBe('GG80701939')
@@ -499,6 +516,19 @@ describe('resolveCoupaCustomer', () => {
     // The same person, split after the first word instead of the second.
     const split = { id: 'r3', name: 'Ramadimetja', surname: 'Maria Mochaki' }
     expect(resolveCoupaCustomer(po('Ramadimetja Maria Mochaki', null), [split])).toMatchObject({ receiverId: 'r3' })
+  })
+
+  it('ignores the short name Coupa brackets beside a given name', () => {
+    // "Stefan  (SP) Els" is one person; receiver_profiles holds "Stefan Els".
+    const els = { id: 'r4', name: 'Stefan', surname: 'Els' }
+    expect(resolveCoupaCustomer(po('Stefan (SP) Els', null), [els])).toMatchObject({ success: true, receiverId: 'r4' })
+  })
+
+  it('ignores the bracketed short name on the customer record too', () => {
+    // Whoever captured the customer may have copied the name out of Coupa
+    // whole; neither side is the authority on the bracket.
+    const els = { id: 'r4', name: 'Stefan (SP)', surname: 'Els' }
+    expect(resolveCoupaCustomer(po('Stefan Els', null), [els])).toMatchObject({ success: true, receiverId: 'r4' })
   })
 
   it('ignores case and spacing differences', () => {
