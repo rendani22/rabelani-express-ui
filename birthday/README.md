@@ -1,9 +1,12 @@
-# Our Story in Starlight 🎂
+# Starlight to Istanbul 🎂🎈
 
 A self-contained, interactive birthday page — a scrolling photo timeline of your
-story together, ending with a candle she can blow out (tap it!) and a confetti
-finale. No build step, no dependencies, works offline: just open
-`index.html` in a browser.
+story together under a Bosphorus night sky with drifting hot-air balloons,
+ending with a candle she blows out (tap it!) to reveal the surprise:
+**"We're going to Turkey!"**, complete with a boarding pass in her name,
+confetti, and a fleet of Cappadocia balloons rising across the screen.
+No build step, no dependencies, works offline: just open `index.html` in a
+browser.
 
 > **Note:** this folder is a standalone gift page. It is not part of the
 > Dispatch React app and is not imported by it.
@@ -19,6 +22,9 @@ Everything personal lives in the **`EDIT ME` block** at the top of the
 3. **The moments** — each entry in `moments` has a `date`, `title`, `text`,
    and `photo`. Add, remove, or reorder as many as you like; the timeline
    adapts automatically.
+4. **The Turkey surprise** — the `trip` object holds the reveal line, the
+   boarding-pass details (`from` airport code, travel `date` once booked,
+   `seat`), and the destination text. The passenger name comes from `name`.
 
 ## Add your photos
 
@@ -48,7 +54,8 @@ Because the page is a single file (fonts embedded), you can:
   Vercel, Cloudflare Pages), or
 - send the folder to her phone/laptop as-is.
 
-Little touches to know about: the hero sky twinkles with rising embers, each
-polaroid opens in a lightbox when tapped, the timeline lights up as you scroll,
-and the candle at the end blows out with a puff of smoke and confetti. All
-motion respects `prefers-reduced-motion`.
+Little touches to know about: the hero sky twinkles with rising embers and
+hot-air balloons drifting past, each polaroid opens in a lightbox when tapped,
+the timeline lights up as you scroll, and the candle at the end blows out with
+a puff of smoke before the trip reveal. All motion respects
+`prefers-reduced-motion`.
