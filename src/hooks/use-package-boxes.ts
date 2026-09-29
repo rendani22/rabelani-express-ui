@@ -32,10 +32,10 @@ export function useSavePackageBox(packageId: string) {
     mutationFn: ({ lines, boxId }: { lines: readonly BoxContentLine[]; boxId?: string }) =>
       savePackageBox(packageId, lines, boxId),
     onSuccess: (_id, { boxId }) => {
-      toast.success(boxId ? 'Box updated.' : 'Box added.')
+      toast.success(boxId ? 'Pack updated.' : 'Pack added.')
       qc.invalidateQueries({ queryKey: ['package-boxes', packageId] })
     },
-    onError: (e) => toast.error(reportError(e, 'Could not save the box.', { op: 'boxes.save', packageId })),
+    onError: (e) => toast.error(reportError(e, 'Could not save the pack.', { op: 'boxes.save', packageId })),
   })
 }
 
@@ -44,9 +44,9 @@ export function useDeletePackageBox(packageId: string) {
   return useMutation({
     mutationFn: (boxId: string) => deletePackageBox(boxId),
     onSuccess: () => {
-      toast.success('Box removed.')
+      toast.success('Pack removed.')
       qc.invalidateQueries({ queryKey: ['package-boxes', packageId] })
     },
-    onError: (e) => toast.error(reportError(e, 'Could not remove the box.', { op: 'boxes.delete', packageId })),
+    onError: (e) => toast.error(reportError(e, 'Could not remove the pack.', { op: 'boxes.delete', packageId })),
   })
 }

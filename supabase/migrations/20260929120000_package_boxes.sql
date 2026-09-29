@@ -62,8 +62,8 @@ CREATE INDEX IF NOT EXISTS idx_package_box_items_package_item_id ON public.packa
 -- ---------------------------------------------------------------------------
 
 INSERT INTO public.permissions (key, feature, label, description, is_sensitive, sort_order) VALUES
-  ('orders.pack',         'Orders', 'Pack boxes',         'Split an order''s items into boxes and edit box contents.', false, 18),
-  ('orders.print_labels', 'Orders', 'Print box labels',   'Print and reprint box labels for packed orders.',           false, 19)
+  ('orders.pack',         'Orders', 'Split into packs',   'Split an order''s items into packs and edit pack contents.', false, 18),
+  ('orders.print_labels', 'Orders', 'Print pack labels',  'Print and reprint pack labels for packed orders.',          false, 19)
 ON CONFLICT (key) DO NOTHING;
 
 -- Admins hold both via has_permission()'s admin bypass; no row needed.
@@ -121,7 +121,7 @@ BEGIN
   END IF;
 
   IF v_status NOT IN ('draft', 'pending', 'notified') THEN
-    RAISE EXCEPTION 'Boxes can''t be changed once an order is %', replace(v_status::text, '_', ' ')
+    RAISE EXCEPTION 'Packs can''t be changed once an order is %', replace(v_status::text, '_', ' ')
       USING ERRCODE = 'check_violation';
   END IF;
 END;
@@ -152,11 +152,11 @@ DECLARE
   v_bad    RECORD;
 BEGIN
   IF NOT public.has_permission('orders.pack') THEN
-    RAISE EXCEPTION 'You don''t have permission to pack boxes' USING ERRCODE = 'insufficient_privilege';
+    RAISE EXCEPTION 'You don''t have permission to split orders into packs' USING ERRCODE = 'insufficient_privilege';
   END IF;
 
   IF p_items IS NULL OR jsonb_typeof(p_items) <> 'array' THEN
-    RAISE EXCEPTION 'Box items must be a list' USING ERRCODE = 'invalid_parameter_value';
+    RAISE EXCEPTION 'Pack items must be a list' USING ERRCODE = 'invalid_parameter_value';
   END IF;
 
   PERFORM public.lock_packable_package(p_package_id);
@@ -167,7 +167,7 @@ BEGIN
     SELECT 1 FROM jsonb_to_recordset(p_items) AS l(package_item_id UUID, quantity INT)
     WHERE l.package_item_id IS NULL OR l.quantity IS NULL OR l.quantity < 0
   ) THEN
-    RAISE EXCEPTION 'Each box line needs an item and a quantity of 0 or more'
+    RAISE EXCEPTION 'Each pack line needs an item and a quantity of 0 or more'
       USING ERRCODE = 'invalid_parameter_value';
   END IF;
 
@@ -175,14 +175,14 @@ BEGIN
     SELECT 1 FROM jsonb_to_recordset(p_items) AS l(package_item_id UUID, quantity INT)
     GROUP BY l.package_item_id HAVING count(*) > 1
   ) THEN
-    RAISE EXCEPTION 'An item appears twice in the same box' USING ERRCODE = 'invalid_parameter_value';
+    RAISE EXCEPTION 'An item appears twice in the same pack' USING ERRCODE = 'invalid_parameter_value';
   END IF;
 
   IF NOT EXISTS (
     SELECT 1 FROM jsonb_to_recordset(p_items) AS l(package_item_id UUID, quantity INT)
     WHERE l.quantity > 0
   ) THEN
-    RAISE EXCEPTION 'A box needs at least one item' USING ERRCODE = 'invalid_parameter_value';
+    RAISE EXCEPTION 'A pack needs at least one item' USING ERRCODE = 'invalid_parameter_value';
   END IF;
 
   IF EXISTS (
@@ -208,7 +208,7 @@ BEGIN
     WHERE id = v_box_id AND package_id = p_package_id;
 
     IF NOT FOUND THEN
-      RAISE EXCEPTION 'Box not found on this order' USING ERRCODE = 'no_data_found';
+      RAISE EXCEPTION 'Pack not found on this order' USING ERRCODE = 'no_data_found';
     END IF;
 
     DELETE FROM public.package_box_items WHERE box_id = v_box_id;
@@ -231,7 +231,7 @@ BEGIN
   LIMIT 1;
 
   IF FOUND THEN
-    RAISE EXCEPTION 'Too many "%" in boxes: % packed, order has %', v_bad.description, v_bad.boxed, v_bad.ordered
+    RAISE EXCEPTION 'Too many "%" in packs: % packed, order has %', v_bad.description, v_bad.boxed, v_bad.ordered
       USING ERRCODE = 'check_violation';
   END IF;
 
@@ -257,14 +257,14 @@ DECLARE
   v_number     INT;
 BEGIN
   IF NOT public.has_permission('orders.pack') THEN
-    RAISE EXCEPTION 'You don''t have permission to pack boxes' USING ERRCODE = 'insufficient_privilege';
+    RAISE EXCEPTION 'You don''t have permission to split orders into packs' USING ERRCODE = 'insufficient_privilege';
   END IF;
 
   SELECT package_id, box_number INTO v_package_id, v_number
   FROM public.package_boxes WHERE id = p_box_id;
 
   IF NOT FOUND THEN
-    RAISE EXCEPTION 'Box not found' USING ERRCODE = 'no_data_found';
+    RAISE EXCEPTION 'Pack not found' USING ERRCODE = 'no_data_found';
   END IF;
 
   PERFORM public.lock_packable_package(v_package_id);
@@ -311,17 +311,17 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM public.packages WHERE id = OLD.package_id) THEN
       RETURN OLD;
     END IF;
-    RAISE EXCEPTION 'Remove "%" from its boxes before deleting it (% packed)', OLD.description, v_boxed
+    RAISE EXCEPTION 'Remove "%" from its packs before deleting it (% packed)', OLD.description, v_boxed
       USING ERRCODE = 'check_violation';
   END IF;
 
   IF NEW.package_id IS DISTINCT FROM OLD.package_id THEN
-    RAISE EXCEPTION 'Remove "%" from its boxes before moving it to another order', OLD.description
+    RAISE EXCEPTION 'Remove "%" from its packs before moving it to another order', OLD.description
       USING ERRCODE = 'check_violation';
   END IF;
 
   IF NEW.quantity < v_boxed THEN
-    RAISE EXCEPTION 'Can''t reduce "%" to %: % already packed in boxes. Remove some from a box first.',
+    RAISE EXCEPTION 'Can''t reduce "%" to %: % already packed. Remove some from a pack first.',
       OLD.description, NEW.quantity, v_boxed
       USING ERRCODE = 'check_violation';
   END IF;

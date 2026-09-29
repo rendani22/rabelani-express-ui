@@ -163,10 +163,10 @@ export async function renderBoxLabelPng(label: BoxLabelData): Promise<Blob> {
   )
 }
 
-/** File name for a box label, e.g. "PO4500123456-box-2-of-3". */
+/** File name for a pack label, e.g. "PO4500123456-pack-2-of-3". */
 export function boxLabelFileName(label: BoxLabelData): string {
   const id = (label.poNumber?.trim() ? `PO${label.poNumber.trim()}` : label.reference).replace(/[^\w-]+/g, '')
-  return `${id}-box-${label.boxNumber}-of-${label.boxCount}`
+  return `${id}-pack-${label.boxNumber}-of-${label.boxCount}`
 }
 
 /**
@@ -202,7 +202,7 @@ export async function shareBoxLabelImages(
 
   if (typeof navigator.canShare === 'function' && navigator.canShare({ files })) {
     try {
-      await navigator.share({ files, title: 'Box labels' })
+      await navigator.share({ files, title: 'Pack labels' })
       return 'shared'
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') return 'cancelled'

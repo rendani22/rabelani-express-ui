@@ -142,7 +142,7 @@ describe('layoutBoxLabel', () => {
     const t = texts(layoutBoxLabel(label({ receiverName: 'Jo', locationName: 'Depot' }), measure).ops)
     expect(t).toEqual([
       '4500123456',
-      'BOX 2 OF 3',
+      'PACK 2 OF 3',
       'Jo',
       'Depot',
       '29 Sep 2026',
@@ -171,7 +171,7 @@ describe('layoutBoxLabel', () => {
     )
     const at = (t: string) => ops.find((o) => o.text === t)!
     const po = at('4500123456')
-    const box = at('BOX 2 OF 3')
+    const box = at('PACK 2 OF 3')
     for (const t of ['Jo', 'Depot', '29 Sep 2026']) {
       expect(at(t).x).toBeGreaterThan(po.x + measure(po.text, po.sizePt, true))
       expect(at(t).x).toBeGreaterThan(box.x + measure(box.text, box.sizePt, true))
@@ -183,11 +183,11 @@ describe('layoutBoxLabel', () => {
     layoutBoxLabel(label(d), measure).ops.filter((o): o is Extract<LabelOp, { kind: 'text' }> => o.kind === 'text')
 
   it('sizes each detail independently, as large as it fits uncut', () => {
-    // Fake metric: the details column is ~20 mm, i.e. ~10 glyphs at 10pt.
-    const place = 'Polokwane Depot Gate Four Receiving'
+    // Fake metric: the details column is ~32 mm, i.e. ~16 glyphs at 10pt.
+    const place = 'Polokwane Depot Gate Four Receiving Bay North Wing'
     const ops = textOps({ receiverName: 'Jo Ann', locationName: place })
     const receiver = ops.find((o) => o.text === 'Jo Ann')!
-    const location = ops.filter((o) => !o.bold && /Polokwane|Depot|Gate|Four|Receiving/.test(o.text))
+    const location = ops.filter((o) => !o.bold && /Polokwane|Depot|Gate|Four|Receiving|North/.test(o.text))
     expect(receiver.sizePt).toBe(DETAIL_SIZES_PT[0])
     expect(location.length).toBeGreaterThan(1)
     expect(location.every((o) => o.sizePt < receiver.sizePt)).toBe(true)

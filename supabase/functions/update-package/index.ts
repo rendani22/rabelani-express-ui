@@ -424,7 +424,7 @@ serve(async (req) => {
           const boxesTableMissing = boxedErr?.code === '42P01' || boxedErr?.code === 'PGRST205'
           if (boxedErr && !boxesTableMissing) {
             return new Response(
-              JSON.stringify({ error: 'Failed to load box contents', details: boxedErr.message }),
+              JSON.stringify({ error: 'Failed to load pack contents', details: boxedErr.message }),
               { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             )
           }
@@ -439,8 +439,8 @@ serve(async (req) => {
             if (boxed > 0) {
               return new Response(
                 JSON.stringify({
-                  error: 'Item is packed in boxes',
-                  details: `Remove "${targetMap.get(delId)!.description}" from its boxes before deleting it (${boxed} packed).`
+                  error: 'Item is packed',
+                  details: `Remove "${targetMap.get(delId)!.description}" from its packs before deleting it (${boxed} packed).`
                 }),
                 { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
               )
@@ -451,8 +451,8 @@ serve(async (req) => {
             if (u.quantity < boxed) {
               return new Response(
                 JSON.stringify({
-                  error: 'Item is packed in boxes',
-                  details: `Can't reduce "${targetMap.get(u.id)!.description}" to ${u.quantity}: ${boxed} already packed in boxes. Remove some from a box first.`
+                  error: 'Item is packed',
+                  details: `Can't reduce "${targetMap.get(u.id)!.description}" to ${u.quantity}: ${boxed} already packed. Remove some from a pack first.`
                 }),
                 { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
               )

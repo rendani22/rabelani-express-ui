@@ -6,7 +6,7 @@
  * Text measurement is injected so the same layout drives both renderers and
  * tests can use a deterministic fake.
  *
- * Label, upright: PO number and "BOX x OF N" on the left; receiver, delivery
+ * Label, upright: PO number and "PACK x OF N" on the left; receiver, delivery
  * location and packed date in a column beside them; the Rabelani logo at the
  * top right; the box's item lines run the full width underneath. Items that don't fit shrink the font
  * down to a readable minimum, then truncate with "+N more items" — always one
@@ -237,7 +237,7 @@ export function layoutBoxLabel(data: BoxLabelData, measure: MeasureText): BoxLab
   const idText = data.poNumber?.trim() || data.reference
   const idSize = fitSize(idText, ID_COLUMN_MAX_MM, ID_SIZES_PT, true, measure)
   const id = fitText(idText, ID_COLUMN_MAX_MM, idSize, true, measure)
-  const boxText = `BOX ${data.boxNumber} OF ${data.boxCount}`
+  const boxText = `PACK ${data.boxNumber} OF ${data.boxCount}`
   const idY = MARGIN_MM + capMm(idSize)
   const boxY = idY + 2 + capMm(BOX_SIZE_PT)
   text(id, idY, idSize, true)

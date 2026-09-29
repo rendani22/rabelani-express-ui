@@ -26,8 +26,8 @@ import { Input } from '@/components/ui/input'
 import { PermissionButton } from '@/components/dispatch/permission-button'
 
 /**
- * Boxes: split an order's items across physical boxes and print a 50 × 100 mm
- * label per box (Labelife D520BT). Boxes can be changed while the order is
+ * Packs (UI wording; "boxes" in code and the database): split an order's items
+ * across physical packs and print a label per pack (Labelife D520BT). Packs can be changed while the order is
  * draft / pending / notified; labels can be reprinted at any status.
  */
 export function PackageBoxesSection({
@@ -106,7 +106,7 @@ export function PackageBoxesSection({
     <div ref={rootRef} className="flex scroll-mt-4 flex-col gap-2">
       <div className="flex items-center justify-between gap-2">
         <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-          Boxes ({list.length})
+          Packs ({list.length})
         </span>
         {list.length > 0 && (
           <div className="flex items-center gap-1">
@@ -135,16 +135,16 @@ export function PackageBoxesSection({
       </div>
 
       {boxes.isLoading ? (
-        <p className="text-sm text-muted-foreground">Loading boxes…</p>
+        <p className="text-sm text-muted-foreground">Loading packs…</p>
       ) : boxes.isError ? (
-        <p className="text-sm text-destructive">Could not load boxes.</p>
+        <p className="text-sm text-destructive">Could not load packs.</p>
       ) : (
         <ul className="flex flex-col divide-y rounded-md border empty:hidden">
           {list.map((box) =>
             editing === box.id ? (
               <li key={box.id} className="p-2">
                 <BoxEditor
-                  title={`Box ${box.box_number}`}
+                  title={`Pack ${box.box_number}`}
                   items={items}
                   boxes={list}
                   box={box}
@@ -157,7 +157,7 @@ export function PackageBoxesSection({
               <li key={box.id} className="flex flex-col gap-1.5 px-3 py-2.5">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-semibold">
-                    Box {box.box_number} <span className="font-normal text-muted-foreground">of {list.length}</span>
+                    Pack {box.box_number} <span className="font-normal text-muted-foreground">of {list.length}</span>
                   </span>
                   <span className="text-xs text-muted-foreground">
                     {describeBox(box)} · packed {formatPackedDate(box.packed_at)}
@@ -169,7 +169,7 @@ export function PackageBoxesSection({
                       size="icon-sm"
                       onClick={() => print([box], box.id)}
                       disabled={!!busy || location.isLoading}
-                      aria-label={`Print label for box ${box.box_number}`}
+                      aria-label={`Print label for pack ${box.box_number}`}
                     >
                       {busy === box.id ? <Loader2 className="animate-spin" /> : <Printer />}
                     </PermissionButton>
@@ -179,7 +179,7 @@ export function PackageBoxesSection({
                       size="icon-sm"
                       onClick={() => share([box], `${box.id}-img`)}
                       disabled={!!busy || location.isLoading}
-                      aria-label={`Send box ${box.box_number} label to the Labelife app`}
+                      aria-label={`Send pack ${box.box_number} label to the Labelife app`}
                     >
                       {busy === `${box.id}-img` ? <Loader2 className="animate-spin" /> : <Share2 />}
                     </PermissionButton>
@@ -190,7 +190,7 @@ export function PackageBoxesSection({
                           size="icon-sm"
                           onClick={() => setEditing(box.id)}
                           disabled={editing !== null}
-                          aria-label={`Edit box ${box.box_number}`}
+                          aria-label={`Edit pack ${box.box_number}`}
                         >
                           <Pencil />
                         </Button>
@@ -201,17 +201,17 @@ export function PackageBoxesSection({
                           disabled={remove.isPending}
                           onClick={async () => {
                             const ok = await confirm({
-                              title: `Remove box ${box.box_number}?`,
+                              title: `Remove pack ${box.box_number}?`,
                               description:
                                 list.length > box.box_number
-                                  ? 'Its items go back to unboxed, and the boxes after it are renumbered — reprint their labels.'
-                                  : 'Its items go back to unboxed.',
-                              confirmText: 'Remove box',
+                                  ? 'Its items go back to unpacked, and the packs after it are renumbered — reprint their labels.'
+                                  : 'Its items go back to unpacked.',
+                              confirmText: 'Remove pack',
                               destructive: true,
                             })
                             if (ok) remove.mutate(box.id)
                           }}
-                          aria-label={`Remove box ${box.box_number}`}
+                          aria-label={`Remove pack ${box.box_number}`}
                         >
                           <Trash2 />
                         </Button>
@@ -235,7 +235,7 @@ export function PackageBoxesSection({
 
       {editing === 'new' && (
         <BoxEditor
-          title={`Box ${list.length + 1}`}
+          title={`Pack ${list.length + 1}`}
           items={items}
           boxes={list}
           saving={save.isPending}
@@ -248,18 +248,18 @@ export function PackageBoxesSection({
         <p className="flex items-start gap-1.5 rounded-md border border-warning/45 bg-warning/10 px-2.5 py-2 text-xs text-warning-foreground dark:text-warning">
           <AlertTriangle className="mt-px size-3.5 shrink-0" />
           <span>
-            Not boxed yet: {unboxed.map((a) => `${a.unboxed} × ${a.item.description}`).join(', ')}
+            Not packed yet: {unboxed.map((a) => `${a.unboxed} × ${a.item.description}`).join(', ')}
           </span>
         </p>
       )}
 
       {packable && editing === null && unboxed.length > 0 && (
         <Button variant="outline" size="sm" className="self-start" onClick={() => setEditing('new')}>
-          <Plus /> {list.length === 0 ? 'Pack into boxes' : 'Add box'}
+          <Plus /> {list.length === 0 ? 'Split into packs' : 'Add pack'}
         </Button>
       )}
       {list.length === 0 && !packable && (
-        <p className="text-sm text-muted-foreground/60">Not packed into boxes.</p>
+        <p className="text-sm text-muted-foreground/60">Not split into packs.</p>
       )}
     </div>
   )
@@ -267,7 +267,7 @@ export function PackageBoxesSection({
 
 /**
  * Quantity per item for one box. A new box starts with everything still
- * unboxed — the common case is "this all fits in one box" — and staff trim
+ * unboxed — the common case is "this all fits in one pack" — and staff trim
  * down from there.
  */
 function BoxEditor({
@@ -336,7 +336,7 @@ function BoxEditor({
           onClick={() => onSave(lines)}
           disabled={lines.length === 0 || saving}
         >
-          {saving ? <Loader2 className="animate-spin" /> : <Check />} Save box
+          {saving ? <Loader2 className="animate-spin" /> : <Check />} Save pack
         </PermissionButton>
       </div>
     </div>

@@ -272,7 +272,7 @@ export function PoCard({ po, onEdit }: { po: PurchaseOrder; onEdit: (poNumber: s
                       size="sm"
                       className="h-auto shrink-0 flex-col gap-0.5 px-2.5 text-[11px]"
                       onClick={() => openOrderBoxes(pkg.id)}
-                      title={`Pack and print box labels for ${pkg.reference}`}
+                      title={`Split into packs and print labels for ${pkg.reference}`}
                     >
                       <Printer className="size-3.5" /> Labels
                     </Button>
