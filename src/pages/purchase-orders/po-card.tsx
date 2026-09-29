@@ -15,6 +15,7 @@ import {
   Loader2,
   Package as PackageIcon,
   Pencil,
+  Printer,
   ShoppingCart,
   User,
 } from 'lucide-react'
@@ -28,6 +29,7 @@ import { Button } from '@/components/ui/button'
 import { PermissionButton } from '@/components/dispatch/permission-button'
 import { StatusStamp, TrackingNumber } from '@/components/dispatch'
 import { cn } from '@/lib/utils'
+import { usePermissions } from '@/hooks/use-permissions'
 import {
   deliveredValue,
   deliveredValueBarClass,
@@ -82,6 +84,8 @@ export function PoCard({ po, onEdit }: { po: PurchaseOrder; onEdit: (poNumber: s
 
   const goToOrders = (search: string) => navigate(`/orders?search=${encodeURIComponent(search)}`)
   const openOrder = (id: string) => navigate(`/orders?id=${id}`)
+  const { can } = usePermissions()
+  const openOrderBoxes = (id: string) => navigate(`/orders?id=${id}&section=boxes`)
   const openItem = (ref: PurchaseOrder['inventoryRefs'][number]) =>
     navigate(`/inventory?id=${encodeURIComponent(ref.inventoryItemId)}`)
 
@@ -243,12 +247,12 @@ export function PoCard({ po, onEdit }: { po: PurchaseOrder; onEdit: (poNumber: s
               </div>
               <div className="flex flex-col gap-2">
                 {po.packages.map((pkg) => (
+                  <div key={pkg.id} className="flex items-stretch gap-2">
                   <button
-                    key={pkg.id}
                     type="button"
                     onClick={() => openOrder(pkg.id)}
                     title={`Open order ${pkg.reference}`}
-                    className="group flex w-full items-center gap-3 rounded-lg border bg-muted/30 p-3 text-left transition-colors hover:border-primary/40 hover:bg-accent/40"
+                    className="group flex min-w-0 flex-1 items-center gap-3 rounded-lg border bg-muted/30 p-3 text-left transition-colors hover:border-primary/40 hover:bg-accent/40"
                   >
                     <span className="flex size-7 shrink-0 items-center justify-center rounded-md border bg-background text-muted-foreground">
                       <PackageIcon className="size-3" />
@@ -262,6 +266,18 @@ export function PoCard({ po, onEdit }: { po: PurchaseOrder; onEdit: (poNumber: s
                     </div>
                     <ExternalLink className="size-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
                   </button>
+                  {can('orders.print_labels') && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-auto shrink-0 flex-col gap-0.5 px-2.5 text-[11px]"
+                      onClick={() => openOrderBoxes(pkg.id)}
+                      title={`Pack and print box labels for ${pkg.reference}`}
+                    >
+                      <Printer className="size-3.5" /> Labels
+                    </Button>
+                  )}
+                  </div>
                 ))}
               </div>
             </div>

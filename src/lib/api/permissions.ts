@@ -17,6 +17,8 @@ export const PERMISSION_KEYS = [
   'orders.delete_hard',
   'orders.export',
   'orders.audit.view',
+  'orders.pack',
+  'orders.print_labels',
   'pod.view',
   'pod.export_bulk',
   'inventory.read',

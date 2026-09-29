@@ -36,6 +36,7 @@ import { AssignDriverDialog } from './assign-driver-dialog'
 import { MarkCollectedDialog } from './mark-collected-dialog'
 import { PodDocumentDialog } from './pod-document'
 import { PackageItemsEditor } from './package-items-editor'
+import { PackageBoxesSection } from './package-boxes-section'
 
 /**
  * Manual status changes are deliberately limited: an operator may only move a
@@ -105,11 +106,14 @@ export function PackageDetailsPanel({
   receiverName,
   open,
   onOpenChange,
+  focusSection,
 }: {
   pkg: Package | null
   receiverName?: string
   open: boolean
   onOpenChange: (open: boolean) => void
+  /** Scroll this section into view on open (deep link `section=boxes`). */
+  focusSection?: 'boxes'
 }) {
   const qc = useQueryClient()
   const confirm = useConfirm()
@@ -536,6 +540,11 @@ export function PackageDetailsPanel({
                   <p className="text-sm text-muted-foreground/60">No items.</p>
                 )}
               </div>
+            )}
+
+            {/* boxes + labels */}
+            {!editingItems && pkg.items && pkg.items.length > 0 && (
+              <PackageBoxesSection pkg={{ ...pkg, status }} receiverName={name} open={open} focus={focusSection === 'boxes'} />
             )}
 
             {/* chain of custody */}

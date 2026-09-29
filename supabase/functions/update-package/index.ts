@@ -408,6 +408,56 @@ serve(async (req) => {
               )
             }
           }
+
+          // Refuse edits that would leave boxes holding more than the package
+          // has. The guard_boxed_package_item trigger enforces the same rule,
+          // but it fires only at the package_items write below — after stock
+          // has already moved — so this check must run first or a refused
+          // edit would leave inventory adjusted for a change that never happened.
+          const { data: boxedRows, error: boxedErr } = await adminClient
+            .from('package_box_items')
+            .select('package_item_id, quantity')
+            .in('package_item_id', allTargetIds)
+
+          // Missing table = boxes migration not applied yet → nothing is boxed.
+          // Lets this function deploy ahead of 20260929120000_package_boxes.
+          const boxesTableMissing = boxedErr?.code === '42P01' || boxedErr?.code === 'PGRST205'
+          if (boxedErr && !boxesTableMissing) {
+            return new Response(
+              JSON.stringify({ error: 'Failed to load box contents', details: boxedErr.message }),
+              { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+          }
+
+          const boxedQty = new Map<string, number>()
+          for (const r of (boxedRows ?? []) as { package_item_id: string; quantity: number }[]) {
+            boxedQty.set(r.package_item_id, (boxedQty.get(r.package_item_id) ?? 0) + r.quantity)
+          }
+
+          for (const delId of deleteIds) {
+            const boxed = boxedQty.get(delId) ?? 0
+            if (boxed > 0) {
+              return new Response(
+                JSON.stringify({
+                  error: 'Item is packed in boxes',
+                  details: `Remove "${targetMap.get(delId)!.description}" from its boxes before deleting it (${boxed} packed).`
+                }),
+                { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+              )
+            }
+          }
+          for (const u of updatePayloads) {
+            const boxed = boxedQty.get(u.id) ?? 0
+            if (u.quantity < boxed) {
+              return new Response(
+                JSON.stringify({
+                  error: 'Item is packed in boxes',
+                  details: `Can't reduce "${targetMap.get(u.id)!.description}" to ${u.quantity}: ${boxed} already packed in boxes. Remove some from a box first.`
+                }),
+                { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+              )
+            }
+          }
         }
 
         // Aggregate inventory deltas per inventory_item_id.
