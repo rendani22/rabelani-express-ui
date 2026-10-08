@@ -397,6 +397,11 @@ export interface PurchaseOrderItemBalanceSummary {
 export interface PurchaseOrderLookupData {
   readonly poNumber: string
   readonly items: readonly PurchaseOrderItemBalanceSummary[]
+  /** The PO's customer (`purchase_orders.receiver_id`), when it has one. */
+  readonly receiverId?: string | null
+  /** Where the PO says to deliver, read off the Coupa email at ingest. */
+  readonly shipToName?: string | null
+  readonly shipToAddress?: string | null
 }
 
 /** Effective balance for a PO line when combining allocation data with existing order usage */

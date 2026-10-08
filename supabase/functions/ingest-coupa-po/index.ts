@@ -27,7 +27,8 @@ import {
   parseCoupaPoEmail,
   resolveCoupaCustomer,
   type CoupaCustomerCandidate,
-  type CoupaPo
+  type CoupaPo,
+  type CoupaShipTo
 } from '../_shared/coupa-po.ts'
 import { buildIngestFailureEmail, type IngestFailure } from '../_shared/coupa-failure-email.ts'
 import {
@@ -166,6 +167,30 @@ async function recordAttempt(admin: AdminClient | null, row: CoupaAuditRow): Pro
       level: 'error',
       logger: 'ingest-coupa-po',
       extra: { action: row.action, reason: row.metadata.reason }
+    })
+  }
+}
+
+/**
+ * Stores the email's `Shipping` block on the PO, so an order raised against it
+ * can pre-select its delivery location.
+ *
+ * Best-effort: the ship-to only saves someone a click later, so failing to
+ * write it must never fail an ingestion that has already created the PO. A
+ * separate update rather than an RPC argument keeps the create RPC unchanged.
+ */
+async function recordShipTo(admin: AdminClient, purchaseOrderId: string, shipTo: CoupaShipTo): Promise<void> {
+  try {
+    const { error } = await admin
+      .from('purchase_orders')
+      .update({ ship_to_name: shipTo.name, ship_to_address: shipTo.address || null })
+      .eq('id', purchaseOrderId)
+    if (error) throw new Error(error.message)
+  } catch (err) {
+    await captureException(err, {
+      level: 'warning',
+      logger: 'ingest-coupa-po',
+      extra: { purchaseOrderId, shipTo: shipTo.name }
     })
   }
 }
@@ -511,6 +536,10 @@ serve(async (req) => {
     }
 
     const purchaseOrderId = (created as { purchase_order_id: string }[] | null)?.[0]?.purchase_order_id ?? null
+
+    if (purchaseOrderId && po.shipTo) {
+      await recordShipTo(admin, purchaseOrderId, po.shipTo)
+    }
 
     if (purchaseOrderId) {
       await recordAttempt(
