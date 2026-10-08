@@ -74,17 +74,39 @@ const TOTAL_RE = /\bTotal\s+([\d,]+\.\d{2})\s+([A-Z]{3})\b/
 /**
  * `Submitted By    Ramadimetja Maria Mochaki`
  *
- * The value ends at a run of 2+ spaces or the line end, because Coupa lays two
- * label/value pairs side by side on one line (`PO ID  GG80700992  Department
- * None`) and a greedy capture would swallow the neighbouring column.
+ * The value runs to the end of its line; `trimAdjacentColumn` cuts off a
+ * neighbouring column afterwards.
  *
  * The label/value separator is `\s+` rather than `[ \t]+` because `htmlToText`
  * puts every table cell on its own line, so in an HTML body the value sits on
  * the line *after* its label. `.` never matches a newline, so the capture still
  * stops at the end of the value's own line either way.
  */
-const SUBMITTED_BY_RE = /^[ \t]*Submitted By\s+(.+?)(?:[ \t]{2,}|[ \t]*$)/m
-const ON_BEHALF_OF_RE = /^[ \t]*On Behalf Of\s+(.+?)(?:[ \t]{2,}|[ \t]*$)/m
+const SUBMITTED_BY_RE = /^[ \t]*Submitted By\s+(.+)$/m
+const ON_BEHALF_OF_RE = /^[ \t]*On Behalf Of\s+(.+)$/m
+
+/**
+ * Where a second label/value pair starts, when Coupa lays two of them side by
+ * side on one line (`PO ID  GG80700992  Department  None`).
+ *
+ * Named labels rather than "a run of 2+ spaces", which is what this used to be:
+ * Coupa builds a person's name by joining first, middle and last, so someone
+ * with no middle name is rendered `Stefan  (SP) Els` -- two spaces inside the
+ * value itself. Cutting there truncated the name to `Stefan` and the order
+ * failed to match its customer.
+ *
+ * The cost of the swap is that an *unlisted* label sharing a person's line
+ * would now be swallowed instead of cut. That is the safer direction: a name
+ * with rubbish appended fails to resolve loudly, into the ingestion failure
+ * feed, whereas a truncated one can silently match the wrong person.
+ */
+const ADJACENT_COLUMN_RE =
+  /[ \t]{2,}(?:Submitted By|On Behalf Of|Supplier|Total|Items|Lines|PO ID|Department|Status|Last Opened|Order Date|Acknowledged At|Revision Date|Payment Term|Req #|Shipping)\b/
+
+/** Drops a second label/value pair sharing the line, and squashes the padding. */
+function trimAdjacentColumn(value: string): string {
+  return value.split(ADJACENT_COLUMN_RE)[0].replace(/\s+/g, ' ').trim()
+}
 
 /**
  * Reads a `label  value` person field. Coupa renders an unset field as the
@@ -92,7 +114,9 @@ const ON_BEHALF_OF_RE = /^[ \t]*On Behalf Of\s+(.+?)(?:[ \t]{2,}|[ \t]*$)/m
  * accident -- treat it as absent so it can never be matched to a customer.
  */
 function matchPerson(body: string, re: RegExp): string | null {
-  const value = body.match(re)?.[1]?.trim()
+  const raw = body.match(re)?.[1]
+  if (!raw) return null
+  const value = trimAdjacentColumn(raw)
   if (!value || value.toLowerCase() === 'none') return null
   return value
 }
@@ -197,6 +221,20 @@ const NON_PO_NOTIFICATIONS: readonly { readonly label: string; readonly re: RegE
   { label: 'Service Sheet', re: /\bservice sheet\s+#?\d+/i },
   // `Invoice #INV-0012 has been approved` -- also disputed, paid, voided.
   { label: 'Invoice', re: /\binvoice\s+#\S+/i },
+  // Exxaro's printable order copy: the same order as a document, with buttons
+  // that act on it by return mail. It is a purchase order, but not one this
+  // system can use -- it states the number under a `PO NUMBER` heading rather
+  // than in the `PO ID` field, and names nobody the order was raised for (only
+  // Exxaro's own buyer, under `Contact Person`), so `resolveCoupaCustomer`
+  // would have nothing to match a customer against even if it were read. The
+  // CSP notification for the same order carries all of that and is the one
+  // ingested; this copy is a second rendering of an order already handled.
+  //
+  // Matched on the `..._via_email` action routes (`ack_po_via_email`,
+  // `add_shipment_details_via_email`, ...) and, for a body flattened out of
+  // HTML -- where `htmlToText` drops every href -- on the button text those
+  // routes sit behind.
+  { label: 'Emailed PO copy', re: /_via_email\b|^[ \t]*Acknowledge PO[ \t]*$/im },
 ]
 
 /**
@@ -328,9 +366,18 @@ export type ResolveCoupaCustomerResult =
  * sides are flattened to a single case- and space-insensitive string and
  * compared whole, which is the only comparison that does not depend on that
  * guess being right.
+ *
+ * Bracketed segments are dropped: Coupa renders a person's short name beside
+ * their given name (`Stefan (SP) Els`), which no `receiver_profiles` row
+ * carries. Dropped from the candidate side too, so a customer captured *with*
+ * the bracket still matches -- neither side is the authority on it.
  */
 function normalizePersonName(value: string): string {
-  return value.trim().toLowerCase().replace(/\s+/g, ' ')
+  return value
+    .replace(/\([^)]*\)/g, ' ')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
 }
 
 /**

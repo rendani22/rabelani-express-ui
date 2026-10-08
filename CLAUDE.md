@@ -55,7 +55,8 @@ There is no separate typecheck script — `npm run build` (or `npx tsc -b`) is t
 
 - Migrations live in `supabase/migrations/` (timestamped). Apply with `npm run supabase:link-dev` then `npm run supabase:push`, or let the **`.github/workflows/db-migrate.yml`** CI apply them on push to `dev` (needs `SUPABASE_ACCESS_TOKEN` + `SUPABASE_DB_PASSWORD` repo secrets). Migrations are **not** auto-applied by pushing app code — they run only via `db push` / that CI.
 - **Notifications rows are created only by SECURITY DEFINER triggers/functions**, never by the client (the table has no INSERT policy). The status-change fan-out is `notify_staff_on_package_change`; `notify_package_exception` handles non-status events (reschedule/overdue/stuck); a pg_cron sweep drives overdue/stuck. System batches set the transaction-local `app.suppress_notifications` flag to silence per-row notifications while still recording status history.
-- Edge-function sources are under `supabase/functions/` (`create-package`, `update-package`, `_shared`); some deployed functions aren't vendored. Deploy via the `deploy*` npm scripts.
+- Edge-function sources are under `supabase/functions/` (`create-package`, `update-package`, `_shared`); some deployed functions aren't vendored. Deploy via the `deploy*` npm scripts, one per function (`npm run deploy:ingest-coupa-po`), or `deploy-functions` for all.
+  - Every deploy script passes **`--use-api`** (bundle server-side, no Docker) on purpose. The default bundler mounts the project into a container, and Docker Desktop does not share `/Volumes/…`, so on this checkout it mounts an *empty* directory and fails with `entrypoint path does not exist` for a file that plainly exists. Don't drop the flag to "simplify".
 
 ## Conventions
 

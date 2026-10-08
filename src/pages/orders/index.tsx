@@ -74,10 +74,12 @@ export function OrdersPage() {
   const [panelOpen, setPanelOpen] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
 
-  // deep link: /orders?id=<uuid>
+  // deep link: /orders?id=<uuid>[&section=boxes]
+  const [focusSection, setFocusSection] = useState<'boxes' | undefined>()
   useEffect(() => {
     const id = searchParams.get('id')
     if (!id) return
+    setFocusSection(searchParams.get('section') === 'boxes' ? 'boxes' : undefined)
     const inPage = data?.packages.find((p) => p.id === id)
     if (inPage) {
       setSelected(inPage)
@@ -92,6 +94,7 @@ export function OrdersPage() {
     }
     setSearchParams((p) => {
       p.delete('id')
+      p.delete('section')
       return p
     }, { replace: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -350,7 +353,11 @@ export function OrdersPage() {
         pkg={selected}
         receiverName={selected ? data?.names[selected.receiver_email?.toLowerCase()] : undefined}
         open={panelOpen}
-        onOpenChange={setPanelOpen}
+        onOpenChange={(o) => {
+          setPanelOpen(o)
+          if (!o) setFocusSection(undefined)
+        }}
+        focusSection={focusSection}
       />
 
       <CreatePackageDialog open={createOpen} onOpenChange={setCreateOpen} />

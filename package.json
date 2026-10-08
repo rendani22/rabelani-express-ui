@@ -14,13 +14,16 @@
     "supabase:link-dev": "supabase link --project-ref qmnqffpwvsvngjmyisrf",
     "supabase:link-prod": "supabase link --project-ref udsigrijzqgmtmkilluv",
     "supabase:push": "supabase db push",
-    "deploy-functions": "supabase functions deploy",
-    "deploy:create-package": "supabase functions deploy create-package",
-    "deploy:delete-staff": "supabase functions deploy delete-staff",
-    "deploy:update-package": "supabase functions deploy update-package",
-    "deploy:invite-customer": "supabase functions deploy invite-customer",
-    "deploy:customer-pod": "supabase functions deploy customer-pod",
-    "deploy:send-test-email": "supabase functions deploy send-test-email"
+    "deploy-functions": "supabase functions deploy --use-api",
+    "deploy:create-package": "supabase functions deploy create-package --use-api",
+    "deploy:delete-staff": "supabase functions deploy delete-staff --use-api",
+    "deploy:update-package": "supabase functions deploy update-package --use-api",
+    "deploy:invite-customer": "supabase functions deploy invite-customer --use-api",
+    "deploy:customer-pod": "supabase functions deploy customer-pod --use-api",
+    "deploy:send-test-email": "supabase functions deploy send-test-email --use-api",
+    "deploy:create-staff": "supabase functions deploy create-staff --use-api",
+    "deploy:retry-coupa-po": "supabase functions deploy retry-coupa-po --use-api",
+    "deploy:ingest-coupa-po": "supabase functions deploy ingest-coupa-po --use-api"
   },
   "dependencies": {
     "@fontsource-variable/archivo": "^5.2.6",
