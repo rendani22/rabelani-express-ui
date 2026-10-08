@@ -661,11 +661,28 @@ export async function getPurchaseOrderByNumber(
       }
     })
 
+    // The header is a convenience for pre-filling the order (customer and
+    // ship-to), so a failure here -- e.g. the ship-to columns not migrated
+    // yet -- degrades to no pre-fill rather than failing the line lookup.
+    const { data: header } = await supabase
+      .from('purchase_orders')
+      .select('receiver_id, ship_to_name, ship_to_address')
+      .eq('po_number', trimmed)
+      .maybeSingle()
+    const typedHeader = header as unknown as {
+      receiver_id: string | null
+      ship_to_name: string | null
+      ship_to_address: string | null
+    } | null
+
     return {
       success: true,
       data: {
         poNumber: trimmed,
         items,
+        receiverId: typedHeader?.receiver_id ?? null,
+        shipToName: typedHeader?.ship_to_name ?? null,
+        shipToAddress: typedHeader?.ship_to_address ?? null,
       },
     }
   } catch (error) {

@@ -188,6 +188,30 @@ function parsed(body: string) {
 }
 
 describe('parseCoupaPoEmail', () => {
+  it('reads the Shipping block as the ship-to site and address', () => {
+    expect(parsed(SAMPLE).shipTo).toEqual({
+      name: 'DA01-Main Store',
+      address: 'Farm Enkelbult, Lephalale, Limpopo, 0555, South Africa',
+    })
+  })
+
+  it('treats a "Shipping None" detail field as no ship-to', () => {
+    // The split layout puts the More Detail field's label alone on its line,
+    // exactly like the address block's header -- only the `None` tells them apart.
+    expect(parsed(SAMPLE_SPLIT_LINES).shipTo).toBeNull()
+  })
+
+  it('reads a ship-to with no address lines, ending at the next section', () => {
+    const body = SAMPLE.replace(/Shipping\nDA01-Main Store[\s\S]*?Attn: [^\n]*\n/, 'Shipping\nDA01-Main Store\n')
+    expect(parsed(body).shipTo).toEqual({ name: 'DA01-Main Store', address: '' })
+  })
+
+  it('has no ship-to when the Shipping header is the last thing in the body', () => {
+    expect(parsed(`${SAMPLE}\n\nShipping\n`).shipTo).toEqual(parsed(SAMPLE).shipTo)
+    const noBlock = SAMPLE.replace(/Shipping\nDA01-Main Store[\s\S]*?Attn: [^\n]*\n/, '')
+    expect(parsed(`${noBlock}\nShipping\n\n`).shipTo).toBeNull()
+  })
+
   it('reads the header fields from the sample notification', () => {
     const po = parsed(SAMPLE)
     expect(po.poNumber).toBe('GG80700992')

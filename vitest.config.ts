@@ -54,6 +54,7 @@ export default defineConfig({
         'src/lib/package-timeline.ts',
         'src/lib/inventory-movements.ts',
         'src/lib/box-label.ts',
+        'src/lib/po-autofill.ts',
         'src/lib/tour-store.ts',
         'src/lib/ui-store.ts',
         'src/lib/settings-store.ts',

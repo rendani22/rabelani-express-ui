@@ -31,7 +31,21 @@ export interface CoupaPo {
   readonly onBehalfOf: string | null
   /** Who keyed the order into Coupa. The customer only when `onBehalfOf` is absent. */
   readonly submittedBy: string | null
+  /**
+   * Where Coupa says the order is to be delivered -- the `Shipping` address
+   * block. Null when the email has no such block. Used only to pre-select a
+   * delivery location when an order is raised against the PO; never required.
+   */
+  readonly shipTo: CoupaShipTo | null
   readonly lines: readonly CoupaPoLine[]
+}
+
+/** The `Shipping` block of a Coupa PO: a site name, then its address lines. */
+export interface CoupaShipTo {
+  /** The first line of the block, e.g. `DA01-Main Store`. */
+  readonly name: string
+  /** The remaining address lines, comma-joined; empty when there are none. */
+  readonly address: string
 }
 
 export type ParseCoupaPoResult =
@@ -119,6 +133,43 @@ function matchPerson(body: string, re: RegExp): string | null {
   const value = trimAdjacentColumn(raw)
   if (!value || value.toLowerCase() === 'none') return null
   return value
+}
+
+/**
+ * Where the `Shipping` address block ends. `Location Code:` / `Attn:` close it
+ * in the sample; `Lines` (or any later section) is the backstop for a block
+ * that omits both.
+ */
+const SHIP_TO_END_RE = /^(?:Location Code:|Attn:|Lines$|Items$|Total\b|More Detail$|Supplier$)/
+
+/**
+ * Reads the `Shipping` address block:
+ *
+ *     Shipping
+ *     DA01-Main Store
+ *     Farm Enkelbult
+ *     Lephalale
+ *     ...
+ *     Location Code: GG01
+ *
+ * The same label is also a `More Detail` field (`Shipping    None`), which in
+ * an HTML-flattened body sits alone on its line with `None` on the next -- so
+ * a `None` block is skipped and the scan carries on to the next `Shipping`.
+ */
+function matchShipTo(rows: readonly string[]): CoupaShipTo | null {
+  for (let i = 0; i < rows.length; i++) {
+    if (rows[i].trim() !== 'Shipping') continue
+    const block: string[] = []
+    for (let j = i + 1; j < rows.length; j++) {
+      const row = rows[j].replace(/\s+/g, ' ').trim()
+      if (!row) continue
+      if (SHIP_TO_END_RE.test(row)) break
+      block.push(row)
+    }
+    if (block.length === 0 || block[0].toLowerCase() === 'none') continue
+    return { name: block[0], address: block.slice(1).join(', ') }
+  }
+  return null
 }
 
 /** Strips the thousands separators Coupa renders (`3,628.94` -> `3628.94`). */
@@ -338,8 +389,9 @@ export function parseCoupaPoEmail(body: string): ParseCoupaPoResult {
   // than a parse failure can. Resolving them to a customer is its own step.
   const onBehalfOf = matchPerson(body, ON_BEHALF_OF_RE)
   const submittedBy = matchPerson(body, SUBMITTED_BY_RE)
+  const shipTo = matchShipTo(rows)
 
-  return { success: true, data: { poNumber, poDate, total, currency, onBehalfOf, submittedBy, lines } }
+  return { success: true, data: { poNumber, poDate, total, currency, onBehalfOf, submittedBy, shipTo, lines } }
 }
 
 /** One customer, as `resolveCoupaCustomer` needs to see it. */

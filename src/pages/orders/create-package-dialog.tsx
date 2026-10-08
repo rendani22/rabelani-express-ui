@@ -33,6 +33,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Combobox } from '@/components/ui/combobox'
 import { cn } from '@/lib/utils'
+import { resolvePoAutofill } from '@/lib/po-autofill'
 
 interface FreeItem {
   key: string
@@ -77,6 +78,8 @@ export function CreatePackageDialog({
   const [poLines, setPoLines] = useState<PoLine[]>([])
   const [poState, setPoState] = useState<'idle' | 'loading' | 'loaded' | 'not_found'>('idle')
   const [dupAck, setDupAck] = useState(false)
+  /** Which fields the last PO lookup filled in, for the hint under the PO. */
+  const [prefilled, setPrefilled] = useState<string[]>([])
 
   const invName = useMemo(() => {
     const m: Record<string, string> = {}
@@ -86,7 +89,7 @@ export function CreatePackageDialog({
 
   const reset = () => {
     setReceiverEmail(''); setCustomEmail(false); setLocationId(''); setPoNumber(''); setNotes(''); setCustomerNotes('')
-    setAsDraft(false); setItems([]); setPoLines([]); setPoState('idle'); setDupAck(false)
+    setAsDraft(false); setItems([]); setPoLines([]); setPoState('idle'); setDupAck(false); setPrefilled([])
   }
 
   const lookupPo = useMutation({
@@ -106,6 +109,21 @@ export function CreatePackageDialog({
           }))
         setPoLines(eligible)
         setPoState('loaded')
+
+        // Pre-select the PO's customer and ship-to location -- but only into
+        // empty fields, so a choice the user already made is never overwritten.
+        const autofill = resolvePoAutofill(res.data, receivers.data ?? [], locations.data ?? [])
+        const filled: string[] = []
+        if (autofill.receiverEmail && !receiverEmail.trim()) {
+          setCustomEmail(false)
+          setReceiverEmail(autofill.receiverEmail)
+          filled.push('receiver')
+        }
+        if (autofill.locationId && !locationId) {
+          setLocationId(autofill.locationId)
+          filled.push('delivery location')
+        }
+        setPrefilled(filled)
       } else {
         setPoLines([])
         setPoState('not_found')
@@ -281,7 +299,13 @@ export function CreatePackageDialog({
               <div className="flex gap-2">
                 <Input
                   value={poNumber}
-                  onChange={(e) => { setPoNumber(e.target.value); setPoState('idle'); setPoLines([]); setDupAck(false) }}
+                  onChange={(e) => { setPoNumber(e.target.value); setPoState('idle'); setPoLines([]); setDupAck(false); setPrefilled([]) }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && poNumber.trim() && poState !== 'loading') {
+                      e.preventDefault()
+                      lookupPo.mutate()
+                    }
+                  }}
                   placeholder="PO-0000"
                 />
                 <Button
@@ -297,6 +321,11 @@ export function CreatePackageDialog({
               </div>
               {poState === 'not_found' && <p className="text-xs text-destructive">No PO found.</p>}
               {poState === 'loaded' && <p className="text-xs text-success">{poLines.length} eligible line(s).</p>}
+              {poState === 'loaded' && prefilled.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  {prefilled.join(' and ').replace(/^./, (c) => c.toUpperCase())} filled from the PO.
+                </p>
+              )}
             </div>
           </div>
 

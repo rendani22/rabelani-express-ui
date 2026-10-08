@@ -16,6 +16,7 @@ const PO: CoupaPo = {
   currency: 'ZAR',
   onBehalfOf: 'Ramadimetja Maria Mochaki',
   submittedBy: 'Thabo Nkosi',
+  shipTo: null,
   lines: [
     { code: '37869', name: 'VOUCHER:OVERTIME MEAL,TICKET', quantity: 49, uom: 'PKT' },
     { code: '37865', name: 'VOUCHER:OVERTIME MEAL ,TICKET', quantity: 14, uom: 'PKT' },
